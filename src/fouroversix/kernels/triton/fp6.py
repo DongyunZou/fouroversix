@@ -87,7 +87,7 @@ def convert_e3m2x2_to_fp16(
         EXP_BIAS=1,
         EXP_BITS=3,
         MANTISSA_BITS=2,
-    )
+    ).to(tl.float16)
 
 
 @triton.jit
@@ -261,4 +261,4 @@ def convert_e2m3x2_to_fp16(
         EXP_BIAS=1,
         EXP_BITS=2,
         MANTISSA_BITS=3,
-    )
+    ).to(tl.float16)
