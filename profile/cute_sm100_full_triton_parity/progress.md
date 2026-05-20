@@ -2547,6 +2547,24 @@ The gating relaxation was reverted. NVFP6 E2M3 1D stochastic-unbiased and IF6
 stochastic-unbiased still need real kernel work; they cannot be claimed through
 dispatch changes alone.
 
+Re-tested NVFP3 `block_scale_2d=True` feasibility by adding a temporary
+`Sm100NVFP3StaticQuantize2D` copied from the NVINT3 2D tile structure, using
+the NVFP3 E2M0 conversion and `4.0 * E4M3_STATIC_MAX` global scale. The kernel
+compiled and CuTe dispatch could be enabled for `nvfp3 static_6
+block_scale_2d=True`, but the numerical result was not usable:
+
+```text
+nvfp3 block_scale_2d=True 128x256:
+  triton_dist=45.0574 cute_dist=267.1785
+  mse_between_triton_and_cute=2.1965
+  values_equal_ratio=0.0765
+  scales_equal_ratio=0.4375
+```
+
+The temporary implementation and dispatch were reverted. This confirms that
+NVFP3 2D needs a format-specific scale/packing design, not a direct NVINT3 2D
+clone.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
