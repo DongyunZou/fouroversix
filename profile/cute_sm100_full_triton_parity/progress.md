@@ -2900,6 +2900,19 @@ example 4096x4096 NVFP4 static 2D rows are around `1.15x-1.17x`, and NVFP6 E2M3
 2D is around `1.17x`. The remaining weak 2D rows are still algorithmic kernel
 mapping issues, notably 4096x4096 IF3 abs/mse and non-BS8 MXFP3 2D.
 
+Added cached fast dispatch paths for fused transpose CuTe quantize. This covers
+nearest NVFP4/NVFP4_BS8/NVFP3/NVFP3_BS8/NVFP6, adaptive IF3/IF3_BS8 and
+nearest IF4/IF4_BS8, static MX, and static NVINT transpose paths, avoiding the
+large generic CuTe dispatch block while preserving the fused transpose kernels
+and `QuantizedTensor` output shape/layout. The existing transpose accuracy slice
+passes (`5 passed`) and the full CuTe sm100 test selection passes
+(`449 passed, 7 skipped`). Focused alternating timings show the 1024x1024
+transpose near-threshold rows moving up materially: NVFP4/NVFP3/NVFP6 transpose
+rows are about `1.13x-1.17x`, MX transpose rows are about `1.17x-1.21x`, and
+IF/NVINT transpose rows are about `1.39x-1.44x`. Several transpose rows are
+still below the 1.2x goal, but the remaining gap is smaller and concentrated in
+fixed kernel/body cost rather than Python dispatch.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
