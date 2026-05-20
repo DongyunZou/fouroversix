@@ -1257,6 +1257,18 @@ The latest capability-driven benchmark snapshot still reports `62/470`
 workloads meeting 1.2x because several near-threshold rows moved with timing
 noise, but the pseudo pass breakdown improved to 21 rows.
 
+Re-tested a low-risk `transpose=True` optimization for static MXFP4 by passing
+`x.T` directly into the existing row-major CuTe quantize kernel. The plain
+view path preserved dequantized semantics but did not improve performance:
+4096x4096 MXFP4 static transpose stayed around `0.077 ms`, roughly `0.63x`
+Triton, because non-coalesced column reads replaced the explicit contiguous
+copy cost. A second attempt using `cute.runtime.make_fake_tensor` with an
+explicit transposed stride compiled but hit a CUDA misaligned-address failure
+during dequantization, consistent with the current vectorized load/store
+helpers assuming row-major alignment. This route was not retained; real
+transpose improvement needs a dedicated tiled transpose+quantize kernel rather
+than reusing the row-major static kernels on a strided view.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
