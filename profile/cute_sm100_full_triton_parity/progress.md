@@ -44,6 +44,9 @@ This is a progress record, not a completion claim.
   separate block-scale kernels, with stochastic 2D also enabled.
 - Added CuTe sm100 IF6 adaptive quantize for `if6_e2m3` and `if6_e3m2` with
   FP6-vs-INT6 candidate selection and Blackwell blocked scale output.
+- Added cached-dispatch fast paths for ordinary 1D adaptive IF, 1D static MX,
+  1D static NVINT, and 1D adaptive NVFP4 quantize calls so these common cases
+  skip the long generic backend import/dispatch chain.
 - Added `rht=True` support through a CuTe DSL 16-point RHT pre-transform kernel
   before dispatching to the CuTe quantize kernels.
 - Added NVFP4 `block_scale_2d=True` support for all five scale rules. The CuTe
@@ -1780,6 +1783,55 @@ pseudo_quantize: 53
 transpose:       10
 ```
 
+Added the same cached-dispatch fast path for 1D adaptive NVFP4 quantize calls
+when `transpose=False`, `rht=False`, `block_scale_2d=False`, and
+`pseudo_quantize=False`. This reuses the existing `quantize_nvfp4_adaptive`
+CuTe op directly and preserves the existing E4M3 scale and amax tensor
+contract.
+
+The targeted NVFP4 adaptive accuracy slice passes:
+
+```text
+42 passed, 6 skipped, 35039 deselected, 1 warning in 8.40s
+```
+
+The targeted NVFP4 adaptive timing slice shows the fast path mainly helps the
+large-shape rows; small and medium shapes remain below Triton parity:
+
+```text
+128x256   nvfp4 abs_max 0.954x
+128x256   nvfp4 mae     0.964x
+128x256   nvfp4 mse     0.979x
+1024x1024 nvfp4 abs_max 0.973x
+1024x1024 nvfp4 mae     0.965x
+1024x1024 nvfp4 mse     0.979x
+4096x4096 nvfp4 abs_max 1.861x
+4096x4096 nvfp4 mae     1.876x
+4096x4096 nvfp4 mse     1.847x
+```
+
+The full CuTe sm100 test selection passes after this fast path:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.50s
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+216/470 workloads meet 1.2x
+292/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            87
+block_scale_2d:  66
+pseudo_quantize: 54
+transpose:        9
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1796,5 +1848,5 @@ transpose:       10
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `199/470`
+  latest median capability-driven benchmark snapshot reports only `216/470`
   workloads meeting 1.2x.

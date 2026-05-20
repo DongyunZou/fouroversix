@@ -67,6 +67,13 @@ def _static_nv_quantizers():
 
 
 @functools.lru_cache
+def _adaptive_nvfp4_quantizer():
+    from fouroversix.kernels.cute_sm100 import ops
+
+    return ops.quantize_nvfp4_adaptive
+
+
+@functools.lru_cache
 def _adaptive_if_quantizers():
     from fouroversix.kernels.cute_sm100 import ops
 
@@ -886,6 +893,32 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     x_amax=x_amax,
                 )
 
+            return QuantizedTensor(
+                values,
+                scale_factors_u8.view(torch.float8_e4m3fn),
+                amax,
+                config.dtype,
+                x.shape,
+                config.scale_rule,
+                config.round_style,
+                scale_factors_are_in_blackwell_layout=False,
+            )
+
+        if (
+            not config.transpose
+            and not config.rht
+            and not config.block_scale_2d
+            and not config.pseudo_quantize
+            and config.dtype == DataType.nvfp4
+            and config.scale_rule in _ADAPTIVE_SCALE_RULES
+        ):
+            quantize_nvfp4_adaptive = _adaptive_nvfp4_quantizer()
+            values, scale_factors_u8, amax = quantize_nvfp4_adaptive(
+                x,
+                scale_rule_id=config.scale_rule.cuda_id,
+                stochastic_rounding=config.round_style == RoundStyle.stochastic,
+                x_amax=config.kwargs.get("x_amax"),
+            )
             return QuantizedTensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
