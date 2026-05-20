@@ -2031,6 +2031,42 @@ pseudo_quantize: 61
 transpose:       25
 ```
 
+Added a fused CuTe sm100 static NVFP6 transpose quantize path for
+`nvfp6_e2m3/nvfp6_e3m2 + static_6`. It follows the same scalar
+direct-transpose shape as the NVFP4 path and avoids `x.T.contiguous()` for
+these two rows. A direct dequantization check on 1024x1024 BF16 shows the
+fused CuTe path has the same dequant MSE as Triton for both E2M3 and E3M2.
+The full CuTe sm100 test selection passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.88s
+```
+
+Targeted alternating timings improved the affected transpose rows:
+
+```text
+1024x1024 nvfp6_e2m3 static_6 transpose  0.978x -> 1.096x
+1024x1024 nvfp6_e3m2 static_6 transpose  0.976x -> 1.063x
+4096x4096 nvfp6_e2m3 static_6 transpose  0.705x -> 0.786x
+4096x4096 nvfp6_e3m2 static_6 transpose  0.706x -> 0.784x
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+240/470 workloads meet 1.2x
+431/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            91
+block_scale_2d:  63
+pseudo_quantize: 65
+transpose:       21
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -2047,5 +2083,5 @@ transpose:       25
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `231/470`
+  latest median capability-driven benchmark snapshot reports only `240/470`
   workloads meeting 1.2x.
