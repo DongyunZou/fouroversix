@@ -2503,6 +2503,17 @@ These results reinforce that the remaining MXFP3 2D gap is not solved by
 smaller CTAs or launch bounds alone; it needs a more cooperative tile mapping
 with better memory behavior.
 
+Inspected the large 4096 transpose gap. The fused scalar transpose kernels
+currently assign consecutive threads to adjacent row-blocks for one output row,
+which makes the transposed input loads strided. Tested a simple MXFP3 transpose
+mapping swap so consecutive threads would walk output rows for the same
+row-block, making the input reads more coalesced. This was not valid as a
+drop-in change: a 128x256 MXFP3 transpose check produced mismatched values and
+scale factors, with dequantized output diverging (`static_4` produced `inf`
+differences and `static_6` max difference was `6.0`). The experiment was
+reverted. A correct transpose fix needs a real tiled/shared-memory transpose
+layout that preserves the expected output scale/value ordering.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
