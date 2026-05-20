@@ -1498,6 +1498,15 @@ Triton (`0.77-0.79x`) because the new kernel uses strided scalar BF16 loads;
 the next step is a tiled/shared-memory transpose+quantize kernel with coalesced
 loads.
 
+Re-tested the near-threshold 4096x4096 NVFP6 static pseudo path with smaller
+CTA sizes. `Sm100NVFP6StaticPseudoQuantize` currently uses the default
+256-thread CTA. A 128-thread variant preserved accuracy and improved targeted
+median timing for large shapes, but the full alternating benchmark still left
+`nvfp6_e3m2 static_6 pseudo_quantize=True` just below the target at about
+`1.194x`. A 64-thread variant was also below target at about `1.196x`. The
+experiment was not retained; this row needs either a real kernel-body reduction
+or a broader pseudo-kernel retune with a less noisy acceptance harness.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
