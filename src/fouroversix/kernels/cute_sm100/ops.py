@@ -13355,7 +13355,11 @@ def pseudo_quantize_nvfp4_static(
     out = torch.empty_like(x)
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = m * (k // scale_block_size)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _launch_grid(
+        total_scale_blocks,
+        x.device,
+        threads_per_block=PSEUDO_THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_static_pseudo_quantize(k, max_quantized_value, scale_block_size)
     kernel(
@@ -13532,7 +13536,11 @@ def pseudo_quantize_mxfp4_static(
 
     out = torch.empty_like(x)
     total_scale_blocks = m * (k // scale_block_size)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _launch_grid(
+        total_scale_blocks,
+        x.device,
+        threads_per_block=PSEUDO_THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_mxfp4_static_pseudo_quantize(
         k,
@@ -13559,7 +13567,11 @@ def pseudo_quantize_mxfp3_static(
 
     out = torch.empty_like(x)
     total_scale_blocks = m * (k // scale_block_size)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _launch_grid(
+        total_scale_blocks,
+        x.device,
+        threads_per_block=PSEUDO_THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_mxfp3_static_pseudo_quantize(k, scale_block_size)
     kernel(
@@ -13586,7 +13598,11 @@ def pseudo_quantize_mxfp6_static(
 
     out = torch.empty_like(x)
     total_scale_blocks = m * (k // MXFP4_SCALE_BLOCK_SIZE)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _launch_grid(
+        total_scale_blocks,
+        x.device,
+        threads_per_block=PSEUDO_THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_mxfp6_static_pseudo_quantize(
         k,
@@ -15245,7 +15261,11 @@ def pseudo_quantize_if6_adaptive(
     amax = _resolve_amax(x, x_amax)
 
     total_scale_blocks = m * (k // NVFP4_SCALE_BLOCK_SIZE)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _launch_grid(
+        total_scale_blocks,
+        x.device,
+        threads_per_block=PSEUDO_THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_if6_adaptive_pseudo_quantize(
         k,
@@ -15371,7 +15391,11 @@ def pseudo_quantize_if4_adaptive(
     out = torch.empty_like(x)
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = m * (k // scale_block_size)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _launch_grid(
+        total_scale_blocks,
+        x.device,
+        threads_per_block=PSEUDO_THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_if4_adaptive_pseudo_quantize(
         k,
