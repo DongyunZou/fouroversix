@@ -70,6 +70,7 @@ NVFP4_SCALE_BLOCK_SIZE = 16
 MXFP4_SCALE_BLOCK_SIZE = 32
 THREADS_PER_BLOCK = 256
 PSEUDO_THREADS_PER_BLOCK = 128
+MX_STATIC_THREADS_PER_BLOCK = 128
 STATIC_2D_THREADS_PER_BLOCK = 32
 BLOCKS_PER_SM = 8
 MAX_THREADS_PER_BLOCK = 1024
@@ -5853,7 +5854,7 @@ class Sm100MXFP4StaticQuantize:
     ):
         self.kernel(x, values, scales, total_scale_blocks).launch(
             grid=[num_blocks, 1, 1],
-            block=[THREADS_PER_BLOCK, 1, 1],
+            block=[MX_STATIC_THREADS_PER_BLOCK, 1, 1],
             max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
             min_blocks_per_mp=BLOCKS_PER_SM,
             stream=stream,
@@ -5871,8 +5872,8 @@ class Sm100MXFP4StaticQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
-        stride = grid_dim_x * THREADS_PER_BLOCK
+        sf_idx = bidx * MX_STATIC_THREADS_PER_BLOCK + tidx
+        stride = grid_dim_x * MX_STATIC_THREADS_PER_BLOCK
 
         while sf_idx < total_scale_blocks:
             row_idx = sf_idx // self.scale_blocks_per_row
@@ -6008,7 +6009,7 @@ class Sm100MXFP3StaticQuantize:
     ):
         self.kernel(x, values, scales, total_scale_blocks).launch(
             grid=[num_blocks, 1, 1],
-            block=[THREADS_PER_BLOCK, 1, 1],
+            block=[MX_STATIC_THREADS_PER_BLOCK, 1, 1],
             max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
             min_blocks_per_mp=BLOCKS_PER_SM,
             stream=stream,
@@ -6026,8 +6027,8 @@ class Sm100MXFP3StaticQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
-        stride = grid_dim_x * THREADS_PER_BLOCK
+        sf_idx = bidx * MX_STATIC_THREADS_PER_BLOCK + tidx
+        stride = grid_dim_x * MX_STATIC_THREADS_PER_BLOCK
 
         while sf_idx < total_scale_blocks:
             row_idx = sf_idx // self.scale_blocks_per_row
@@ -6472,7 +6473,7 @@ class Sm100MXFP6StaticQuantize:
     ):
         self.kernel(x, values, scales, total_scale_blocks).launch(
             grid=[num_blocks, 1, 1],
-            block=[THREADS_PER_BLOCK, 1, 1],
+            block=[MX_STATIC_THREADS_PER_BLOCK, 1, 1],
             max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
             min_blocks_per_mp=BLOCKS_PER_SM,
             stream=stream,
@@ -6490,8 +6491,8 @@ class Sm100MXFP6StaticQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
-        stride = grid_dim_x * THREADS_PER_BLOCK
+        sf_idx = bidx * MX_STATIC_THREADS_PER_BLOCK + tidx
+        stride = grid_dim_x * MX_STATIC_THREADS_PER_BLOCK
 
         while sf_idx < total_scale_blocks:
             row_idx = sf_idx // self.scale_blocks_per_row

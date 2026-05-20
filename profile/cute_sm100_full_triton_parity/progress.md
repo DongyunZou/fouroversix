@@ -2565,6 +2565,61 @@ The temporary implementation and dispatch were reverted. This confirms that
 NVFP3 2D needs a format-specific scale/packing design, not a direct NVINT3 2D
 clone.
 
+Retuned the non-transpose, non-2D MX static CuTe kernels (`mxfp3`,
+`mxfp4`, and `mxfp6`) from the shared 256-thread CTA to a dedicated
+128-thread CTA. This is separate from the earlier MX pseudo CTA retune and
+does not affect the fused scalar transpose or 2D kernels.
+
+Targeted alternating timings for the affected base MX static slice showed the
+expected launch/body-overhead improvement:
+
+```text
+128x256   mxfp3 static_4       1.237x
+1024x1024 mxfp3 static_6       1.223x
+4096x4096 mxfp3_bs8 static_6   1.280x
+128x256   mxfp4 static_4       1.202x
+1024x1024 mxfp4 static_6       1.203x
+4096x4096 mxfp4_bs8 static_6   1.242x
+128x256   mxfp6_e2m3 static_6  1.258x
+1024x1024 mxfp6_e3m2 static_6  1.252x
+4096x4096 mxfp6_e3m2 static_6  1.260x
+```
+
+The targeted MX static accuracy slice passes:
+
+```text
+20 passed, 35067 deselected, 1 warning in 5.60s
+```
+
+The full CuTe sm100 quantize selection also passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.53s
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+257/470 workloads meet 1.2x
+448/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            96
+block_scale_2d:  63
+pseudo_quantize: 64
+transpose:       34
+```
+
+The remaining below-parity rows are:
+
+```text
+transpose:       20
+pseudo_quantize:  2
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -2581,5 +2636,5 @@ clone.
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `226/470`
+  latest median capability-driven benchmark snapshot reports only `257/470`
   workloads meeting 1.2x.
