@@ -1893,6 +1893,20 @@ kernels. A narrowed variant that only retuned MXFP4_BS8 showed targeted
 to `189/470` workloads meeting 1.2x and the MXFP4_BS8 2D rows did not stay
 reliably above target. The launch-only retune is not retained.
 
+Profiled a Triton-leading non-transpose 2D workload,
+4096x4096 `if3 + abs_max + block_scale_2d=True`, with Nsight Compute. The
+main CuTe IF3 2D kernel runs in about `71.5-72.0 us`, while Triton's
+`quantization_kernel` runs in about `51.1-51.4 us`. CuTe shows higher reported
+SM throughput (`~72%` vs Triton's `~62%`) and lower DRAM/L2 throughput, but it
+launches only `256` CTAs versus Triton's `2048` and keeps about half the active
+warps (`~20.6%` vs `~40.4%`). This points at the current one-thread-per-16x16
+scale-tile CuTe mapping being too serial: each thread scans the tile for max,
+rescans it for FP3-vs-INT3 error, then scans it again to write values. The
+next IF3/IF3_BS8 2D optimization should be a warp- or CTA-cooperative tiled
+kernel rather than another launch-only tweak. Raw reports, CSV exports, and
+the command summary are under
+`profile/cute_sm100_full_triton_parity/ncu/if3_2d_*`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
