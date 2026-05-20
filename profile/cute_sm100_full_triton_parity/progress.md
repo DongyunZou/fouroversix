@@ -2922,6 +2922,24 @@ representative timing sweep, while the critical 4096x4096 IF3 abs_max pseudo row
 still sits around `0.98x`; that row is still dominated by the IF3 pseudo kernel
 body and needs a real candidate/error mapping redesign.
 
+Re-tested the IF3 adaptive pseudo launch with `PSEUDO_THREADS_PER_BLOCK=128`,
+matching the retained CTA size for most other pseudo kernels. The targeted
+pseudo accuracy slice passed (`72 passed`), but focused alternating timings did
+not improve the critical row: 4096x4096 `if3 abs_max pseudo_quantize=True`
+measured about `0.98x` versus Triton, with 1024x1024 IF3 pseudo rows still only
+around `1.10x-1.11x`. The launch-size experiment was reverted.
+
+Also tested abs_max-specialized IF3 FP3/INT3 candidate-error helpers to remove
+the generic `scale_rule_id` constexpr path from IF3 ordinary and pseudo kernels.
+The targeted IF3 CuTe slice passed (`53 passed`), but focused timings were
+effectively unchanged or slightly worse: 4096x4096 `if3 abs_max
+pseudo_quantize=True` stayed around `0.98x`, 1024x1024 IF3 pseudo rows stayed
+around `1.09x`, and ordinary 4096x4096 IF3 abs_max remained comfortably faster
+than Triton at about `1.36x`. This indicates the compiler is already folding the
+generic abs_max path well enough; the remaining IF3 pseudo gap is in the
+candidate conversion/error workload itself. The helper-specialization experiment
+was reverted.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
