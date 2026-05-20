@@ -104,6 +104,31 @@ def _compute_global_scale(
 
 
 @cute.jit
+def _blackwell_scale_index(
+    row_idx: Int32,
+    col_idx: Int32,
+    scale_blocks_per_row: cutlass.Constexpr[int],
+) -> Int32:
+    row_group = row_idx // Int32(128)
+    row_in_group = row_idx % Int32(128)
+    col_group = col_idx // Int32(4)
+    col_in_group = col_idx % Int32(4)
+    return (
+        (
+            (
+                row_group * Int32(scale_blocks_per_row // 4)
+                + col_group
+            )
+            * Int32(32)
+            + (row_in_group % Int32(32))
+        )
+        * Int32(16)
+        + (row_in_group // Int32(32)) * Int32(4)
+        + col_in_group
+    )
+
+
+@cute.jit
 def _process_nvfp4_static_block_bfloat(
     row_tensor: cute.Tensor,
     elem_base: Int32,
@@ -3821,7 +3846,12 @@ class Sm100IF6AdaptiveQuantize:
                 self.use_e3m2,
             )
 
-            scales[sf_idx] = scale_fp8
+            scale_idx = _blackwell_scale_index(
+                row_idx,
+                col_idx,
+                self.scale_blocks_per_row,
+            )
+            scales[scale_idx] = scale_fp8
             output_offset = col_idx * NVFP4_SCALE_BLOCK_SIZE
             output_ptr0 = get_ptr_as_int64(values[row_idx, None], output_offset)
             output_ptr1 = get_ptr_as_int64(
@@ -11494,14 +11524,14 @@ def quantize_if6_adaptive(
     x = x.contiguous()
 
     values = torch.empty((m, k), dtype=torch.uint8, device=x.device)
-    scale_factors = torch.empty(
-        (m, k // NVFP4_SCALE_BLOCK_SIZE),
-        dtype=torch.uint8,
-        device=x.device,
-    )
     amax = _resolve_amax(x, x_amax)
 
     total_scale_blocks = m * (k // NVFP4_SCALE_BLOCK_SIZE)
+    scale_factors = torch.empty(
+        (total_scale_blocks,),
+        dtype=torch.uint8,
+        device=x.device,
+    )
     num_blocks = _launch_grid(total_scale_blocks, x.device)
 
     kernel = _compile_if6_adaptive_quantize(
@@ -11516,7 +11546,7 @@ def quantize_if6_adaptive(
     kernel(
         x,
         values,
-        scale_factors.reshape(-1),
+        scale_factors,
         total_scale_blocks,
         num_blocks,
         amax.reshape(1),

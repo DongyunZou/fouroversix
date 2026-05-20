@@ -5,7 +5,6 @@ import torch
 from fouroversix.quantize.backend import QuantizeBackendBase
 from fouroversix.quantize.config import QuantizationConfig
 from fouroversix.quantize.quantized_tensor import QuantizedTensor
-from fouroversix.quantize.utils import to_blocked
 from fouroversix.utils import DataType, RoundStyle, ScaleRule, SM_100
 
 
@@ -1335,10 +1334,10 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             msg = f"Unsupported CuTe sm100 scale rule: {config.scale_rule}"
             raise NotImplementedError(msg)
 
-        scale_factors_are_in_blackwell_layout = False
-        if config.dtype in {DataType.if6_e2m3, DataType.if6_e3m2}:
-            scale_factors_u8 = to_blocked(scale_factors_u8)
-            scale_factors_are_in_blackwell_layout = True
+        scale_factors_are_in_blackwell_layout = config.dtype in {
+            DataType.if6_e2m3,
+            DataType.if6_e3m2,
+        }
 
         return QuantizedTensor(
             values,

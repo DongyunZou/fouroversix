@@ -1338,6 +1338,39 @@ paths (`0.59-0.75x` for many MX/NV static formats), followed by IF3 fused
 pseudo (`0.79-0.84x`) and IF6 base (`0.86-0.91x` end-to-end despite the main
 CuTe IF6 kernel itself being faster under NCU).
 
+Removed the post-kernel `to_blocked(scale_factors)` conversion from 1D IF6
+adaptive quantize. The CuTe IF6 kernel now writes E4M3 scale bytes directly to
+the Blackwell blocked scale layout using the same 128-row by 4-scale-column
+swizzle as `to_blocked`, and the backend marks the returned scale tensor as
+already blocked. This removes a GPU-side layout conversion from the IF6
+end-to-end path while preserving the tensor contract.
+
+Targeted 4096x4096 IF6 base timing moved from the previous `0.86-0.91x`
+range to faster-than-Triton, although still short of 1.2x:
+
+```text
+if6_e2m3 abs_max 1.143x
+if6_e2m3 mae     1.135x
+if6_e2m3 mse     1.129x
+if6_e3m2 abs_max 1.125x
+if6_e3m2 mae     1.140x
+if6_e3m2 mse     1.106x
+```
+
+Small/medium IF6 base rows also improved materially but remain below Triton
+(`0.91-0.94x`). The refreshed median 470-row benchmark now reports:
+
+```text
+65/470 workloads meet 1.2x
+263/470 workloads are at least Triton parity
+```
+
+The full CuTe sm100 test selection after the IF6 blocked-scale write change:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.64s
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1354,5 +1387,5 @@ CuTe IF6 kernel itself being faster under NCU).
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `64/470`
+  latest median capability-driven benchmark snapshot reports only `65/470`
   workloads meeting 1.2x.
