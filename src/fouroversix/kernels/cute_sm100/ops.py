@@ -2890,6 +2890,133 @@ def _process_if3_adaptive_block_bfloat(
 
 
 @cute.jit
+def _process_if3_adaptive_block_bfloat_transposed(
+    x: cute.Tensor,
+    col_idx: Int32,
+    elem_base: Int32,
+    global_scale: Float32,
+    scale_rule_id: cutlass.Constexpr[int],
+    scale_block_size: cutlass.Constexpr[int] = NVFP4_SCALE_BLOCK_SIZE,
+) -> tuple[Uint8, Uint32, Uint32, Uint32, Uint32]:
+    h0 = _ld_transposed_bfloat2(x, elem_base, elem_base + Int32(1), col_idx)
+    h1 = _ld_transposed_bfloat2(x, elem_base + Int32(2), elem_base + Int32(3), col_idx)
+    h2 = _ld_transposed_bfloat2(x, elem_base + Int32(4), elem_base + Int32(5), col_idx)
+    h3 = _ld_transposed_bfloat2(x, elem_base + Int32(6), elem_base + Int32(7), col_idx)
+
+    if cutlass.const_expr(scale_block_size == 8):
+        h4, h5, h6, h7 = h0, h1, h2, h3
+    else:
+        h4 = _ld_transposed_bfloat2(x, elem_base + Int32(8), elem_base + Int32(9), col_idx)
+        h5 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(10),
+            elem_base + Int32(11),
+            col_idx,
+        )
+        h6 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(12),
+            elem_base + Int32(13),
+            col_idx,
+        )
+        h7 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(14),
+            elem_base + Int32(15),
+            col_idx,
+        )
+
+    block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
+    block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
+    scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(E2M0_MAX)))
+    scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
+    scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
+    output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
+    dequant_scale = nvfp4_compute_dequant_scale(scale_fp8_u32, global_scale)
+
+    if cutlass.const_expr(scale_block_size == 8):
+        fp0, fp1 = bfloat2x4_to_e2m0x8_values(
+            h0,
+            h1,
+            h2,
+            h3,
+            output_scale,
+        )
+        fp2, fp3 = fp0, fp1
+        int0, int1 = bfloat2x4_to_int3x8_values(
+            h0,
+            h1,
+            h2,
+            h3,
+            output_scale * Float32(IF3_INT_EXPANSION_FACTOR_RCP),
+        )
+        int2, int3 = int0, int1
+    else:
+        fp0, fp1, fp2, fp3 = bfloat2x8_to_e2m0x16_values(
+            h0,
+            h1,
+            h2,
+            h3,
+            h4,
+            h5,
+            h6,
+            h7,
+            output_scale,
+        )
+        int0, int1, int2, int3 = bfloat2x8_to_int3x16_values(
+            h0,
+            h1,
+            h2,
+            h3,
+            h4,
+            h5,
+            h6,
+            h7,
+            output_scale * Float32(IF3_INT_EXPANSION_FACTOR_RCP),
+        )
+
+    error_fp = _fp3_block_error_bfloat(
+        h0,
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6,
+        h7,
+        fp0,
+        fp1,
+        fp2,
+        fp3,
+        dequant_scale,
+        scale_rule_id,
+    )
+    error_int = _int3_block_error_bfloat(
+        h0,
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6,
+        h7,
+        int0,
+        int1,
+        int2,
+        int3,
+        dequant_scale,
+        scale_rule_id,
+    )
+
+    out0, out1, out2, out3 = fp0, fp1, fp2, fp3
+    if error_int < error_fp:
+        scale_fp8 = scale_fp8 + Uint8(128)
+        out0, out1, out2, out3 = int0, int1, int2, int3
+
+    return scale_fp8, out0, out1, out2, out3
+
+
+@cute.jit
 def _process_if3_adaptive_pseudo_block_bfloat(
     row_tensor: cute.Tensor,
     elem_base: Int32,
@@ -4115,6 +4242,82 @@ class Sm100IF3AdaptiveQuantize:
 
             scale_fp8, v0, v1, v2, v3 = _process_if3_adaptive_block_bfloat(
                 x[row_idx, None],
+                elem_base,
+                global_scale,
+                self.scale_rule_id,
+                self.scale_block_size,
+            )
+
+            scales[sf_idx] = scale_fp8
+            output_ptr = get_ptr_as_int64(values[row_idx, None], elem_base)
+            if cutlass.const_expr(self.scale_block_size == 8):
+                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(v0)
+                st_global_u64(output_ptr, packed64)
+            else:
+                st_global_v4_u32(output_ptr, v0, v1, v2, v3)
+
+            sf_idx = sf_idx + stride
+
+
+class Sm100IF3AdaptiveTransposeQuantize:
+    def __init__(
+        self,
+        k: int,
+        scale_rule_id: int,
+        scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+    ):
+        self.k = k
+        self.scale_rule_id = scale_rule_id
+        self.scale_block_size = scale_block_size
+        self.scale_blocks_per_row = k // scale_block_size
+
+    @cute.jit
+    def __call__(
+        self,
+        x: cute.Tensor,
+        values: cute.Tensor,
+        scales: cute.Tensor,
+        total_scale_blocks: Int32,
+        num_blocks: Int32,
+        amax_tensor: cute.Tensor,
+        stream,
+    ):
+        self.kernel(x, values, scales, total_scale_blocks, amax_tensor).launch(
+            grid=[num_blocks, 1, 1],
+            block=[THREADS_PER_BLOCK, 1, 1],
+            max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
+            min_blocks_per_mp=BLOCKS_PER_SM,
+            stream=stream,
+        )
+
+    @cute.kernel
+    def kernel(
+        self,
+        x: cute.Tensor,
+        values: cute.Tensor,
+        scales: cute.Tensor,
+        total_scale_blocks: Int32,
+        amax_tensor: cute.Tensor,
+    ):
+        tidx, _, _ = cute.arch.thread_idx()
+        bidx, _, _ = cute.arch.block_idx()
+        grid_dim_x, _, _ = cute.arch.grid_dim()
+
+        sf_idx = bidx * THREADS_PER_BLOCK + tidx
+        stride = grid_dim_x * THREADS_PER_BLOCK
+        global_scale = _compute_global_scale(
+            amax_tensor,
+            E2M0_MAX * E4M3_STATIC_MAX,
+        )
+
+        while sf_idx < total_scale_blocks:
+            row_idx = sf_idx // self.scale_blocks_per_row
+            col_idx = sf_idx % self.scale_blocks_per_row
+            elem_base = col_idx * self.scale_block_size
+
+            scale_fp8, v0, v1, v2, v3 = _process_if3_adaptive_block_bfloat_transposed(
+                x,
+                row_idx,
                 elem_base,
                 global_scale,
                 self.scale_rule_id,
@@ -10222,6 +10425,53 @@ def _compile_if3_adaptive_quantize(
 
 
 @functools.cache
+def _compile_if3_adaptive_transpose_quantize(
+    k: int,
+    n: int,
+    scale_rule_id: int,
+    scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+):
+    sym_scale_blocks = cute.sym_int()
+
+    x_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.BFloat16,
+        (k, n),
+        stride_order=(1, 0),
+        assumed_align=16,
+    )
+    values_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.Uint8,
+        (n, k),
+        stride_order=(1, 0),
+        assumed_align=16,
+    )
+    scales_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.Uint8,
+        (sym_scale_blocks,),
+        assumed_align=16,
+    )
+    amax_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.Float32,
+        (1,),
+        assumed_align=4,
+    )
+    stream_fake = cute.runtime.make_fake_stream()
+
+    kernel = Sm100IF3AdaptiveTransposeQuantize(k, scale_rule_id, scale_block_size)
+    compiled = cute.compile(
+        kernel,
+        x_fake,
+        values_fake,
+        scales_fake,
+        Int32(1),
+        Int32(1),
+        amax_fake,
+        stream_fake,
+    )
+    return compiled
+
+
+@functools.cache
 def _compile_if4_adaptive_quantize(
     k: int,
     scale_rule_id: int,
@@ -13771,6 +14021,55 @@ def quantize_if3_adaptive(
     num_blocks = _launch_grid(total_scale_blocks, x.device)
 
     kernel = _compile_if3_adaptive_quantize(k, scale_rule_id, scale_block_size)
+    kernel(
+        x,
+        values,
+        scale_factors.reshape(-1),
+        total_scale_blocks,
+        num_blocks,
+        amax.reshape(1),
+        cutlass_torch.current_stream(),
+    )
+    return values, scale_factors, amax
+
+
+def quantize_if3_adaptive_transpose(
+    x: torch.Tensor,
+    *,
+    scale_rule_id: int,
+    scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+    x_amax: torch.Tensor | None = None,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    if scale_rule_id not in {SCALE_RULE_ABS_MAX, SCALE_RULE_MAE, SCALE_RULE_MSE}:
+        msg = f"unsupported adaptive three-over-six scale rule id {scale_rule_id}"
+        raise ValueError(msg)
+    if scale_block_size not in {8, NVFP4_SCALE_BLOCK_SIZE}:
+        msg = f"scale block size must be 8 or {NVFP4_SCALE_BLOCK_SIZE}, got {scale_block_size}"
+        raise ValueError(msg)
+
+    m, k = _validate_quantize_input(x, 4)
+    if m % scale_block_size != 0:
+        msg = f"rows must be divisible by {scale_block_size}, got {m}"
+        raise ValueError(msg)
+    x = x.contiguous()
+
+    values = torch.empty((k, m), dtype=torch.uint8, device=x.device)
+    scale_factors = torch.empty(
+        (k, m // scale_block_size),
+        dtype=torch.uint8,
+        device=x.device,
+    )
+    amax = _resolve_amax(x, x_amax)
+
+    total_scale_blocks = k * (m // scale_block_size)
+    num_blocks = _launch_grid(total_scale_blocks, x.device)
+
+    kernel = _compile_if3_adaptive_transpose_quantize(
+        m,
+        k,
+        scale_rule_id,
+        scale_block_size,
+    )
     kernel(
         x,
         values,

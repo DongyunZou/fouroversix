@@ -2176,6 +2176,67 @@ block_scale_2d:   4
 pseudo_quantize:  1
 ```
 
+Added fused CuTe sm100 adaptive IF3/IF3_BS8 transpose quantize paths for
+`abs_max`/`mae`/`mse`. These use direct transposed BF16 loads and the existing
+per-block FP3-vs-INT3 error selection, avoiding the explicit
+`x.T.contiguous()` materialization for the twelve IF3 transpose rows.
+
+The targeted CuTe sm100 IF3 test selection passes:
+
+```text
+53 passed, 35034 deselected, 1 warning in 10.42s
+```
+
+The full CuTe sm100 test selection also passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 34.13s
+```
+
+Targeted alternating timings show all IF3 transpose rows now exceed 1.2x:
+
+```text
+1024x1024 if3 abs_max transpose      1.354x
+1024x1024 if3 mae transpose          1.363x
+1024x1024 if3 mse transpose          1.379x
+1024x1024 if3_bs8 abs_max transpose  1.396x
+1024x1024 if3_bs8 mae transpose      1.378x
+1024x1024 if3_bs8 mse transpose      1.380x
+4096x4096 if3 abs_max transpose      1.258x
+4096x4096 if3 mae transpose          1.254x
+4096x4096 if3 mse transpose          1.227x
+4096x4096 if3_bs8 abs_max transpose  1.519x
+4096x4096 if3_bs8 mae transpose      1.485x
+4096x4096 if3_bs8 mse transpose      1.489x
+```
+
+The refreshed full alternating benchmark still reports `243/470` workloads
+meeting 1.2x overall because unrelated base rows moved with timing noise, but
+the transpose slice improved materially:
+
+```text
+243/470 workloads meet 1.2x
+441/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            84
+block_scale_2d:  64
+pseudo_quantize: 64
+transpose:       31
+```
+
+The remaining below-parity rows are now:
+
+```text
+transpose:       23
+block_scale_2d:   4
+base:             1
+pseudo_quantize:  1
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
