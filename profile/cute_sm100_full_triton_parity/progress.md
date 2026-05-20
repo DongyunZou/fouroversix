@@ -3006,6 +3006,15 @@ remained above Triton by about `1.3` L2 for IF6 E2M3 and about `1.1` for IF6
 E3M2. The backend still does not claim IF6 stochastic-unbiased, and the
 experiment was reverted.
 
+Rechecked the missing NVFP3/NVFP3_BS8 `block_scale_2d=True` path after the
+successful MXFP3 and IF3 cooperative 2D rewrites. It is not a simple dispatch
+gap: the existing NVINT3 2D kernels have the right 3-bit storage shape but use
+integer-3 quantization and a `3.0` max divisor, while NVFP3 needs E2M0 conversion
+and a `4.0` divisor. Adding this feature requires new NVFP3/NVFP3_BS8 2D
+kernels, compile wrappers, public ops, backend routing, and replacing the
+current negative capability test; it cannot safely be claimed by reusing the
+NVINT3 2D path.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
