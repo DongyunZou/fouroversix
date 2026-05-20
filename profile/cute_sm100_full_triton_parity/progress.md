@@ -2759,6 +2759,19 @@ near-threshold rows: `nvfp6_e2m3` stayed around `1.14x-1.17x`, while
 The isolated `nvfp6_e2m3 1024x1024` below-parity row in the refreshed full
 benchmark appears to be timing noise; a targeted repeat measured about `1.17x`.
 
+Tested a 128-thread CTA retune for the non-transpose NVFP3 static base kernel,
+mirroring the retained NVFP4 base retune. The targeted NVFP3 static accuracy
+slice passed (`5 passed`), but the result was mixed: the isolated timing run
+only clearly helped the `4096x4096 nvfp3_bs8 static_6` row, while the refreshed
+full benchmark dropped to `244/470` workloads meeting 1.2x and showed slower
+NVFP3 non-BS8 base rows. The retune was reverted.
+
+Tested a global `STATIC_2D_THREADS_PER_BLOCK` retune from 32 to 64 for the
+block-scale-2D kernels. The targeted IF3/MX/NV 2D accuracy slice passed
+(`30 passed`), but the full benchmark dropped to `236/470` workloads meeting
+1.2x. It also pushed the `4096x4096 mxfp3 static_4/static_6 block_scale_2d`
+rows below parity, so the global 2D CTA retune was reverted.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
