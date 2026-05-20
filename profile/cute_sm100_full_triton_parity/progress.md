@@ -157,6 +157,10 @@ This is a progress record, not a completion claim.
   `abs_max/mae/mse`. These compute the adaptive IF4 FP4-vs-INT4 candidate
   selection and dequantize back to BF16 in one kernel, replacing the generic
   CuTe quantize plus dequantize fallback for those 1D pseudo paths.
+- Added fused CuTe sm100 IF3/IF3_BS8 and IF6 nearest pseudo-quantize kernels
+  for adaptive `abs_max/mae/mse`. These compute the FP-vs-INT adaptive
+  candidate selection and dequantize back to BF16 in one kernel, replacing the
+  generic CuTe quantize plus dequantize fallback for those 1D pseudo paths.
 - Enabled NVFP4 `pseudo_quantize=True` for stochastic-unbiased round style by
   routing it through CuTe quantize plus CuTe dequantize. True stochastic NVFP4
   pseudo remains unclaimed because its random roundtrip error was measurably
@@ -1201,6 +1205,39 @@ currently below the speed target across the benchmark snapshot:
 [4096, 4096] if6_e3m2 mse     0.874x
 ```
 
+Fused IF6 1D nearest pseudo removes the previous generic quantize/dequantize
+fallback. The targeted profiler on 1024x1024 IF6 E2M3 abs_max pseudo now shows
+one CuTe kernel plus the shared amax reduction; the prior CuTe fallback spent
+about `1.3 ms` total CUDA time across 20 iterations, while the fused path is
+about `0.33 ms`. The latest benchmark snapshot records IF6 pseudo as:
+
+```text
+[128, 256]   if6_e2m3 abs_max 0.688x
+[128, 256]   if6_e2m3 mae     0.775x
+[128, 256]   if6_e2m3 mse     0.769x
+[128, 256]   if6_e3m2 abs_max 0.772x
+[128, 256]   if6_e3m2 mae     0.984x
+[128, 256]   if6_e3m2 mse     0.765x
+[1024, 1024] if6_e2m3 abs_max 0.793x
+[1024, 1024] if6_e2m3 mae     0.767x
+[1024, 1024] if6_e2m3 mse     0.780x
+[1024, 1024] if6_e3m2 abs_max 0.768x
+[1024, 1024] if6_e3m2 mae     0.757x
+[1024, 1024] if6_e3m2 mse     0.784x
+[4096, 4096] if6_e2m3 abs_max 1.062x
+[4096, 4096] if6_e2m3 mae     1.068x
+[4096, 4096] if6_e2m3 mse     1.079x
+[4096, 4096] if6_e3m2 abs_max 1.058x
+[4096, 4096] if6_e3m2 mae     1.068x
+[4096, 4096] if6_e3m2 mse     1.080x
+```
+
+The latest capability-driven benchmark snapshot reports `62/470` workloads
+meeting 1.2x and `248/470` workloads at least matching Triton. The main
+large-shape regressions are now dominated by unfused `transpose=True`, which
+materializes `x.T.contiguous()` before launching CuTe, and by slow NVINT4
+pseudo direct-dequant behavior.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1217,5 +1254,5 @@ currently below the speed target across the benchmark snapshot:
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest capability-driven benchmark snapshot reports only `63/470` workloads
+  latest capability-driven benchmark snapshot reports only `62/470` workloads
   meeting 1.2x.

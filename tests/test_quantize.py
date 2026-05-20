@@ -1791,6 +1791,90 @@ def test_cute_sm100_if3_adaptive_matches_triton(
 
 
 @pytest.mark.parametrize("dtype", [DataType.if3, DataType.if3_bs8])
+@pytest.mark.parametrize("scale_rule", [ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse])
+def test_cute_sm100_if3_pseudo_quantize_matches_triton_error(
+    dtype: DataType,
+    scale_rule: ScaleRule,
+) -> None:
+    _require_cuda_for_cute_sm100_accuracy()
+
+    torch.manual_seed(0)
+    x = torch.randn(128, 256, dtype=torch.bfloat16, device="cuda")
+    config_triton = QuantizationConfig(
+        backend=QuantizeBackend.triton,
+        dtype=dtype,
+        scale_rule=scale_rule,
+        pseudo_quantize=True,
+    )
+    config_cute = QuantizationConfig(
+        backend=QuantizeBackend.cute_sm100,
+        dtype=dtype,
+        scale_rule=scale_rule,
+        pseudo_quantize=True,
+    )
+
+    pseudo_triton = quantize(x, config_triton)
+    pseudo_cute = quantize(x, config_cute)
+    diff = pseudo_cute.float() - pseudo_triton.float()
+    triton_input_diff = pseudo_triton.float() - x.float()
+    cute_input_diff = pseudo_cute.float() - x.float()
+
+    assert isinstance(pseudo_cute, torch.Tensor)
+    assert pseudo_cute.shape == x.shape
+    assert pseudo_cute.dtype == x.dtype
+    assert (diff * diff).mean().item() <= 3 * CUTE_DEQUANT_METRIC_TOLERANCE
+    assert (cute_input_diff * cute_input_diff).mean().item() <= (
+        (triton_input_diff * triton_input_diff).mean().item()
+        + CUTE_DEQUANT_METRIC_TOLERANCE
+    )
+    assert cute_input_diff.abs().mean().item() <= (
+        triton_input_diff.abs().mean().item() + CUTE_DEQUANT_METRIC_TOLERANCE
+    )
+
+
+@pytest.mark.parametrize("dtype", [DataType.if6_e2m3, DataType.if6_e3m2])
+@pytest.mark.parametrize("scale_rule", [ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse])
+def test_cute_sm100_if6_pseudo_quantize_matches_triton_error(
+    dtype: DataType,
+    scale_rule: ScaleRule,
+) -> None:
+    _require_cuda_for_cute_sm100_accuracy()
+
+    torch.manual_seed(0)
+    x = torch.randn(128, 256, dtype=torch.bfloat16, device="cuda")
+    config_triton = QuantizationConfig(
+        backend=QuantizeBackend.triton,
+        dtype=dtype,
+        scale_rule=scale_rule,
+        pseudo_quantize=True,
+    )
+    config_cute = QuantizationConfig(
+        backend=QuantizeBackend.cute_sm100,
+        dtype=dtype,
+        scale_rule=scale_rule,
+        pseudo_quantize=True,
+    )
+
+    pseudo_triton = quantize(x, config_triton)
+    pseudo_cute = quantize(x, config_cute)
+    diff = pseudo_cute.float() - pseudo_triton.float()
+    triton_input_diff = pseudo_triton.float() - x.float()
+    cute_input_diff = pseudo_cute.float() - x.float()
+
+    assert isinstance(pseudo_cute, torch.Tensor)
+    assert pseudo_cute.shape == x.shape
+    assert pseudo_cute.dtype == x.dtype
+    assert (diff * diff).mean().item() <= 3 * CUTE_DEQUANT_METRIC_TOLERANCE
+    assert (cute_input_diff * cute_input_diff).mean().item() <= (
+        (triton_input_diff * triton_input_diff).mean().item()
+        + CUTE_DEQUANT_METRIC_TOLERANCE
+    )
+    assert cute_input_diff.abs().mean().item() <= (
+        triton_input_diff.abs().mean().item() + CUTE_DEQUANT_METRIC_TOLERANCE
+    )
+
+
+@pytest.mark.parametrize("dtype", [DataType.if3, DataType.if3_bs8])
 @pytest.mark.parametrize(
     ("round_style", "block_scale_2d"),
     [

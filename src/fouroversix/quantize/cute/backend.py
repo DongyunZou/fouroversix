@@ -527,8 +527,12 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             return super().pseudo_quantize(x, config)
 
         if config.dtype not in {
+            DataType.if3,
+            DataType.if3_bs8,
             DataType.if4,
             DataType.if4_bs8,
+            DataType.if6_e2m3,
+            DataType.if6_e3m2,
             DataType.nvfp4,
             DataType.nvfp4_bs8,
             DataType.nvfp3,
@@ -548,7 +552,9 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             return super().pseudo_quantize(x, config)
 
         from fouroversix.kernels.cute_sm100.ops import (
+            pseudo_quantize_if3_adaptive,
             pseudo_quantize_if4_adaptive,
+            pseudo_quantize_if6_adaptive,
             pseudo_quantize_mxfp3_static,
             pseudo_quantize_mxfp4_static,
             pseudo_quantize_mxfp6_static,
@@ -669,6 +675,42 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     x_quantize,
                     scale_rule_id=config.scale_rule.cuda_id,
                     scale_block_size=config.dtype.block_size,
+                    x_amax=x_amax,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype in {DataType.if3, DataType.if3_bs8}:
+            if config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}:
+                out = pseudo_quantize_if3_adaptive(
+                    x_quantize,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    scale_block_size=config.dtype.block_size,
+                    x_amax=x_amax,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype == DataType.if6_e2m3:
+            if config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}:
+                out = pseudo_quantize_if6_adaptive(
+                    x_quantize,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    max_quantized_value=7.5,
+                    int_expansion_factor=0.241943359375,
+                    int_expansion_factor_rcp=4.1333333333,
+                    use_e3m2=False,
+                    x_amax=x_amax,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype == DataType.if6_e3m2:
+            if config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}:
+                out = pseudo_quantize_if6_adaptive(
+                    x_quantize,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    max_quantized_value=28.0,
+                    int_expansion_factor=0.9032258065,
+                    int_expansion_factor_rcp=1.1071428571,
+                    use_e3m2=True,
                     x_amax=x_amax,
                 )
             else:
