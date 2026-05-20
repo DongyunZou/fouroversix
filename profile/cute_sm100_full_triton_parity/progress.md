@@ -2620,6 +2620,22 @@ transpose:       20
 pseudo_quantize:  2
 ```
 
+Tested a follow-up NVINT-only scalar transpose launch retune by changing the
+`NVINT3`/`NVINT4`/`NVINT6` static transpose kernels from 256-thread CTAs to
+128-thread CTAs. Accuracy matched Triton on the targeted 128x256 and
+1024x1024 transpose checks, but targeted 4096x4096 timings only reached about
+parity and did not approach the 1.2x target:
+
+```text
+4096x4096 nvint3 static_6 transpose  0.992x
+4096x4096 nvint4 static_6 transpose  0.995x
+4096x4096 nvint6 static_6 transpose  0.968x
+```
+
+The full benchmark rerun also did not improve the retained 1.2x snapshot, so
+the launch retune was reverted. The NVINT transpose rows still need the same
+coalesced/tiled transpose design as the other remaining large transpose gaps.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
