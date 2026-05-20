@@ -2997,6 +2997,15 @@ the former worst IF3 2D rows now well above target: 4096x4096 `abs_max` is about
 `1.39x`, `mse` about `1.49x`, and `mae` about `1.49x`; 1024x1024 IF3 2D rows
 are about `1.43x-1.45x`.
 
+Re-tested IF6 stochastic-unbiased by temporarily allowing the existing 1D IF6
+adaptive kernel to use `round_style.adjustment_factor`. The targeted 1024x1024
+accuracy check failed for all IF6 dtype/rule combinations: values/scales matched
+Triton poorly and CuTe L2 distance was higher than Triton. A small adjustment
+factor sweep for `mse` showed the best point still near `16/17`, but CuTe
+remained above Triton by about `1.3` L2 for IF6 E2M3 and about `1.1` for IF6
+E3M2. The backend still does not claim IF6 stochastic-unbiased, and the
+experiment was reverted.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
