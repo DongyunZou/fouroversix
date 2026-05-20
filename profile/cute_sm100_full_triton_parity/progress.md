@@ -2702,6 +2702,13 @@ the critical 4096x4096 `if3 abs_max pseudo` row stayed at about `0.976x`; the
 change was reverted. This makes the remaining IF3 pseudo gap a kernel-body
 candidate/error cost issue, not a launch-bound occupancy hint.
 
+Tested IF4 pseudo `abs_max` single-candidate shortcuts for the remaining
+128x256 below-parity IF4 pseudo row. Forcing FP4 failed the existing
+Triton-error gate with MSE about `0.0166` for IF4 and `0.0110` for IF4_BS8.
+Forcing INT4 was closer but still failed, with MSE about `0.0023` and
+`0.0031`. Both experiments were reverted. Like IF3, IF4 `abs_max` pseudo needs
+the per-block FP/INT candidate comparison to satisfy the current accuracy gate.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
