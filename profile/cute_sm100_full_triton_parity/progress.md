@@ -1660,6 +1660,44 @@ Examples include `mxfp6_e2m3 static_6 pseudo_quantize=True` at `1.282x` on
 include near-threshold rows such as 4096x4096 `mxfp4 static_4
 pseudo_quantize=True` at `1.196x`.
 
+Added a narrow fast path for 1D adaptive IF quantize calls
+(`IF3`/`IF3_BS8`/`IF4`/`IF4_BS8`/`IF6`) when `transpose=False`,
+`rht=False`, `block_scale_2d=False`, and `pseudo_quantize=False`. This mirrors
+the existing static-NV fast path: it uses cached CuTe op callables and skips
+the long backend import/dispatch chain while preserving the existing
+QuantizedTensor layout contract, including Blackwell-blocked IF6 scales.
+
+The targeted IF base accuracy slice passes:
+
+```text
+113 passed, 1 skipped, 34973 deselected, 1 warning in 12.28s
+```
+
+The full CuTe sm100 test selection also passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.56s
+```
+
+On a targeted alternating-order IF base timing run, this moved several
+small/medium IF3 and IF4 rows over the 1.2x line. Examples:
+
+```text
+128x256  if3 abs_max      1.250x
+128x256  if3_bs8 mae      1.207x
+128x256  if4_bs8 abs_max  1.230x
+1024x1024 if3_bs8 mae     1.202x
+1024x1024 if4_bs8 mse     1.180x -> still below target in the full refresh
+```
+
+The refreshed full alternating benchmark remains noisy and is not an overall
+completion claim. It now reports:
+
+```text
+129/470 workloads meet 1.2x
+289/470 workloads are at least Triton parity
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1676,5 +1714,5 @@ pseudo_quantize=True` at `1.196x`.
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `148/470`
+  latest median capability-driven benchmark snapshot reports only `129/470`
   workloads meeting 1.2x.

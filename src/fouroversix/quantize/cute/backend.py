@@ -21,6 +21,19 @@ _FAST_STATIC_NV_DTYPES = frozenset(
 _FAST_STATIC_NVFP4_DTYPES = frozenset({DataType.nvfp4, DataType.nvfp4_bs8})
 _FAST_STATIC_NVFP3_DTYPES = frozenset({DataType.nvfp3, DataType.nvfp3_bs8})
 _STATIC_SCALE_RULES = frozenset({ScaleRule.static_4, ScaleRule.static_6})
+_ADAPTIVE_IF_DTYPES = frozenset(
+    {
+        DataType.if3,
+        DataType.if3_bs8,
+        DataType.if4,
+        DataType.if4_bs8,
+        DataType.if6_e2m3,
+        DataType.if6_e3m2,
+    },
+)
+_ADAPTIVE_SCALE_RULES = frozenset(
+    {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse},
+)
 
 
 @functools.lru_cache
@@ -31,6 +44,17 @@ def _static_nv_quantizers():
         ops.quantize_nvfp4_static,
         ops.quantize_nvfp3_static,
         ops.quantize_nvfp6_static,
+    )
+
+
+@functools.lru_cache
+def _adaptive_if_quantizers():
+    from fouroversix.kernels.cute_sm100 import ops
+
+    return (
+        ops.quantize_if3_adaptive,
+        ops.quantize_if4_adaptive,
+        ops.quantize_if6_adaptive,
     )
 
 
@@ -830,6 +854,69 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 config.scale_rule,
                 config.round_style,
                 scale_factors_are_in_blackwell_layout=False,
+            )
+
+        if (
+            not config.transpose
+            and not config.rht
+            and not config.block_scale_2d
+            and not config.pseudo_quantize
+            and config.dtype in _ADAPTIVE_IF_DTYPES
+            and config.scale_rule in _ADAPTIVE_SCALE_RULES
+        ):
+            quantize_if3_adaptive, quantize_if4_adaptive, quantize_if6_adaptive = (
+                _adaptive_if_quantizers()
+            )
+            x_amax = config.kwargs.get("x_amax")
+            if config.dtype in {DataType.if3, DataType.if3_bs8}:
+                values, scale_factors_u8, amax = quantize_if3_adaptive(
+                    x,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    scale_block_size=config.dtype.block_size,
+                    x_amax=x_amax,
+                )
+            elif config.dtype in {DataType.if4, DataType.if4_bs8}:
+                values, scale_factors_u8, amax = quantize_if4_adaptive(
+                    x,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    stochastic_rounding=(
+                        config.dtype == DataType.if4
+                        and config.round_style == RoundStyle.stochastic
+                    ),
+                    scale_block_size=config.dtype.block_size,
+                    x_amax=x_amax,
+                )
+            else:
+                values, scale_factors_u8, amax = quantize_if6_adaptive(
+                    x,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    max_quantized_value=(
+                        7.5 if config.dtype == DataType.if6_e2m3 else 28.0
+                    ),
+                    int_expansion_factor=(
+                        0.241943359375
+                        if config.dtype == DataType.if6_e2m3
+                        else 0.9032258065
+                    ),
+                    int_expansion_factor_rcp=(
+                        4.1333333333
+                        if config.dtype == DataType.if6_e2m3
+                        else 1.1071428571
+                    ),
+                    use_e3m2=config.dtype == DataType.if6_e3m2,
+                    x_amax=x_amax,
+                )
+
+            return QuantizedTensor(
+                values,
+                scale_factors_u8.view(torch.float8_e4m3fn),
+                amax,
+                config.dtype,
+                x.shape,
+                config.scale_rule,
+                config.round_style,
+                scale_factors_are_in_blackwell_layout=config.dtype
+                in {DataType.if6_e2m3, DataType.if6_e3m2},
             )
 
         from fouroversix.kernels.cute_sm100.ops import (
