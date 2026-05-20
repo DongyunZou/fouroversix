@@ -2889,6 +2889,14 @@ passed, but non-BS8 MXFP3 2D slowed much further, to about `0.52x-0.60x` versus
 Triton across representative shapes. The smaller-CTA experiment was reverted as
 well.
 
+Added a cached fast dispatch path for static MX `block_scale_2d=True` CuTe
+quantize (`mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6`). This mirrors the existing
+ordinary static fast paths and avoids entering the large generic CuTe dispatch
+block for these 2D cases. The targeted MX 2D accuracy slice passes (`28 passed`).
+Focused alternating timings show lower CuTe wrapper/kernel-call time for most
+MX 2D rows, especially BS8/MXFP4/MXFP6 paths, but the 4096x4096 non-BS8 MXFP3
+2D rows remain near parity and still need a real cooperative 2D tile mapping.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but

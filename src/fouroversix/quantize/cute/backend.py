@@ -96,6 +96,19 @@ def _static_mx_quantizers():
 
 
 @functools.lru_cache
+def _static_mx_2d_quantizers():
+    from fouroversix.kernels.cute_sm100 import ops
+
+    return (
+        ops.quantize_mxfp3_static_2d,
+        ops.quantize_mxfp3_bs8_static_2d,
+        ops.quantize_mxfp4_static_2d,
+        ops.quantize_mxfp4_bs8_static_2d,
+        ops.quantize_mxfp6_static_2d,
+    )
+
+
+@functools.lru_cache
 def _static_nvint_quantizers():
     from fouroversix.kernels.cute_sm100 import ops
 
@@ -897,6 +910,63 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
+                config.dtype,
+                x.shape,
+                config.scale_rule,
+                config.round_style,
+                scale_factors_are_in_blackwell_layout=False,
+            )
+
+        if (
+            not config.transpose
+            and not config.rht
+            and config.block_scale_2d
+            and not config.pseudo_quantize
+            and config.dtype in _STATIC_MX_DTYPES
+            and config.scale_rule in _STATIC_SCALE_RULES
+        ):
+            (
+                quantize_mxfp3_static_2d,
+                quantize_mxfp3_bs8_static_2d,
+                quantize_mxfp4_static_2d,
+                quantize_mxfp4_bs8_static_2d,
+                quantize_mxfp6_static_2d,
+            ) = _static_mx_2d_quantizers()
+            if config.dtype == DataType.mxfp3:
+                values, scale_factors_u8 = quantize_mxfp3_static_2d(x)
+            elif config.dtype == DataType.mxfp3_bs8:
+                values, scale_factors_u8 = quantize_mxfp3_bs8_static_2d(x)
+            elif config.dtype == DataType.mxfp4:
+                values, scale_factors_u8 = quantize_mxfp4_static_2d(
+                    x,
+                    max_quantized_value=(
+                        4 if config.scale_rule == ScaleRule.static_4 else 6
+                    ),
+                )
+            elif config.dtype == DataType.mxfp4_bs8:
+                values, scale_factors_u8 = quantize_mxfp4_bs8_static_2d(
+                    x,
+                    max_quantized_value=(
+                        4 if config.scale_rule == ScaleRule.static_4 else 6
+                    ),
+                )
+            else:
+                values, scale_factors_u8 = quantize_mxfp6_static_2d(
+                    x,
+                    max_quantized_value=(
+                        4.0
+                        if config.scale_rule == ScaleRule.static_4
+                        else 7.5
+                        if config.dtype == DataType.mxfp6_e2m3
+                        else 28.0
+                    ),
+                    use_e3m2=config.dtype == DataType.mxfp6_e3m2,
+                )
+
+            return QuantizedTensor(
+                values,
+                scale_factors_u8.view(torch.float8_e8m0fnu),
+                None,
                 config.dtype,
                 x.shape,
                 config.scale_rule,
