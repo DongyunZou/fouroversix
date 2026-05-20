@@ -1869,6 +1869,16 @@ pseudo_quantize: 55
 transpose:        9
 ```
 
+Tested a direct NVFP3/NVFP3_BS8 static transpose kernel that reads the input in
+transposed order and skips the explicit `x.T.contiguous()` materialization. It
+matched the old CuTe `x.T.contiguous() -> quantize_nvfp3_static` output
+exactly for values, scales, and amax, and improved targeted 4096x4096 transpose
+timings from roughly `0.615x -> 0.735x` for NVFP3 and `0.727x -> 0.900x` for
+NVFP3_BS8. It is not retained because both rows remain below Triton parity and
+well short of the 1.2x target; the result confirms that avoiding materialization
+alone is insufficient and the transpose gap needs a coalesced/tiled transpose
+quantize design.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
