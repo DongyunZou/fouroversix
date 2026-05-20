@@ -1928,6 +1928,50 @@ workloads meeting 1.2x, below the retained `221/470` snapshot. The experiment
 was reverted; the pseudo gap is dominated by kernel/launch behavior rather
 than that small Python import-dispatch cost.
 
+Replaced the CuTe sm100 fallback amax resolver from
+`x.abs().max().float()` to `torch.linalg.vector_norm(x, ord=inf).float()`.
+This preserves the BF16 global absolute-maximum value in targeted checks while
+avoiding the explicit `abs` materialization kernel used by the previous
+PyTorch expression. A focused profiler on 1024x1024 BF16 showed the amax helper
+moving from about `14.4 us` to `12.4 us`, and targeted CuTe timings improved
+for global-amax-heavy rows:
+
+```text
+1024x1024 if4 abs_max pseudo   0.879x -> 0.971x
+4096x4096 if3 abs_max pseudo   0.789x -> 0.934x
+4096x4096 nvfp4 static_6 base  ~0.97x -> 1.027x
+4096x4096 if6_e2m3 abs_max     ~1.19x -> 1.282x
+```
+
+The targeted accuracy slice covering IF3/IF4/NVFP4 pseudo and general
+not-less-accurate CuTe quantize checks passes:
+
+```text
+32 passed, 1 warning in 6.26s
+```
+
+The full CuTe sm100 test selection passes after the amax resolver change:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.83s
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+225/470 workloads meet 1.2x
+346/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            92
+pseudo_quantize: 63
+block_scale_2d:  61
+transpose:        9
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1944,5 +1988,5 @@ than that small Python import-dispatch cost.
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `221/470`
+  latest median capability-driven benchmark snapshot reports only `225/470`
   workloads meeting 1.2x.

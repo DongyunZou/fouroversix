@@ -10901,7 +10901,7 @@ def _resolve_amax(
     x_amax: torch.Tensor | None = None,
 ) -> torch.Tensor:
     if x_amax is None:
-        return x.abs().max().float()
+        return torch.linalg.vector_norm(x, ord=float("inf")).float()
 
     if x_amax.numel() != 1:
         msg = f"x_amax must contain exactly one element, got {x_amax.numel()}"
