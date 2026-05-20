@@ -215,6 +215,7 @@ class QuantizeBackend(str, Enum):
     """
 
     cuda = "cuda"
+    cute_sm100 = "cute_sm100"
     pytorch = "pytorch"
     transformer_engine = "transformer_engine"
     triton = "triton"

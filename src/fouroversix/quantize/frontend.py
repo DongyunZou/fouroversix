@@ -3,6 +3,7 @@ from fouroversix.utils import QuantizeBackend
 
 from .config import QuantizationConfig
 from .cuda import CUDAQuantizeBackend
+from .cute import CuteSm100QuantizeBackend
 from .pytorch import PyTorchQuantizeBackend
 from .quantized_tensor import QuantizedTensor
 from .transformer_engine import TransformerEngineQuantizeBackend
@@ -10,6 +11,7 @@ from .triton import TritonQuantizeBackend
 
 AVAILABLE_BACKENDS = {
     QuantizeBackend.cuda: CUDAQuantizeBackend,
+    QuantizeBackend.cute_sm100: CuteSm100QuantizeBackend,
     QuantizeBackend.transformer_engine: TransformerEngineQuantizeBackend,
     QuantizeBackend.triton: TritonQuantizeBackend,
     QuantizeBackend.pytorch: PyTorchQuantizeBackend,

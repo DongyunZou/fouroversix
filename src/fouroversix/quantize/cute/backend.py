@@ -1,0 +1,1310 @@
+import functools
+from dataclasses import replace
+
+import torch
+from fouroversix.quantize.backend import QuantizeBackendBase
+from fouroversix.quantize.config import QuantizationConfig
+from fouroversix.quantize.quantized_tensor import QuantizedTensor
+from fouroversix.quantize.utils import to_blocked
+from fouroversix.utils import DataType, RoundStyle, ScaleRule, SM_100
+
+
+class CuteSm100QuantizeBackend(QuantizeBackendBase):
+    """CuTe-DSL quantization backend for B200/GB200 (sm_100)."""
+
+    @classmethod
+    @functools.lru_cache
+    def is_available(cls) -> bool:
+        if (
+            not torch.cuda.is_available()
+            or torch.cuda.get_device_capability()[0] != SM_100
+        ):
+            return False
+
+        try:
+            import cutlass.cute  # noqa: F401
+        except ImportError:
+            return False
+
+        return True
+
+    @classmethod
+    def can_quantize(cls, x: torch.Tensor, config: QuantizationConfig) -> bool:
+        if not super().can_quantize(x, config):
+            return False
+
+        if (
+            config.pseudo_quantize
+            and config.dtype == DataType.nvfp4
+            and config.round_style == RoundStyle.stochastic
+        ):
+            return False
+
+        if config.pseudo_quantize and (
+            config.dtype != DataType.nvfp4
+            or config.round_style != RoundStyle.nearest
+            or config.block_scale_2d
+        ):
+            return cls.can_quantize(x, replace(config, pseudo_quantize=False))
+
+        return (
+            x.device.type == "cuda"
+            and x.dtype == torch.bfloat16
+            and config.dtype
+            in {
+                DataType.nvfp4,
+                DataType.nvfp4_bs8,
+                DataType.if3,
+                DataType.if3_bs8,
+                DataType.if4,
+                DataType.if4_bs8,
+                DataType.if6_e2m3,
+                DataType.if6_e3m2,
+                DataType.mxfp3,
+                DataType.mxfp3_bs8,
+                DataType.mxfp4,
+                DataType.mxfp4_bs8,
+                DataType.mxfp6_e2m3,
+                DataType.mxfp6_e3m2,
+                DataType.nvint3,
+                DataType.nvint3_bs8,
+                DataType.nvint4,
+                DataType.nvint4_bs8,
+                DataType.nvint6,
+                DataType.nvfp3,
+                DataType.nvfp3_bs8,
+                DataType.nvfp6_e2m3,
+                DataType.nvfp6_e3m2,
+            }
+            and (
+                config.round_style == RoundStyle.nearest
+                or (
+                    config.dtype == DataType.nvfp4
+                    and config.scale_rule
+                    in {
+                        ScaleRule.abs_max,
+                        ScaleRule.mae,
+                        ScaleRule.mse,
+                        ScaleRule.static_4,
+                        ScaleRule.static_6,
+                    }
+                    and not config.pseudo_quantize
+                    and config.round_style.is_stochastic
+                )
+                or (
+                    config.dtype in {DataType.nvfp3, DataType.nvfp3_bs8}
+                    and config.scale_rule == ScaleRule.static_6
+                    and not config.block_scale_2d
+                    and not config.pseudo_quantize
+                    and config.round_style == RoundStyle.stochastic
+                )
+                or (
+                    config.dtype == DataType.nvfp4_bs8
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                    and config.round_style.is_stochastic
+                )
+                or (
+                    config.dtype == DataType.if4
+                    and config.scale_rule
+                    in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+                    and not config.pseudo_quantize
+                    and config.round_style.is_stochastic
+                )
+                or (
+                    config.dtype == DataType.if4_bs8
+                    and config.scale_rule
+                    in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+                    and not config.block_scale_2d
+                    and not config.pseudo_quantize
+                    and config.round_style.is_stochastic
+                )
+                or (
+                    config.dtype in {DataType.if3, DataType.if3_bs8}
+                    and config.scale_rule
+                    in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+                    and not config.pseudo_quantize
+                    and config.round_style == RoundStyle.stochastic
+                )
+                or (
+                    config.dtype == DataType.if4_bs8
+                    and config.scale_rule
+                    in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+                    and not config.block_scale_2d
+                    and not config.pseudo_quantize
+                    and config.round_style == RoundStyle.nearest
+                )
+                or (
+                    config.dtype == DataType.mxfp3
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                    and config.round_style.is_stochastic
+                )
+                or (
+                    config.dtype == DataType.mxfp3_bs8
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                    and config.round_style.is_stochastic
+                )
+                or (
+                    config.dtype == DataType.mxfp4
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                    and config.round_style.is_stochastic
+                )
+                or (
+                    config.dtype == DataType.mxfp4_bs8
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                    and config.round_style.is_stochastic
+                )
+                or (
+                    config.dtype in {DataType.mxfp6_e2m3, DataType.mxfp6_e3m2}
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                    and config.round_style.is_stochastic
+                )
+                or (
+                    config.dtype in {DataType.nvint4, DataType.nvint4_bs8}
+                    and config.scale_rule == ScaleRule.static_6
+                    and not config.pseudo_quantize
+                    and config.round_style.is_stochastic
+                )
+                or (
+                    config.dtype in {DataType.nvint3, DataType.nvint3_bs8}
+                    and config.scale_rule == ScaleRule.static_6
+                    and not config.block_scale_2d
+                    and not config.pseudo_quantize
+                    and config.round_style == RoundStyle.stochastic
+                )
+                or (
+                    config.dtype == DataType.nvint6
+                    and config.scale_rule == ScaleRule.static_6
+                    and not config.block_scale_2d
+                    and not config.pseudo_quantize
+                    and config.round_style == RoundStyle.stochastic
+                )
+                or (
+                    config.dtype in {DataType.nvfp6_e2m3, DataType.nvfp6_e3m2}
+                    and config.scale_rule == ScaleRule.static_6
+                    and not config.pseudo_quantize
+                    and (
+                        config.round_style == RoundStyle.stochastic
+                        or (
+                            config.round_style
+                            == RoundStyle.stochastic_unbiased
+                            and (
+                                (
+                                    config.dtype == DataType.nvfp6_e3m2
+                                    and not config.block_scale_2d
+                                )
+                                or config.block_scale_2d
+                            )
+                        )
+                    )
+                )
+                or (
+                    config.dtype in {DataType.if6_e2m3, DataType.if6_e3m2}
+                    and config.scale_rule
+                    in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+                    and not config.block_scale_2d
+                    and not config.pseudo_quantize
+                    and config.round_style == RoundStyle.stochastic
+                )
+            )
+            and (
+                (
+                    config.dtype == DataType.nvfp4
+                    and config.scale_rule
+                    in {
+                        ScaleRule.abs_max,
+                        ScaleRule.mae,
+                        ScaleRule.mse,
+                        ScaleRule.static_4,
+                        ScaleRule.static_6,
+                    }
+                )
+                or (
+                    config.dtype in {DataType.nvfp3, DataType.nvfp3_bs8}
+                    and config.scale_rule == ScaleRule.static_6
+                    and not config.block_scale_2d
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype == DataType.nvfp4_bs8
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype in {
+                        DataType.if3,
+                        DataType.if3_bs8,
+                        DataType.if4,
+                        DataType.if4_bs8,
+                    }
+                    and config.scale_rule
+                    in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+                    and (
+                        config.dtype
+                        in {
+                            DataType.if3,
+                            DataType.if3_bs8,
+                            DataType.if4,
+                            DataType.if4_bs8,
+                        }
+                        or not config.block_scale_2d
+                    )
+                    and not config.pseudo_quantize
+                    and (
+                        config.dtype not in {DataType.if3, DataType.if3_bs8}
+                        or config.round_style == RoundStyle.nearest
+                        or (
+                            config.round_style == RoundStyle.stochastic
+                        )
+                    )
+                )
+                or (
+                    config.dtype in {DataType.if6_e2m3, DataType.if6_e3m2}
+                    and config.scale_rule
+                    in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype in {DataType.mxfp3, DataType.mxfp3_bs8}
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype in {DataType.mxfp3, DataType.mxfp3_bs8}
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype in {DataType.mxfp3, DataType.mxfp3_bs8}
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype in {DataType.mxfp3, DataType.mxfp3_bs8}
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype in {DataType.mxfp4, DataType.mxfp4_bs8}
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype == DataType.mxfp4_bs8
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype in {DataType.mxfp6_e2m3, DataType.mxfp6_e3m2}
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype
+                    in {
+                        DataType.nvint3,
+                        DataType.nvint3_bs8,
+                        DataType.nvint4,
+                        DataType.nvint4_bs8,
+                        DataType.nvint6,
+                    }
+                    and config.scale_rule == ScaleRule.static_6
+                    and not config.pseudo_quantize
+                    and (
+                        config.dtype
+                        not in {DataType.nvint3, DataType.nvint3_bs8, DataType.nvint6}
+                        or (
+                            config.dtype in {DataType.nvint3, DataType.nvint3_bs8}
+                            and config.round_style
+                            in {RoundStyle.nearest, RoundStyle.stochastic}
+                        )
+                        or (
+                            config.dtype == DataType.nvint6
+                            and config.round_style
+                            in {RoundStyle.nearest, RoundStyle.stochastic}
+                        )
+                        or config.round_style == RoundStyle.nearest
+                    )
+                )
+                or (
+                    config.dtype in {DataType.nvfp6_e2m3, DataType.nvfp6_e3m2}
+                    and config.scale_rule == ScaleRule.static_6
+                    and not config.pseudo_quantize
+                )
+            )
+            and (
+                not config.block_scale_2d
+                or (
+                    config.dtype in {DataType.nvfp4, DataType.nvfp4_bs8}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype
+                    in {
+                        DataType.if3,
+                        DataType.if3_bs8,
+                        DataType.if4,
+                        DataType.if4_bs8,
+                    }
+                    and config.scale_rule
+                    in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype in {DataType.mxfp3, DataType.mxfp3_bs8}
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype in {DataType.mxfp4, DataType.mxfp4_bs8}
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype in {DataType.mxfp6_e2m3, DataType.mxfp6_e3m2}
+                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype
+                    in {
+                        DataType.nvint3,
+                        DataType.nvint3_bs8,
+                        DataType.nvint4,
+                        DataType.nvint4_bs8,
+                        DataType.nvint6,
+                    }
+                    and config.scale_rule == ScaleRule.static_6
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype in {DataType.nvfp6_e2m3, DataType.nvfp6_e3m2}
+                    and config.scale_rule == ScaleRule.static_6
+                    and not config.pseudo_quantize
+                )
+            )
+        )
+
+    @classmethod
+    def can_dequantize_values(cls, tensor: QuantizedTensor) -> bool:
+        return tensor.dtype in {
+            DataType.nvfp4,
+            DataType.nvfp4_bs8,
+            DataType.nvfp3,
+            DataType.nvfp3_bs8,
+            DataType.if3,
+            DataType.if3_bs8,
+            DataType.if4,
+            DataType.if4_bs8,
+            DataType.if6_e2m3,
+            DataType.if6_e3m2,
+            DataType.mxfp4,
+            DataType.mxfp4_bs8,
+            DataType.mxfp3,
+            DataType.mxfp3_bs8,
+            DataType.mxfp6_e2m3,
+            DataType.mxfp6_e3m2,
+            DataType.nvint3,
+            DataType.nvint3_bs8,
+            DataType.nvint4,
+            DataType.nvint4_bs8,
+            DataType.nvint6,
+            DataType.nvfp6_e2m3,
+            DataType.nvfp6_e3m2,
+        } and (
+            super().can_dequantize_values(tensor)
+            or tensor.dtype
+            in {
+                DataType.if6_e2m3,
+                DataType.if6_e3m2,
+                DataType.if3,
+                DataType.if3_bs8,
+                DataType.mxfp6_e2m3,
+                DataType.mxfp6_e3m2,
+                DataType.mxfp3,
+                DataType.mxfp3_bs8,
+                DataType.nvfp3,
+                DataType.nvfp3_bs8,
+                DataType.nvint3,
+                DataType.nvint3_bs8,
+                DataType.nvint6,
+                DataType.nvfp6_e2m3,
+                DataType.nvfp6_e3m2,
+            }
+        )
+
+    @classmethod
+    def dequantize_values(
+        cls,
+        tensor: QuantizedTensor,
+        *,
+        dtype: torch.dtype = torch.bfloat16,
+    ) -> torch.Tensor:
+        from fouroversix.kernels.cute_sm100.ops import (
+            dequantize_fp3_values,
+            dequantize_fp6_values,
+            dequantize_int3_values,
+            dequantize_int6_values,
+        )
+        from fouroversix.quantize.dequantize_utils import from_blocked
+
+        scale_factors = (
+            from_blocked(
+                tensor.scale_factors,
+                (
+                    tensor.padded_shape[0],
+                    tensor.padded_shape[1] // tensor.dtype.block_size,
+                ),
+            )
+            if tensor.scale_factors_are_in_blackwell_layout
+            else tensor.scale_factors
+        )
+
+        if tensor.dtype in {DataType.nvint3, DataType.nvint3_bs8}:
+            return dequantize_int3_values(tensor.values).to(dtype)
+
+        if tensor.dtype in {
+            DataType.mxfp3,
+            DataType.mxfp3_bs8,
+            DataType.nvfp3,
+            DataType.nvfp3_bs8,
+        }:
+            return dequantize_fp3_values(tensor.values).to(dtype)
+
+        if tensor.dtype in {DataType.mxfp6_e2m3, DataType.nvfp6_e2m3}:
+            return dequantize_fp6_values(
+                tensor.values,
+                scale_factors,
+                use_e3m2=False,
+                is_if6=False,
+            ).to(dtype)
+
+        if tensor.dtype in {DataType.mxfp6_e3m2, DataType.nvfp6_e3m2}:
+            return dequantize_fp6_values(
+                tensor.values,
+                scale_factors,
+                use_e3m2=True,
+                is_if6=False,
+            ).to(dtype)
+
+        if tensor.dtype == DataType.nvint6:
+            return dequantize_int6_values(tensor.values).to(dtype)
+
+        if tensor.dtype in {
+            DataType.if6_e2m3,
+        }:
+            return dequantize_fp6_values(
+                tensor.values,
+                scale_factors,
+                use_e3m2=False,
+                is_if6=True,
+            ).to(dtype)
+
+        if tensor.dtype in {
+            DataType.if6_e3m2,
+        }:
+            return dequantize_fp6_values(
+                tensor.values,
+                scale_factors,
+                use_e3m2=True,
+                is_if6=True,
+            ).to(dtype)
+
+        return super().dequantize_values(tensor, dtype=dtype)
+
+    @classmethod
+    def pseudo_quantize(
+        cls,
+        x: torch.Tensor,
+        config: QuantizationConfig,
+    ) -> torch.Tensor:
+        if config.round_style != RoundStyle.nearest or config.block_scale_2d:
+            return super().pseudo_quantize(x, config)
+
+        if config.dtype not in {
+            DataType.if4,
+            DataType.if4_bs8,
+            DataType.nvfp4,
+            DataType.nvfp4_bs8,
+            DataType.nvfp3,
+            DataType.nvfp3_bs8,
+            DataType.mxfp3,
+            DataType.mxfp3_bs8,
+            DataType.mxfp4,
+            DataType.mxfp4_bs8,
+            DataType.mxfp6_e2m3,
+            DataType.mxfp6_e3m2,
+            DataType.nvint3,
+            DataType.nvint3_bs8,
+            DataType.nvint6,
+            DataType.nvfp6_e2m3,
+            DataType.nvfp6_e3m2,
+        }:
+            return super().pseudo_quantize(x, config)
+
+        from fouroversix.kernels.cute_sm100.ops import (
+            pseudo_quantize_if4_adaptive,
+            pseudo_quantize_mxfp3_static,
+            pseudo_quantize_mxfp4_static,
+            pseudo_quantize_mxfp6_static,
+            pseudo_quantize_nvfp3_static,
+            pseudo_quantize_nvfp6_static,
+            pseudo_quantize_nvfp4_adaptive,
+            pseudo_quantize_nvfp4_static,
+            pseudo_quantize_nvint3_static,
+            pseudo_quantize_nvint4_static,
+            pseudo_quantize_nvint6_static,
+            rht_transform,
+        )
+
+        x_quantize = x.T.contiguous() if config.transpose else x
+        if config.rht:
+            x_quantize = rht_transform(x_quantize)
+        x_amax = None if config.rht else config.kwargs.get("x_amax")
+
+        if config.dtype in {DataType.mxfp3, DataType.mxfp3_bs8}:
+            if config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}:
+                out = pseudo_quantize_mxfp3_static(
+                    x_quantize,
+                    scale_block_size=config.dtype.block_size,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype in {DataType.nvfp3, DataType.nvfp3_bs8}:
+            if config.scale_rule == ScaleRule.static_6:
+                out = pseudo_quantize_nvfp3_static(
+                    x_quantize,
+                    scale_block_size=config.dtype.block_size,
+                    x_amax=x_amax,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype == DataType.nvfp6_e2m3:
+            if config.scale_rule == ScaleRule.static_6:
+                out = pseudo_quantize_nvfp6_static(
+                    x_quantize,
+                    max_quantized_value=7.5,
+                    use_e3m2=False,
+                    x_amax=x_amax,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype == DataType.nvfp6_e3m2:
+            if config.scale_rule == ScaleRule.static_6:
+                out = pseudo_quantize_nvfp6_static(
+                    x_quantize,
+                    max_quantized_value=28.0,
+                    use_e3m2=True,
+                    x_amax=x_amax,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype in {DataType.nvint3, DataType.nvint3_bs8}:
+            if config.scale_rule == ScaleRule.static_6:
+                out = pseudo_quantize_nvint3_static(
+                    x_quantize,
+                    scale_block_size=config.dtype.block_size,
+                    x_amax=x_amax,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype == DataType.nvint6:
+            if config.scale_rule == ScaleRule.static_6:
+                out = pseudo_quantize_nvint6_static(
+                    x_quantize,
+                    x_amax=x_amax,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype in {DataType.nvint4, DataType.nvint4_bs8}:
+            if config.scale_rule == ScaleRule.static_6:
+                out = pseudo_quantize_nvint4_static(
+                    x_quantize,
+                    scale_block_size=config.dtype.block_size,
+                    x_amax=x_amax,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype == DataType.mxfp6_e2m3:
+            if config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}:
+                out = pseudo_quantize_mxfp6_static(
+                    x_quantize,
+                    max_quantized_value=7.5,
+                    use_e3m2=False,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype == DataType.mxfp6_e3m2:
+            if config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}:
+                out = pseudo_quantize_mxfp6_static(
+                    x_quantize,
+                    max_quantized_value=28.0,
+                    use_e3m2=True,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype in {DataType.mxfp4, DataType.mxfp4_bs8}:
+            if config.scale_rule == ScaleRule.static_6:
+                out = pseudo_quantize_mxfp4_static(
+                    x_quantize,
+                    max_quantized_value=6,
+                    scale_block_size=config.dtype.block_size,
+                )
+            elif config.scale_rule == ScaleRule.static_4:
+                out = pseudo_quantize_mxfp4_static(
+                    x_quantize,
+                    max_quantized_value=4,
+                    scale_block_size=config.dtype.block_size,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype in {DataType.if4, DataType.if4_bs8}:
+            if config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}:
+                out = pseudo_quantize_if4_adaptive(
+                    x_quantize,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    scale_block_size=config.dtype.block_size,
+                    x_amax=x_amax,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.scale_rule == ScaleRule.static_6:
+            out = pseudo_quantize_nvfp4_static(
+                x_quantize,
+                max_quantized_value=6,
+                scale_block_size=config.dtype.block_size,
+                x_amax=x_amax,
+            )
+        elif config.scale_rule == ScaleRule.static_4:
+            out = pseudo_quantize_nvfp4_static(
+                x_quantize,
+                max_quantized_value=4,
+                scale_block_size=config.dtype.block_size,
+                x_amax=x_amax,
+            )
+        elif config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}:
+            out = pseudo_quantize_nvfp4_adaptive(
+                x_quantize,
+                scale_rule_id=config.scale_rule.cuda_id,
+                x_amax=x_amax,
+            )
+        else:
+            msg = f"Unsupported CuTe sm100 scale rule: {config.scale_rule}"
+            raise NotImplementedError(msg)
+
+        return out.T.contiguous() if config.transpose else out
+
+    @classmethod
+    def quantize(
+        cls,
+        x: torch.Tensor,
+        config: QuantizationConfig,
+    ) -> QuantizedTensor:
+        from fouroversix.kernels.cute_sm100.ops import (
+            quantize_if3_adaptive,
+            quantize_if3_adaptive_2d,
+            quantize_if3_bs8_adaptive_2d,
+            quantize_if4_adaptive,
+            quantize_if4_adaptive_2d,
+            quantize_if4_bs8_adaptive_2d,
+            quantize_if6_adaptive,
+            quantize_if6_adaptive_2d,
+            quantize_mxfp3_static,
+            quantize_mxfp3_bs8_static_2d,
+            quantize_mxfp3_static_2d,
+            quantize_mxfp4_static,
+            quantize_mxfp4_bs8_static_2d,
+            quantize_mxfp4_static_2d,
+            quantize_mxfp6_static,
+            quantize_mxfp6_static_2d,
+            quantize_nvfp4_adaptive_2d,
+            quantize_nvint3_static,
+            quantize_nvint3_bs8_static_2d,
+            quantize_nvint3_static_2d,
+            quantize_nvint4_static,
+            quantize_nvint4_bs8_static_2d,
+            quantize_nvint6_static,
+            quantize_nvint6_static_2d,
+            quantize_nvfp6_static,
+            quantize_nvfp4_adaptive,
+            quantize_nvfp4_static,
+            quantize_nvfp4_bs8_static_2d,
+            quantize_nvfp4_static_2d,
+            quantize_nvfp3_static,
+            quantize_nvint4_static_2d,
+            quantize_nvfp6_static_2d,
+            rht_transform,
+        )
+
+        quantized_shape = (x.shape[1], x.shape[0]) if config.transpose else x.shape
+        x_quantize = x.T.contiguous() if config.transpose else x
+        if config.rht:
+            x_quantize = rht_transform(x_quantize)
+        x_amax = None if config.rht else config.kwargs.get("x_amax")
+
+        if config.dtype == DataType.if3 and config.scale_rule in {
+            ScaleRule.abs_max,
+            ScaleRule.mae,
+            ScaleRule.mse,
+        } and config.block_scale_2d:
+            values, scale_factors_u8, amax = quantize_if3_adaptive_2d(
+                x_quantize,
+                scale_rule_id=config.scale_rule.cuda_id,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif config.dtype == DataType.if3_bs8 and config.scale_rule in {
+            ScaleRule.abs_max,
+            ScaleRule.mae,
+            ScaleRule.mse,
+        } and config.block_scale_2d:
+            values, scale_factors_u8, amax = quantize_if3_bs8_adaptive_2d(
+                x_quantize,
+                scale_rule_id=config.scale_rule.cuda_id,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif config.dtype in {DataType.if3, DataType.if3_bs8} and config.scale_rule in {
+            ScaleRule.abs_max,
+            ScaleRule.mae,
+            ScaleRule.mse,
+        }:
+            values, scale_factors_u8, amax = quantize_if3_adaptive(
+                x_quantize,
+                scale_rule_id=config.scale_rule.cuda_id,
+                scale_block_size=config.dtype.block_size,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif config.dtype == DataType.if4 and config.scale_rule in {
+            ScaleRule.abs_max,
+            ScaleRule.mae,
+            ScaleRule.mse,
+        } and config.block_scale_2d:
+            values, scale_factors_u8, amax = quantize_if4_adaptive_2d(
+                x_quantize,
+                scale_rule_id=config.scale_rule.cuda_id,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif config.dtype == DataType.if4 and config.scale_rule in {
+            ScaleRule.abs_max,
+            ScaleRule.mae,
+            ScaleRule.mse,
+        }:
+            values, scale_factors_u8, amax = quantize_if4_adaptive(
+                x_quantize,
+                scale_rule_id=config.scale_rule.cuda_id,
+                stochastic_rounding=config.round_style == RoundStyle.stochastic,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif config.dtype == DataType.if4_bs8 and config.scale_rule in {
+            ScaleRule.abs_max,
+            ScaleRule.mae,
+            ScaleRule.mse,
+        } and config.block_scale_2d:
+            values, scale_factors_u8, amax = quantize_if4_bs8_adaptive_2d(
+                x_quantize,
+                scale_rule_id=config.scale_rule.cuda_id,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif config.dtype == DataType.if4_bs8 and config.scale_rule in {
+            ScaleRule.abs_max,
+            ScaleRule.mae,
+            ScaleRule.mse,
+        }:
+            values, scale_factors_u8, amax = quantize_if4_adaptive(
+                x_quantize,
+                scale_rule_id=config.scale_rule.cuda_id,
+                scale_block_size=config.dtype.block_size,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.if6_e2m3
+            and config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8, amax = quantize_if6_adaptive_2d(
+                x_quantize,
+                scale_rule_id=config.scale_rule.cuda_id,
+                max_quantized_value=7.5,
+                int_expansion_factor=0.241943359375,
+                int_expansion_factor_rcp=4.1333333333,
+                use_e3m2=False,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.if6_e2m3
+            and config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+        ):
+            values, scale_factors_u8, amax = quantize_if6_adaptive(
+                x_quantize,
+                scale_rule_id=config.scale_rule.cuda_id,
+                max_quantized_value=7.5,
+                int_expansion_factor=0.241943359375,
+                int_expansion_factor_rcp=4.1333333333,
+                use_e3m2=False,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.if6_e3m2
+            and config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8, amax = quantize_if6_adaptive_2d(
+                x_quantize,
+                scale_rule_id=config.scale_rule.cuda_id,
+                max_quantized_value=28.0,
+                int_expansion_factor=0.9032258065,
+                int_expansion_factor_rcp=1.1071428571,
+                use_e3m2=True,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.if6_e3m2
+            and config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+        ):
+            values, scale_factors_u8, amax = quantize_if6_adaptive(
+                x_quantize,
+                scale_rule_id=config.scale_rule.cuda_id,
+                max_quantized_value=28.0,
+                int_expansion_factor=0.9032258065,
+                int_expansion_factor_rcp=1.1071428571,
+                use_e3m2=True,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.mxfp3_bs8
+            and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8 = quantize_mxfp3_bs8_static_2d(x_quantize)
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif (
+            config.dtype == DataType.mxfp3
+            and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8 = quantize_mxfp3_static_2d(x_quantize)
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif (
+            config.dtype in {DataType.mxfp3, DataType.mxfp3_bs8}
+            and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+        ):
+            values, scale_factors_u8 = quantize_mxfp3_static(
+                x_quantize,
+                scale_block_size=config.dtype.block_size,
+            )
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif (
+            config.dtype == DataType.mxfp4
+            and config.scale_rule == ScaleRule.static_6
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8 = quantize_mxfp4_static_2d(
+                x_quantize,
+                max_quantized_value=6,
+            )
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif (
+            config.dtype == DataType.mxfp4
+            and config.scale_rule == ScaleRule.static_4
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8 = quantize_mxfp4_static_2d(
+                x_quantize,
+                max_quantized_value=4,
+            )
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif (
+            config.dtype == DataType.mxfp4_bs8
+            and config.scale_rule == ScaleRule.static_6
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8 = quantize_mxfp4_bs8_static_2d(
+                x_quantize,
+                max_quantized_value=6,
+            )
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif (
+            config.dtype == DataType.mxfp4_bs8
+            and config.scale_rule == ScaleRule.static_4
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8 = quantize_mxfp4_bs8_static_2d(
+                x_quantize,
+                max_quantized_value=4,
+            )
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif (
+            config.dtype == DataType.mxfp4_bs8
+            and config.scale_rule == ScaleRule.static_6
+        ):
+            values, scale_factors_u8 = quantize_mxfp4_static(
+                x_quantize,
+                max_quantized_value=6,
+                scale_block_size=config.dtype.block_size,
+                stochastic_rounding=config.round_style.is_stochastic,
+            )
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif (
+            config.dtype == DataType.mxfp4_bs8
+            and config.scale_rule == ScaleRule.static_4
+        ):
+            values, scale_factors_u8 = quantize_mxfp4_static(
+                x_quantize,
+                max_quantized_value=4,
+                scale_block_size=config.dtype.block_size,
+                stochastic_rounding=config.round_style.is_stochastic,
+            )
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif config.dtype == DataType.mxfp4 and config.scale_rule == ScaleRule.static_6:
+            values, scale_factors_u8 = quantize_mxfp4_static(
+                x_quantize,
+                max_quantized_value=6,
+                stochastic_rounding=config.round_style.is_stochastic,
+            )
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif config.dtype == DataType.mxfp4 and config.scale_rule == ScaleRule.static_4:
+            values, scale_factors_u8 = quantize_mxfp4_static(
+                x_quantize,
+                max_quantized_value=4,
+                stochastic_rounding=config.round_style.is_stochastic,
+            )
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif (
+            config.dtype == DataType.mxfp6_e2m3
+            and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8 = quantize_mxfp6_static_2d(
+                x_quantize,
+                max_quantized_value=(
+                    4.0 if config.scale_rule == ScaleRule.static_4 else 7.5
+                ),
+                use_e3m2=False,
+            )
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif (
+            config.dtype == DataType.mxfp6_e2m3
+            and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+        ):
+            values, scale_factors_u8 = quantize_mxfp6_static(
+                x_quantize,
+                max_quantized_value=(
+                    4.0 if config.scale_rule == ScaleRule.static_4 else 7.5
+                ),
+                use_e3m2=False,
+            )
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif (
+            config.dtype == DataType.mxfp6_e3m2
+            and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8 = quantize_mxfp6_static_2d(
+                x_quantize,
+                max_quantized_value=(
+                    4.0 if config.scale_rule == ScaleRule.static_4 else 28.0
+                ),
+                use_e3m2=True,
+            )
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif (
+            config.dtype == DataType.mxfp6_e3m2
+            and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+        ):
+            values, scale_factors_u8 = quantize_mxfp6_static(
+                x_quantize,
+                max_quantized_value=(
+                    4.0 if config.scale_rule == ScaleRule.static_4 else 28.0
+                ),
+                use_e3m2=True,
+            )
+            amax = None
+            scale_dtype = torch.float8_e8m0fnu
+        elif (
+            config.dtype == DataType.nvint3_bs8
+            and config.scale_rule == ScaleRule.static_6
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8, amax = quantize_nvint3_bs8_static_2d(
+                x_quantize,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.nvint3
+            and config.scale_rule == ScaleRule.static_6
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8, amax = quantize_nvint3_static_2d(
+                x_quantize,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype in {DataType.nvint3, DataType.nvint3_bs8}
+            and config.scale_rule == ScaleRule.static_6
+        ):
+            values, scale_factors_u8, amax = quantize_nvint3_static(
+                x_quantize,
+                scale_block_size=config.dtype.block_size,
+                adjustment_factor=1.0,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.nvint4_bs8
+            and config.scale_rule == ScaleRule.static_6
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8, amax = quantize_nvint4_bs8_static_2d(
+                x_quantize,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.nvint4
+            and config.scale_rule == ScaleRule.static_6
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8, amax = quantize_nvint4_static_2d(
+                x_quantize,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype in {DataType.nvint4, DataType.nvint4_bs8}
+            and config.scale_rule == ScaleRule.static_6
+        ):
+            values, scale_factors_u8, amax = quantize_nvint4_static(
+                x_quantize,
+                scale_block_size=config.dtype.block_size,
+                stochastic_rounding=config.round_style.is_stochastic,
+                adjustment_factor=config.round_style.adjustment_factor,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.nvint6
+            and config.scale_rule == ScaleRule.static_6
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8, amax = quantize_nvint6_static_2d(
+                x_quantize,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.nvint6
+            and config.scale_rule == ScaleRule.static_6
+        ):
+            values, scale_factors_u8, amax = quantize_nvint6_static(
+                x_quantize,
+                adjustment_factor=config.round_style.adjustment_factor,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.nvfp6_e2m3
+            and config.scale_rule == ScaleRule.static_6
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8, amax = quantize_nvfp6_static_2d(
+                x_quantize,
+                max_quantized_value=7.5,
+                use_e3m2=False,
+                adjustment_factor=config.round_style.adjustment_factor,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.nvfp6_e2m3
+            and config.scale_rule == ScaleRule.static_6
+        ):
+            values, scale_factors_u8, amax = quantize_nvfp6_static(
+                x_quantize,
+                max_quantized_value=7.5,
+                use_e3m2=False,
+                adjustment_factor=config.round_style.adjustment_factor,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.nvfp6_e3m2
+            and config.scale_rule == ScaleRule.static_6
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8, amax = quantize_nvfp6_static_2d(
+                x_quantize,
+                max_quantized_value=28.0,
+                use_e3m2=True,
+                adjustment_factor=config.round_style.adjustment_factor,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.nvfp6_e3m2
+            and config.scale_rule == ScaleRule.static_6
+        ):
+            values, scale_factors_u8, amax = quantize_nvfp6_static(
+                x_quantize,
+                max_quantized_value=28.0,
+                use_e3m2=True,
+                adjustment_factor=config.round_style.adjustment_factor,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.nvfp4_bs8
+            and config.scale_rule == ScaleRule.static_6
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8, amax = quantize_nvfp4_bs8_static_2d(
+                x_quantize,
+                max_quantized_value=6,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.nvfp4_bs8
+            and config.scale_rule == ScaleRule.static_4
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8, amax = quantize_nvfp4_bs8_static_2d(
+                x_quantize,
+                max_quantized_value=4,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif config.scale_rule == ScaleRule.static_6 and config.block_scale_2d:
+            values, scale_factors_u8, amax = quantize_nvfp4_static_2d(
+                x_quantize,
+                max_quantized_value=6,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif config.scale_rule == ScaleRule.static_4 and config.block_scale_2d:
+            values, scale_factors_u8, amax = quantize_nvfp4_static_2d(
+                x_quantize,
+                max_quantized_value=4,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+            and config.block_scale_2d
+        ):
+            values, scale_factors_u8, amax = quantize_nvfp4_adaptive_2d(
+                x_quantize,
+                scale_rule_id=config.scale_rule.cuda_id,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype in {DataType.nvfp3, DataType.nvfp3_bs8}
+            and config.scale_rule == ScaleRule.static_6
+        ):
+            values, scale_factors_u8, amax = quantize_nvfp3_static(
+                x_quantize,
+                scale_block_size=config.dtype.block_size,
+                adjustment_factor=1.0,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.nvfp4_bs8
+            and config.scale_rule == ScaleRule.static_6
+        ):
+            values, scale_factors_u8, amax = quantize_nvfp4_static(
+                x_quantize,
+                max_quantized_value=6,
+                scale_block_size=config.dtype.block_size,
+                stochastic_rounding=False,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif (
+            config.dtype == DataType.nvfp4_bs8
+            and config.scale_rule == ScaleRule.static_4
+        ):
+            values, scale_factors_u8, amax = quantize_nvfp4_static(
+                x_quantize,
+                max_quantized_value=4,
+                scale_block_size=config.dtype.block_size,
+                stochastic_rounding=False,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif config.scale_rule == ScaleRule.static_6:
+            values, scale_factors_u8, amax = quantize_nvfp4_static(
+                x_quantize,
+                max_quantized_value=6,
+                stochastic_rounding=config.round_style == RoundStyle.stochastic,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif config.scale_rule == ScaleRule.static_4:
+            values, scale_factors_u8, amax = quantize_nvfp4_static(
+                x_quantize,
+                max_quantized_value=4,
+                stochastic_rounding=config.round_style == RoundStyle.stochastic,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        elif config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}:
+            values, scale_factors_u8, amax = quantize_nvfp4_adaptive(
+                x_quantize,
+                scale_rule_id=config.scale_rule.cuda_id,
+                stochastic_rounding=config.round_style == RoundStyle.stochastic,
+                x_amax=x_amax,
+            )
+            scale_dtype = torch.float8_e4m3fn
+        else:
+            msg = f"Unsupported CuTe sm100 scale rule: {config.scale_rule}"
+            raise NotImplementedError(msg)
+
+        scale_factors_are_in_blackwell_layout = False
+        if config.dtype in {DataType.if6_e2m3, DataType.if6_e3m2}:
+            scale_factors_u8 = to_blocked(scale_factors_u8)
+            scale_factors_are_in_blackwell_layout = True
+
+        return QuantizedTensor(
+            values,
+            scale_factors_u8.view(scale_dtype),
+            amax,
+            config.dtype,
+            quantized_shape,
+            config.scale_rule,
+            config.round_style,
+            scale_factors_are_in_blackwell_layout=(
+                scale_factors_are_in_blackwell_layout
+            ),
+        )

@@ -1,0 +1,49 @@
+===== Stall hotspots for source =====
+Total distinct (file, line) entries: 9
+
+Rank      Total File                            Line  Breakdown (stall: count)
+------------------------------------------------------------------------------------------------------------------------------------------------------
+   0         38 quantize.py                      677  wait: 16, long_scoreboard: 11, branch_resolving: 6, no_instructions: 3, selected: 2
+   1          5 quantize.py                      567  wait: 3, selected: 1, branch_resolving: 1
+   2          5 quantize.py                      603  wait: 3, branch_resolving: 2
+   3          2 quantize.py                      127  short_scoreboard: 1, selected: 1
+   4          2 quantize.py                      743  wait: 1, barrier: 1
+   5          1 standard.py                      170  short_scoreboard: 1
+   6          1 standard.py                      293  wait: 1
+   7          1 standard.py                      191  selected: 1
+   8          1 fp8.py                            41  branch_resolving: 1
+
+
+===== Per-stall-type top lines =====
+
+--- long_scoreboard ---
+        11  quantize.py:677
+
+--- short_scoreboard ---
+         1  standard.py:170
+         1  quantize.py:127
+
+--- wait ---
+        16  quantize.py:677
+         3  quantize.py:567
+         3  quantize.py:603
+         1  standard.py:293
+         1  quantize.py:743
+
+--- no_instructions ---
+         3  quantize.py:677
+
+--- selected ---
+         2  quantize.py:677
+         1  quantize.py:127
+         1  quantize.py:567
+         1  standard.py:191
+
+--- branch_resolving ---
+         6  quantize.py:677
+         2  quantize.py:603
+         1  quantize.py:567
+         1  fp8.py:41
+
+--- barrier ---
+         1  quantize.py:743

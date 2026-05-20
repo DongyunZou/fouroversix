@@ -9,6 +9,7 @@ from .dequantize_utils import (
     unpack_packed_fp4,
     unpack_packed_if4,
     unpack_packed_int4,
+    unpack_if3,
 )
 from .quantized_tensor import QuantizedTensor
 
@@ -172,7 +173,17 @@ class QuantizeBackendBase(ABC):
         Note that this returns raw values only, and not the fully dequantized tensor.
         """
 
-        if tensor.dtype == DataType.if4:
+        if tensor.dtype in {DataType.if3, DataType.if3_bs8}:
+            values = unpack_if3(
+                tensor.values,
+                tensor.scale_factors.reshape(
+                    tensor.padded_shape[0],
+                    tensor.padded_shape[1] // tensor.dtype.block_size,
+                ),
+                dtype,
+                tensor.dtype.block_size,
+            )
+        elif tensor.dtype in {DataType.if4, DataType.if4_bs8}:
             values = unpack_packed_if4(
                 tensor.values,
                 tensor.scale_factors.reshape(
@@ -180,8 +191,9 @@ class QuantizeBackendBase(ABC):
                     tensor.padded_shape[1] // tensor.dtype.block_size,
                 ),
                 dtype,
+                tensor.dtype.block_size,
             )
-        elif tensor.dtype == DataType.nvint4:
+        elif tensor.dtype in {DataType.nvint4, DataType.nvint4_bs8}:
             values = unpack_packed_int4(tensor.values)
         else:
             values = unpack_packed_fp4(tensor.values)
