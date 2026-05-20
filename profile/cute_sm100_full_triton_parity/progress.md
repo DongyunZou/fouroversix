@@ -2863,6 +2863,14 @@ gap either; the best tested value was about `0.944`, with CuTe L2 distance
 about `26.278`. The backend still does not claim this mode, and the experiment
 was reverted.
 
+Re-tested the old row-major work order for `Sm100NVFP4StaticTransposeQuantize`
+to check whether the current col-major coalescing only helps 4096x4096
+transpose rows and hurts 1024x1024 rows. The targeted NVFP4 transpose accuracy
+slice passed (`5 passed`), but timing did not improve the 1024x1024 rows
+(`static_4` about `1.06x`, `static_6` about `1.04x`) and regressed 4096x4096
+static transpose rows back below Triton (`static_4/static_6` about `0.85x`).
+The row-major work-order experiment was reverted.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
