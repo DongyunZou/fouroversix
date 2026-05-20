@@ -14,6 +14,9 @@ def main() -> None:
     parser.add_argument("--scale-rule", default="static_6")
     parser.add_argument("--shape", type=int, default=4096)
     parser.add_argument("--iters", type=int, default=3)
+    parser.add_argument("--transpose", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--pseudo-quantize", action="store_true")
+    parser.add_argument("--block-scale-2d", action="store_true")
     args = parser.parse_args()
 
     torch.manual_seed(0)
@@ -27,7 +30,9 @@ def main() -> None:
         backend=QuantizeBackend(args.backend),
         dtype=DataType(args.dtype),
         scale_rule=ScaleRule(args.scale_rule),
-        transpose=True,
+        transpose=args.transpose,
+        pseudo_quantize=args.pseudo_quantize,
+        block_scale_2d=args.block_scale_2d,
     )
 
     for _ in range(10):

@@ -1507,6 +1507,18 @@ median timing for large shapes, but the full alternating benchmark still left
 experiment was not retained; this row needs either a real kernel-body reduction
 or a broader pseudo-kernel retune with a less noisy acceptance harness.
 
+Profiled the 4096x4096 `nvfp4 static_6` base workload because the current
+benchmark reports it at only about `0.91x` versus Triton. Nsight Compute shows
+the CuTe quantize kernel itself is not the slow component: Triton's main
+`quantization_kernel` takes about `22 us`, while
+`Sm100NVFP4StaticQuantize` takes about `12 us`. Both paths still pay similar
+`x.abs().max()` helper work (`abs` around `12 us`, reduction around
+`17-18 us`, plus a small copy/cast kernel). Repeated alternating CUDA-event
+timing still shows the full CuTe call at about `0.065 ms` versus Triton around
+`0.059 ms`, so the retained gap is outside the main CuTe quantize kernel. The
+next NV static work should focus on helper/output overhead and a more precise
+CUDA-level timeline, not on retuning the already faster static quantize kernel.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
