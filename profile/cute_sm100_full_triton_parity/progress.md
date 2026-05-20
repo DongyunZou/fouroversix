@@ -1371,6 +1371,20 @@ The full CuTe sm100 test selection after the IF6 blocked-scale write change:
 449 passed, 7 skipped, 34631 deselected, 1 warning in 33.64s
 ```
 
+Profiled and re-tested the 4096x4096 NVFP6 static base path after the IF6
+scale-layout fix. Torch profiler shows CuTe's main NVFP6 static kernel is
+shorter than Triton's main kernel, but repeated end-to-end event timing still
+keeps the CuTe path around `0.91-0.92x`:
+
+```text
+nvfp6_e2m3 static_6 base 0.914x
+nvfp6_e3m2 static_6 base 0.905x
+```
+
+A targeted `Sm100NVFP6StaticQuantize` launch experiment with
+`min_blocks_per_mp=16` did not materially improve the row (`0.91-0.92x`), so
+the launch setting was restored to `BLOCKS_PER_SM`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
