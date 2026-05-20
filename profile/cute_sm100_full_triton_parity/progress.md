@@ -2353,6 +2353,28 @@ block_scale_2d:   4
 pseudo_quantize:  1
 ```
 
+Profiled the 4096x4096 `mxfp3 static_6 block_scale_2d=True` gap with NCU and
+recorded the reports under `profile/cute_sm100_full_triton_parity/ncu/`:
+
+```text
+mxfp3_2d_triton.ncu-rep
+mxfp3_2d_triton.csv
+mxfp3_2d_cute.ncu-rep
+mxfp3_2d_cute.csv
+mxfp3_2d_profile.md
+```
+
+The representative Triton `quantization_kernel` median is 34.40 us with a 1024
+CTA grid, 1.38 waves/SM, 24.01% achieved occupancy, 15.37 active warps/SM, and
+977.16 GB/s memory throughput. The representative CuTe
+`Sm100MXFP3StaticQuantize2D` median is 77.82 us with only a 64 CTA grid, 0.09
+waves/SM, 12.47% achieved occupancy, 7.98 active warps/SM, and 433.45 GB/s
+memory throughput. NCU also reports all CuTe compute pipelines under-utilized
+and 2,621,440 excessive global-memory sectors, 50% of total sectors. This
+points to a real 2D kernel mapping problem: the large static MXFP3 block-scale
+path needs a more parallel cooperative tile design with better coalescing,
+rather than another small launch-parameter retune.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
