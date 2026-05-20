@@ -2940,6 +2940,14 @@ generic abs_max path well enough; the remaining IF3 pseudo gap is in the
 candidate conversion/error workload itself. The helper-specialization experiment
 was reverted.
 
+Re-tested IF3 adaptive 2D with a 128-thread CTA and matching launch-grid
+calculation to increase the 4096x4096 launch from 256 CTAs to 512 CTAs. The
+targeted IF3 2D accuracy slice passed (`12 passed`), and 1024x1024 IF3 2D rows
+looked strong at about `1.44x-1.45x`, but the critical 4096x4096 rows regressed:
+`abs_max` measured about `0.96x` and `mse` about `0.95x` versus Triton. The
+smaller-CTA IF3 2D experiment was reverted; fixing this row still needs a
+cooperative tile mapping rather than a simple CTA split.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
