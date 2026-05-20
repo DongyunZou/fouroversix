@@ -16,6 +16,39 @@ AVAILABLE_BACKENDS = {
     QuantizeBackend.triton: TritonQuantizeBackend,
     QuantizeBackend.pytorch: PyTorchQuantizeBackend,
 }
+_CAN_QUANTIZE_CACHE: dict[tuple[object, ...], bool] = {}
+
+
+def _can_quantize_cached(
+    x: torch.Tensor,
+    config: QuantizationConfig,
+) -> bool:
+    backend = config.backend
+    if backend is None:
+        return False
+    if config.kwargs:
+        return AVAILABLE_BACKENDS[backend].can_quantize(x, config)
+
+    key = (
+        backend,
+        x.device.type,
+        x.device.index,
+        x.dtype,
+        tuple(x.shape),
+        config.block_scale_2d,
+        config.dtype,
+        config.pseudo_quantize,
+        config.rht,
+        config.round_style,
+        config.scale_rule,
+        config.transpose,
+    )
+    if key not in _CAN_QUANTIZE_CACHE:
+        _CAN_QUANTIZE_CACHE[key] = AVAILABLE_BACKENDS[backend].can_quantize(
+            x,
+            config,
+        )
+    return _CAN_QUANTIZE_CACHE[key]
 
 
 def quantize(
@@ -117,7 +150,7 @@ def quantize(
             msg = "No backend found that supports the given parameters"
             raise ValueError(msg)
 
-    elif not AVAILABLE_BACKENDS[selected_backend].can_quantize(x, config):
+    elif not _can_quantize_cached(x, config):
         msg = f"Backend {selected_backend} does not support the given parameters"
         raise ValueError(msg)
 

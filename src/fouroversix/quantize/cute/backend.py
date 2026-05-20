@@ -8,6 +8,32 @@ from fouroversix.quantize.quantized_tensor import QuantizedTensor
 from fouroversix.utils import DataType, RoundStyle, ScaleRule, SM_100
 
 
+_FAST_STATIC_NV_DTYPES = frozenset(
+    {
+        DataType.nvfp4,
+        DataType.nvfp4_bs8,
+        DataType.nvfp3,
+        DataType.nvfp3_bs8,
+        DataType.nvfp6_e2m3,
+        DataType.nvfp6_e3m2,
+    },
+)
+_FAST_STATIC_NVFP4_DTYPES = frozenset({DataType.nvfp4, DataType.nvfp4_bs8})
+_FAST_STATIC_NVFP3_DTYPES = frozenset({DataType.nvfp3, DataType.nvfp3_bs8})
+_STATIC_SCALE_RULES = frozenset({ScaleRule.static_4, ScaleRule.static_6})
+
+
+@functools.lru_cache
+def _static_nv_quantizers():
+    from fouroversix.kernels.cute_sm100 import ops
+
+    return (
+        ops.quantize_nvfp4_static,
+        ops.quantize_nvfp3_static,
+        ops.quantize_nvfp6_static,
+    )
+
+
 class CuteSm100QuantizeBackend(QuantizeBackendBase):
     """CuTe-DSL quantization backend for B200/GB200 (sm_100)."""
 
@@ -748,6 +774,64 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
         x: torch.Tensor,
         config: QuantizationConfig,
     ) -> QuantizedTensor:
+        if (
+            not config.transpose
+            and not config.rht
+            and not config.block_scale_2d
+            and not config.pseudo_quantize
+            and config.dtype in _FAST_STATIC_NV_DTYPES
+            and config.scale_rule in _STATIC_SCALE_RULES
+            and (
+                config.dtype in _FAST_STATIC_NVFP4_DTYPES
+                or config.scale_rule == ScaleRule.static_6
+            )
+        ):
+            quantize_nvfp4_static, quantize_nvfp3_static, quantize_nvfp6_static = (
+                _static_nv_quantizers()
+            )
+            x_amax = config.kwargs.get("x_amax")
+            if config.dtype in _FAST_STATIC_NVFP4_DTYPES:
+                values, scale_factors_u8, amax = quantize_nvfp4_static(
+                    x,
+                    max_quantized_value=6
+                    if config.scale_rule == ScaleRule.static_6
+                    else 4,
+                    scale_block_size=config.dtype.block_size,
+                    stochastic_rounding=(
+                        config.dtype == DataType.nvfp4
+                        and config.round_style == RoundStyle.stochastic
+                    ),
+                    x_amax=x_amax,
+                )
+            elif config.dtype in _FAST_STATIC_NVFP3_DTYPES:
+                values, scale_factors_u8, amax = quantize_nvfp3_static(
+                    x,
+                    scale_block_size=config.dtype.block_size,
+                    adjustment_factor=1.0,
+                    x_amax=x_amax,
+                )
+            else:
+                values, scale_factors_u8, amax = quantize_nvfp6_static(
+                    x,
+                    max_quantized_value=(
+                        7.5 if config.dtype == DataType.nvfp6_e2m3 else 28.0
+                    ),
+                    use_e3m2=config.dtype == DataType.nvfp6_e3m2,
+                    adjustment_factor=config.round_style.adjustment_factor,
+                    x_amax=x_amax,
+                )
+
+            return QuantizedTensor(
+                values,
+                scale_factors_u8.view(torch.float8_e4m3fn),
+                amax,
+                config.dtype,
+                x.shape,
+                config.scale_rule,
+                config.round_style,
+                scale_factors_are_in_blackwell_layout=False,
+            )
+
         from fouroversix.kernels.cute_sm100.ops import (
             quantize_if3_adaptive,
             quantize_if3_adaptive_2d,

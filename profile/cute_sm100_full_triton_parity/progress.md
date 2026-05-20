@@ -172,6 +172,14 @@ This is a progress record, not a completion claim.
   global amax, plus NVFP4 fused pseudo paths. RHT continues to recompute
   post-transform amax to match Triton's behavior; MX formats do not use global
   amax.
+- Added a cached explicit-backend `can_quantize` check in the frontend for
+  configurations without extra tensor kwargs. This removes repeated support
+  matrix walking from CUDA-event benchmark loops while preserving the first
+  real backend validation.
+- Added a CuTe backend fast path for common 1D NV static quantize calls
+  (`nvfp4`, `nvfp4_bs8`, `nvfp3`, `nvfp3_bs8`, `nvfp6_e2m3`, and
+  `nvfp6_e3m2`) that bypasses the long generic CuTe dispatch chain for
+  no-transpose/no-RHT/no-2D/no-pseudo calls.
 - Re-tested NVFP3/NVFP3_BS8 `block_scale_2d=True` implementation feasibility.
   The experimental 2D FP3 path matched Triton scales for NVFP3, but raw values
   were invalid/non-matching (`valueeq` around `0.07`) and dequantized distance
@@ -1519,6 +1527,50 @@ timing still shows the full CuTe call at about `0.065 ms` versus Triton around
 next NV static work should focus on helper/output overhead and a more precise
 CUDA-level timeline, not on retuning the already faster static quantize kernel.
 
+Added `profile_static_breakdown.py` to split the static NV path into amax,
+lower-level kernel, `QuantizedTensor` construction, and public frontend timing.
+For `4096x4096 nvfp4 static_6`, the lower-level CuTe path with auto-amax is
+already slightly faster than Triton (`~0.048 ms` versus `~0.049 ms`), but the
+public frontend call remains slower (`~0.061 ms` versus Triton `~0.057-0.058
+ms`). This confirms that the retained non-BS8 NV static gap is now mostly
+frontend/launch idle plus a small wrapper cost, not the main CuTe kernel body.
+
+The explicit-backend support-cache and narrow static-NV fast path are retained.
+They preserve the target NV/NVFP CuTe accuracy slice:
+
+```text
+120 passed, 6 skipped, 34961 deselected, 1 warning in 11.66s
+```
+
+The full CuTe sm100 test selection also passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.37s
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+121/470 workloads meet 1.2x
+281/470 workloads are at least Triton parity
+```
+
+The class breakdown for 1.2x rows is:
+
+```text
+pseudo_quantize: 48
+block_scale_2d:  46
+base:            18
+transpose:        9
+```
+
+The main positive movement is small/medium-shape frontend overhead and BS8 NV
+static rows. On 4096x4096, `nvfp4_bs8 static_6` now reports `1.318x` and
+`nvfp3_bs8 static_6` reports `1.336x`. The non-BS8 NV static rows still miss:
+`nvfp4 static_6` is `0.947x`, `nvfp6_e2m3 static_6` is `0.964x`, and
+`nvfp3 static_6` is `0.949x`. Large transpose rows remain a separate major
+kernel-design gap.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1535,5 +1587,5 @@ CUDA-level timeline, not on retuning the already faster static quantize kernel.
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `66/470`
+  latest median capability-driven benchmark snapshot reports only `121/470`
   workloads meeting 1.2x.
