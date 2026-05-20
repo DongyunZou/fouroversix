@@ -1284,6 +1284,24 @@ pseudo; the likely next optimization is a dedicated 2D tiled IF3/IF3_BS8 pseudo
 kernel rather than another small launch-parameter change. The raw NCU reports
 and command notes are under `profile/cute_sm100_full_triton_parity/ncu/`.
 
+Re-tested a launch-only IF3 fused pseudo experiment by raising only
+`Sm100IF3AdaptivePseudoQuantize` to `min_blocks_per_mp=16`. The change did not
+move 4096x4096 IF3 pseudo materially (`if3 abs_max/mae/mse` stayed around
+`0.80-0.84x`; IF3_BS8 remained around `1.09-1.18x`), so the experiment was not
+retained. This reinforces the NCU conclusion that IF3 pseudo needs a different
+tiled mapping rather than a small launch-parameter tweak.
+
+Profiled 4096x4096 `if6_e3m2 + abs_max` base quantize. Nsight Compute shows
+the main CuTe quantization kernel is actually faster than Triton's main
+kernel (`29.4-29.6 us` vs `44.5-45.2 us`) with slightly fewer registers
+(`46` vs `48`) and higher active warps (`51%` vs `48%`). Torch profiler shows
+the end-to-end CuTe path still spends more time in helper elementwise kernels
+outside the main kernel. The current full benchmark's fixed one-shot
+Triton-then-CuTe ordering is therefore too noisy for near-threshold rows; use
+repeated alternating-order medians before treating those rows as kernel
+rewrite targets. Raw reports and the command summary are in
+`profile/cute_sm100_full_triton_parity/ncu/`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
