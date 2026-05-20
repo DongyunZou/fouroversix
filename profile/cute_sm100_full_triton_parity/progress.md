@@ -2067,6 +2067,62 @@ pseudo_quantize: 65
 transpose:       21
 ```
 
+Added fused CuTe sm100 static NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6
+transpose quantize paths for `static_6`. These follow the same scalar
+direct-transpose structure as the NVFP4/NVFP6 paths and skip the
+`x.T.contiguous()` materialization for these five rows.
+
+The targeted NVINT transpose test selection passes:
+
+```text
+38 passed, 35049 deselected, 1 warning in 6.62s
+```
+
+The full CuTe sm100 test selection also passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.90s
+```
+
+Targeted alternating timings improved the affected transpose rows:
+
+```text
+1024x1024 nvint3 static_6 transpose      1.187x -> 1.338x
+1024x1024 nvint3_bs8 static_6 transpose  1.231x -> 1.345x
+1024x1024 nvint4 static_6 transpose      1.172x -> 1.303x
+1024x1024 nvint4_bs8 static_6 transpose  1.210x -> 1.356x
+1024x1024 nvint6 static_6 transpose      1.213x -> 1.356x
+4096x4096 nvint3 static_6 transpose      0.813x -> 0.977x
+4096x4096 nvint3_bs8 static_6 transpose  0.989x -> 1.227x
+4096x4096 nvint4 static_6 transpose      0.814x -> 0.975x
+4096x4096 nvint4_bs8 static_6 transpose  0.974x -> 1.201x
+4096x4096 nvint6 static_6 transpose      0.812x -> 0.955x
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+241/470 workloads meet 1.2x
+433/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            91
+block_scale_2d:  63
+pseudo_quantize: 62
+transpose:       25
+```
+
+The remaining below-parity rows are concentrated in transpose:
+
+```text
+transpose:       32
+block_scale_2d:   4
+pseudo_quantize:  1
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -2082,6 +2138,6 @@ transpose:       21
   `nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
-- Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `240/470`
+- Performance target still missing for many current supported workloads. The
+  latest median capability-driven benchmark snapshot reports only `241/470`
   workloads meeting 1.2x.
