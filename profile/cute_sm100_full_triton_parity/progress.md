@@ -1385,6 +1385,28 @@ A targeted `Sm100NVFP6StaticQuantize` launch experiment with
 `min_blocks_per_mp=16` did not materially improve the row (`0.91-0.92x`), so
 the launch setting was restored to `BLOCKS_PER_SM`.
 
+Profiled a Triton-favorable 4096x4096 MXFP4 pseudo workload to separate kernel
+time from wrapper noise. Torch profiler reported CuTe's single pseudo kernel at
+about `13.6us` versus Triton's pseudo kernel at about `16.8us`, with Triton also
+launching a small `aten::ones/fill_` helper for MX scaling. Repeated CUDA-event
+timing is noisier and still sits only around parity:
+
+```text
+mxfp4 static_4 pseudo 1.009x
+mxfp4 static_6 pseudo 0.982x
+mxfp6_e2m3 static_4 pseudo 1.030x
+nvfp4 static_6 pseudo 1.452x
+if3 abs_max pseudo 0.794x
+```
+
+A targeted MXFP4/MXFP6 pseudo launch experiment with `min_blocks_per_mp=16`
+did not create a stable gain (`0.98-1.06x` on sampled MX rows), so the launch
+setting was restored to `BLOCKS_PER_SM`. The useful conclusion is that MX
+pseudo is close to parity and launch-bound/noise-sensitive, while IF3 pseudo is
+a real algorithmic kernel gap: the fused CuTe IF3 pseudo path remains about
+`0.79x` on 4096x4096 because it evaluates both FP3 and INT3 candidates plus
+the error metric per 16-value block.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
