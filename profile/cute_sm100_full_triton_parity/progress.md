@@ -3119,6 +3119,30 @@ the focused/full timings were mixed. The refreshed full benchmark reports
 untouched MX boundary rows moved below the previous retained snapshot, so this
 is still a progress snapshot rather than a completion claim.
 
+Retuned `Sm100NVFP4StaticQuantize` residency from 8 to 16 blocks/SM while
+leaving transpose, 2D, and pseudo kernels on their existing launch contracts.
+This is a narrow retune for the 128-thread NVFP4/NVFP4_BS8 static/base CTA.
+Focused timing improved the representative base rows but did not fully clear
+the 1.2x target: 1024x1024 `nvfp4 static_4/static_6` measured about
+`1.17x/1.18x`, and 1024x1024 `nvfp4_bs8 static_4/static_6` measured about
+`1.16x/1.16x`; large `nvfp4_bs8` rows measured above target, while large
+non-BS8 NVFP4 stayed around `1.13x-1.17x`.
+
+Also removed redundant IF3 pseudo output dequantization after candidate
+selection: the kernel now computes both FP3/INT3 candidate errors as before,
+then dequantizes only the selected candidate instead of always dequantizing
+FP3 first and overwriting it for INT-selected blocks. The targeted IF3 pseudo
+accuracy selection passes (`6 passed`). Focused timing shows small-shape IF3
+pseudo can move modestly, but the main 4096x4096 non-BS8 IF3 pseudo gap is
+unchanged (`abs_max` still about `0.98x`, `mae/mse` about `1.06x`), so this
+does not solve the IF3 kernel-body bottleneck.
+
+The full CuTe sm100 test selection passes (`449 passed, 7 skipped`). The
+refreshed full benchmark reports `319/476` workloads meeting 1.2x, with class
+breakdown `base=92`, `block_scale_2d=93`, `pseudo_quantize=67`, and
+`transpose=67`. The full-run row movement still includes unrelated MX boundary
+noise, so this remains a progress snapshot rather than a completion claim.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3133,5 +3157,5 @@ is still a progress snapshot rather than a completion claim.
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `300/476`
+  latest median capability-driven benchmark snapshot reports `319/476`
   workloads meeting 1.2x.

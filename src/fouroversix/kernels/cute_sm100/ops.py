@@ -3372,17 +3372,24 @@ def _process_if3_adaptive_pseudo_block_bfloat(
     )
 
     z = cutlass.Uint32(0)
-    out0, out1 = _dequant_e2m0x4_to_bfloat2x2(fp0, dequant_scale)
-    out2, out3 = _dequant_e2m0x4_to_bfloat2x2(fp1, dequant_scale)
+    out0 = z
+    out1 = z
+    out2 = z
+    out3 = z
     out4 = z
     out5 = z
     out6 = z
     out7 = z
-    if cutlass.const_expr(scale_block_size != 8):
-        out4, out5 = _dequant_e2m0x4_to_bfloat2x2(fp2, dequant_scale)
-        out6, out7 = _dequant_e2m0x4_to_bfloat2x2(fp3, dequant_scale)
+    use_int = error_int < error_fp
 
-    if error_int < error_fp:
+    if not use_int:
+        out0, out1 = _dequant_e2m0x4_to_bfloat2x2(fp0, dequant_scale)
+        out2, out3 = _dequant_e2m0x4_to_bfloat2x2(fp1, dequant_scale)
+        if cutlass.const_expr(scale_block_size != 8):
+            out4, out5 = _dequant_e2m0x4_to_bfloat2x2(fp2, dequant_scale)
+            out6, out7 = _dequant_e2m0x4_to_bfloat2x2(fp3, dequant_scale)
+
+    if use_int:
         dequant_scale_int = dequant_scale * Float32(IF3_INT_EXPANSION_FACTOR)
         out0, out1 = _dequant_int3x4_to_bfloat2x2(int0, dequant_scale_int)
         out2, out3 = _dequant_int3x4_to_bfloat2x2(int1, dequant_scale_int)
@@ -3753,7 +3760,7 @@ class Sm100NVFP4StaticQuantize:
             grid=[num_blocks, 1, 1],
             block=[NVFP4_BASE_THREADS_PER_BLOCK, 1, 1],
             max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
-            min_blocks_per_mp=BLOCKS_PER_SM,
+            min_blocks_per_mp=16,
             stream=stream,
         )
 
