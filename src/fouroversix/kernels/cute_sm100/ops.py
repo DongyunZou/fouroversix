@@ -13232,7 +13232,11 @@ def _quantize_nvfp4_candidate(
     amax = _resolve_amax(x, x_amax)
 
     total_scale_blocks = m * (k // scale_block_size)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _launch_grid(
+        total_scale_blocks,
+        x.device,
+        threads_per_block=NVFP4_BASE_THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_static_quantize(
         k,

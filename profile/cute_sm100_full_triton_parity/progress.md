@@ -3084,6 +3084,20 @@ benchmark reports `295/476` workloads meeting 1.2x, with the current 1.2x class
 breakdown at `base=76`, `block_scale_2d=92`, `pseudo_quantize=67`, and
 `transpose=60`.
 
+Aligned the non-transpose NVFP4 static/base wrapper's launch-grid calculation
+with `Sm100NVFP4StaticQuantize`, which launches `NVFP4_BASE_THREADS_PER_BLOCK`
+(`128`) threads per CTA. The wrapper had been using the `_launch_grid` default
+of `256` threads when deciding how many CTAs to launch, which reduced available
+parallelism for small and medium base rows even though the kernel itself used a
+128-thread stride. The targeted NV static/base accuracy slice passes (`47
+passed, 6 skipped`), and the full CuTe sm100 test selection passes (`449
+passed, 7 skipped`). Focused timings for representative NV static rows improved
+but still mostly remain below the 1.2x target, for example 1024x1024
+`nvfp4 static_4` is about `1.15x`, 1024x1024 `nvfp4 static_6` about `1.14x`,
+and 4096x4096 `nvfp4 static_6` about `1.14x`. The refreshed full benchmark now
+reports `310/476` workloads meeting 1.2x, with the current 1.2x class breakdown
+at `base=87`, `block_scale_2d=92`, `pseudo_quantize=67`, and `transpose=64`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3098,5 +3112,5 @@ breakdown at `base=76`, `block_scale_2d=92`, `pseudo_quantize=67`, and
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `295/476`
+  latest median capability-driven benchmark snapshot reports `310/476`
   workloads meeting 1.2x.
