@@ -1986,6 +1986,51 @@ about a 1% improvement for 4096x4096 NV transpose rows and regressed a
 NV transpose needs a real fused tiled transpose-plus-quantize kernel rather
 than another frontend/launch retune.
 
+Added a fused CuTe sm100 static NVFP4/NVFP4_BS8 transpose quantize path for
+`static_4/static_6`, modelled after the retained scalar MX transpose kernels.
+This removes the `x.T.contiguous()` materialization for these four rows and
+keeps the CuTe static NV quantizer's E4M3-scale behavior. The existing targeted
+NVFP4 transpose accuracy slice passes:
+
+```text
+5 passed, 35082 deselected, 1 warning in 4.59s
+```
+
+The full CuTe sm100 test selection also passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 34.06s
+```
+
+Targeted alternating timings improved the affected transpose rows:
+
+```text
+1024x1024 nvfp4 static_4 transpose       0.951x -> 1.077x
+1024x1024 nvfp4 static_6 transpose       0.954x -> 1.060x
+1024x1024 nvfp4_bs8 static_4 transpose   0.944x -> 1.076x
+1024x1024 nvfp4_bs8 static_6 transpose   0.972x -> 1.094x
+4096x4096 nvfp4 static_4 transpose       0.728x -> 0.849x
+4096x4096 nvfp4 static_6 transpose       0.730x -> 0.849x
+4096x4096 nvfp4_bs8 static_4 transpose   0.866x -> 1.030x
+4096x4096 nvfp4_bs8 static_6 transpose   0.866x -> 1.030x
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+231/470 workloads meet 1.2x
+429/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            86
+block_scale_2d:  59
+pseudo_quantize: 61
+transpose:       25
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -2002,5 +2047,5 @@ than another frontend/launch retune.
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `239/470`
+  latest median capability-driven benchmark snapshot reports only `231/470`
   workloads meeting 1.2x.
