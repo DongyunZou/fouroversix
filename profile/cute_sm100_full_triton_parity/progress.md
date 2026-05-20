@@ -3054,6 +3054,20 @@ existing IF3 pseudo accuracy gate (`diff MSE` around `0.022` versus a
 `0.0003` limit). Fixing IF3 non-BS8 pseudo needs a deeper kernel change than
 launch retuning or candidate-selection shortcuts.
 
+Reworked `Sm100MXFP4BS8StaticQuantize2D` from one thread serially scanning and
+then rescanning an 8-row scale tile to an 8-lane group-per-tile mapping. Each
+lane now loads one row, the group computes the tile max with
+`warp_reduction_max(..., threads_in_group=8)`, and the same loaded row is
+quantized and written. This removes the second tile load and the row loop from
+the BS8 2D kernel. The targeted MXFP4/MXFP4_BS8 2D accuracy slice passes
+(`12 passed`) and the full CuTe sm100 test selection passes (`449 passed, 7
+skipped`). Focused alternating timings for `mxfp4_bs8 block_scale_2d=True`
+measure about `1.25x` at 128x256, `1.24x-1.27x` at 1024x1024, and
+`1.23x-1.29x` at 4096x4096. The refreshed full benchmark still has system-wide
+noise and reports `278/476` workloads meeting 1.2x, but the MXFP4_BS8 2D rows
+now clear the target except for a borderline `1024x1024 static_4` row measured
+at `1.189x` in that full run.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3068,5 +3082,5 @@ launch retuning or candidate-selection shortcuts.
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `331/470`
+  latest median capability-driven benchmark snapshot reports `278/476`
   workloads meeting 1.2x.

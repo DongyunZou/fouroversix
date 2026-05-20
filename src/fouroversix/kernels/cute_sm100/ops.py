@@ -77,6 +77,8 @@ MXFP3_2D_WARPS_PER_BLOCK = 4
 MXFP3_2D_THREADS_PER_BLOCK = 128
 IF3_2D_GROUP_SIZE = 16
 IF3_2D_GROUPS_PER_BLOCK = 16
+MXFP4_BS8_2D_GROUP_SIZE = 8
+MXFP4_BS8_2D_GROUPS_PER_BLOCK = THREADS_PER_BLOCK // MXFP4_BS8_2D_GROUP_SIZE
 BLOCKS_PER_SM = 8
 MAX_THREADS_PER_BLOCK = 1024
 E4M3_STATIC_MAX = 448.0
@@ -7066,34 +7068,34 @@ class Sm100MXFP4BS8StaticQuantize2D:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        tile_idx = bidx * THREADS_PER_BLOCK + tidx
-        stride = grid_dim_x * THREADS_PER_BLOCK
+        lane_idx = tidx % Int32(MXFP4_BS8_2D_GROUP_SIZE)
+        group_idx = tidx // Int32(MXFP4_BS8_2D_GROUP_SIZE)
+        tile_idx = bidx * MXFP4_BS8_2D_GROUPS_PER_BLOCK + group_idx
+        stride = grid_dim_x * MXFP4_BS8_2D_GROUPS_PER_BLOCK
 
         while tile_idx < total_scale_tiles:
             row_group = tile_idx // self.scale_blocks_per_row
             col_idx = tile_idx % self.scale_blocks_per_row
             elem_base = col_idx * Int32(8)
 
-            block_max_h2 = cutlass.Uint32(0)
-            row_offset = Int32(0)
-            while row_offset < Int32(8):
-                row_idx = row_group * Int32(8) + row_offset
-                ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
-                h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
-                row_max = bfloat2_max_abs_8(
-                    h0,
-                    h1,
-                    h2,
-                    h3,
-                    cutlass.Uint32(0),
-                    cutlass.Uint32(0),
-                    cutlass.Uint32(0),
-                    cutlass.Uint32(0),
-                )
-                block_max_h2 = bfloat2_hmax2(block_max_h2, row_max)
-                row_offset = row_offset + Int32(1)
-
-            block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
+            row_idx = row_group * Int32(8) + lane_idx
+            ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
+            h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
+            row_max_h2 = bfloat2_max_abs_8(
+                h0,
+                h1,
+                h2,
+                h3,
+                cutlass.Uint32(0),
+                cutlass.Uint32(0),
+                cutlass.Uint32(0),
+                cutlass.Uint32(0),
+            )
+            row_max = bfloat2_hmax_reduce_to_f32(row_max_h2)
+            block_max = cute.arch.warp_reduction_max(
+                row_max,
+                threads_in_group=MXFP4_BS8_2D_GROUP_SIZE,
+            )
             normalized_max = block_max * rcp_approx_ftz(
                 Float32(float(self.max_quantized_value)),
             )
@@ -7101,25 +7103,19 @@ class Sm100MXFP4BS8StaticQuantize2D:
             scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
             inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
 
-            row_offset = Int32(0)
-            while row_offset < Int32(8):
-                row_idx = row_group * Int32(8) + row_offset
-                ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
-                h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
-                packed32 = bfloat2x4_to_e2m1x8_packed(
-                    h0,
-                    h1,
-                    h2,
-                    h3,
-                    inv_scale,
-                )
+            packed32 = bfloat2x4_to_e2m1x8_packed(
+                h0,
+                h1,
+                h2,
+                h3,
+                inv_scale,
+            )
 
-                sf_idx = row_idx * self.scale_blocks_per_row + col_idx
-                scales[sf_idx] = scale_ue8m0
-                output_offset = col_idx * Int32(4)
-                output_ptr = get_ptr_as_int64(values[row_idx, None], output_offset)
-                st_global_u32(output_ptr, packed32)
-                row_offset = row_offset + Int32(1)
+            sf_idx = row_idx * self.scale_blocks_per_row + col_idx
+            scales[sf_idx] = scale_ue8m0
+            output_offset = col_idx * Int32(4)
+            output_ptr = get_ptr_as_int64(values[row_idx, None], output_offset)
+            st_global_u32(output_ptr, packed32)
 
             tile_idx = tile_idx + stride
 
@@ -13979,7 +13975,11 @@ def quantize_mxfp4_bs8_static_2d(
         device=x.device,
     )
     total_scale_tiles = (m // 8) * (k // 8)
-    num_blocks = _launch_grid(total_scale_tiles, x.device)
+    num_blocks = _launch_grid(
+        total_scale_tiles,
+        x.device,
+        threads_per_block=MXFP4_BS8_2D_GROUPS_PER_BLOCK,
+    )
 
     kernel = _compile_mxfp4_bs8_static_quantize_2d(k, max_quantized_value)
     kernel(
