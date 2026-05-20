@@ -842,6 +842,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             quantize_if6_adaptive,
             quantize_if6_adaptive_2d,
             quantize_mxfp3_static,
+            quantize_mxfp3_static_transpose,
             quantize_mxfp3_bs8_static_2d,
             quantize_mxfp3_static_2d,
             quantize_mxfp4_static,
@@ -849,6 +850,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             quantize_mxfp4_static_2d,
             quantize_mxfp4_static_transpose,
             quantize_mxfp6_static,
+            quantize_mxfp6_static_transpose,
             quantize_mxfp6_static_2d,
             quantize_nvfp4_adaptive_2d,
             quantize_nvint3_static,
@@ -877,9 +879,27 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             and config.dtype in {DataType.mxfp4, DataType.mxfp4_bs8}
             and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
         )
+        use_mxfp3_static_transpose_kernel = (
+            config.transpose
+            and not config.rht
+            and not config.block_scale_2d
+            and config.dtype in {DataType.mxfp3, DataType.mxfp3_bs8}
+            and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+        )
+        use_mxfp6_static_transpose_kernel = (
+            config.transpose
+            and not config.rht
+            and not config.block_scale_2d
+            and config.dtype in {DataType.mxfp6_e2m3, DataType.mxfp6_e3m2}
+            and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+        )
         x_quantize = (
             x
-            if use_mxfp4_static_transpose_kernel
+            if (
+                use_mxfp4_static_transpose_kernel
+                or use_mxfp3_static_transpose_kernel
+                or use_mxfp6_static_transpose_kernel
+            )
             else x.T.contiguous()
             if config.transpose
             else x
@@ -1046,7 +1066,11 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             config.dtype in {DataType.mxfp3, DataType.mxfp3_bs8}
             and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
         ):
-            values, scale_factors_u8 = quantize_mxfp3_static(
+            values, scale_factors_u8 = (
+                quantize_mxfp3_static_transpose
+                if use_mxfp3_static_transpose_kernel
+                else quantize_mxfp3_static
+            )(
                 x_quantize,
                 scale_block_size=config.dtype.block_size,
             )
@@ -1170,7 +1194,11 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             config.dtype == DataType.mxfp6_e2m3
             and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
         ):
-            values, scale_factors_u8 = quantize_mxfp6_static(
+            values, scale_factors_u8 = (
+                quantize_mxfp6_static_transpose
+                if use_mxfp6_static_transpose_kernel
+                else quantize_mxfp6_static
+            )(
                 x_quantize,
                 max_quantized_value=(
                     4.0 if config.scale_rule == ScaleRule.static_4 else 7.5
@@ -1197,7 +1225,11 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             config.dtype == DataType.mxfp6_e3m2
             and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
         ):
-            values, scale_factors_u8 = quantize_mxfp6_static(
+            values, scale_factors_u8 = (
+                quantize_mxfp6_static_transpose
+                if use_mxfp6_static_transpose_kernel
+                else quantize_mxfp6_static
+            )(
                 x_quantize,
                 max_quantized_value=(
                     4.0 if config.scale_rule == ScaleRule.static_4 else 28.0

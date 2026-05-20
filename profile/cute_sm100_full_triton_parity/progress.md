@@ -180,6 +180,10 @@ This is a progress record, not a completion claim.
   (`nvfp4`, `nvfp4_bs8`, `nvfp3`, `nvfp3_bs8`, `nvfp6_e2m3`, and
   `nvfp6_e3m2`) that bypasses the long generic CuTe dispatch chain for
   no-transpose/no-RHT/no-2D/no-pseudo calls.
+- Added narrow fused CuTe transpose quantize paths for 1D `mxfp3`,
+  `mxfp3_bs8`, `mxfp6_e2m3`, and `mxfp6_e3m2` static quantize. These reuse
+  the existing scalar transposed-load approach from the MXFP4 transpose path
+  and avoid `x.T.contiguous()` for these modes.
 - Re-tested NVFP3/NVFP3_BS8 `block_scale_2d=True` implementation feasibility.
   The experimental 2D FP3 path matched Triton scales for NVFP3, but raw values
   were invalid/non-matching (`valueeq` around `0.07`) and dequantized distance
@@ -1571,6 +1575,35 @@ static rows. On 4096x4096, `nvfp4_bs8 static_6` now reports `1.318x` and
 `nvfp3 static_6` is `0.949x`. Large transpose rows remain a separate major
 kernel-design gap.
 
+Extended the scalar fused transpose approach from MXFP4 to MXFP3/MXFP3_BS8 and
+MXFP6 E2M3/E3M2. The targeted MXFP3/MXFP6 CuTe test slice passes:
+
+```text
+72 passed, 35015 deselected, 1 warning in 12.47s
+```
+
+The full CuTe sm100 test selection passes after the extension:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.47s
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+125/470 workloads meet 1.2x
+289/470 workloads are at least Triton parity
+```
+
+The fused transpose extension is useful but not sufficient. On 1024x1024,
+`mxfp3/mxfp3_bs8/mxfp6_e2m3/mxfp6_e3m2 static_6 transpose=True` now report
+about `1.14-1.16x`, up from near parity or below. On 4096x4096 they improve
+materially but remain below Triton: `mxfp3 static_6` is `0.844x`,
+`mxfp3_bs8 static_6` is `0.795x`, `mxfp6_e2m3 static_6` is `0.778x`, and
+`mxfp6_e3m2 static_6` is `0.776x`. The next transpose step remains a true
+tiled/shared-memory transpose+quantize kernel with coalesced loads; scalar
+transposed loads cannot close the large-shape gap.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1587,5 +1620,5 @@ kernel-design gap.
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `121/470`
+  latest median capability-driven benchmark snapshot reports only `125/470`
   workloads meeting 1.2x.
