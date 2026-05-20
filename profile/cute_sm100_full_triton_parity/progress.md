@@ -2514,6 +2514,19 @@ differences and `static_6` max difference was `6.0`). The experiment was
 reverted. A correct transpose fix needs a real tiled/shared-memory transpose
 layout that preserves the expected output scale/value ordering.
 
+Tested an IF3 pseudo `abs_max` specialization that forced the FP3 candidate and
+skipped the INT3 candidate selection for `abs_max`. This failed the existing
+Triton-error accuracy gate for both IF3 and IF3_BS8:
+
+```text
+2 failed, 4 passed, 35081 deselected, 1 warning in 4.93s
+```
+
+The mean squared output delta versus Triton was `0.0583` for IF3 and `0.0362`
+for IF3_BS8, far above the `3e-4` gate. The experiment was reverted; the INT3
+candidate remains necessary for `abs_max` pseudo parity, so the performance gap
+cannot be closed by dropping candidate selection.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
