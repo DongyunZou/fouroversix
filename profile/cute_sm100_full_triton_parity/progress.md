@@ -2695,6 +2695,13 @@ The mean squared output delta versus Triton was about `0.0220` for IF3 and
 Together with the prior FP3-only failure, this confirms that `abs_max` pseudo
 needs per-block FP3/INT3 candidate comparison for Triton-error parity.
 
+Tested an IF3 pseudo occupancy-hint retune by lowering
+`Sm100IF3AdaptivePseudoQuantize` from `min_blocks_per_mp=8` to 4 while keeping
+the 256-thread CTA. The targeted IF3/IF3_BS8 pseudo accuracy slice passed, but
+the critical 4096x4096 `if3 abs_max pseudo` row stayed at about `0.976x`; the
+change was reverted. This makes the remaining IF3 pseudo gap a kernel-body
+candidate/error cost issue, not a launch-bound occupancy hint.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
