@@ -2854,6 +2854,15 @@ representative timing did not improve the remaining row:
 `4096x4096 if3 abs_max pseudo_quantize=True` stayed around `0.98x`, while small
 IF3/IF3_BS8 pseudo rows were slightly slower. The experiment was reverted.
 
+Re-tested 1D NVFP6 E2M3 stochastic-unbiased by temporarily allowing the current
+static NVFP6 CuTe kernel to use the standard stochastic-unbiased adjustment
+factor. The targeted 1024x1024 accuracy gate failed: Triton L2 distance was
+about `26.016`, while CuTe with the standard `16/17` adjustment was about
+`26.539`. A small adjustment-factor sweep around the optimum did not close the
+gap either; the best tested value was about `0.944`, with CuTe L2 distance
+about `26.278`. The backend still does not claim this mode, and the experiment
+was reverted.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
