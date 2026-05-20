@@ -1918,6 +1918,16 @@ the retained baseline. The experiment was reverted, reinforcing that the 2D
 gap is not solved by more/smaller CTAs while each thread still serializes a
 full scale tile.
 
+Re-tested a Python-dispatch cleanup for fused pseudo paths by moving the large
+`pseudo_quantize` kernel import tuple behind an `lru_cache` helper. The
+targeted pseudo accuracy slice passed (`24 passed`) and the full CuTe sm100
+test selection still passed (`449 passed, 7 skipped`), but targeted timings
+did not show a stable improvement for the failing IF3/IF4/NVFP pseudo rows.
+The full alternating benchmark with this change dropped to `212/470`
+workloads meeting 1.2x, below the retained `221/470` snapshot. The experiment
+was reverted; the pseudo gap is dominated by kernel/launch behavior rather
+than that small Python import-dispatch cost.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
