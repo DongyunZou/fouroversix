@@ -2426,6 +2426,18 @@ block_scale_2d:   3
 pseudo_quantize:  1
 ```
 
+Re-tested the apparent `1024x1024 mxfp6_e3m2 static_6 block_scale_2d=True`
+below-parity row with a targeted 7-repeat alternating benchmark. The refreshed
+median was `1.170x` (`triton=0.04692ms`, `cute=0.04011ms`), so the full
+snapshot's `0.961x` row appears to be benchmark noise rather than a stable
+kernel regression.
+
+Also tested `Sm100IF3AdaptivePseudoQuantize` with 128-thread and 64-thread CTA
+launches for the 4096x4096 `if3 pseudo_quantize=True` gap. The `abs_max` row
+stayed below parity at roughly `0.985x`, while `mae/mse` remained around
+`1.06x`. These launch-only changes were reverted; the IF3 pseudo gap still
+requires a real tiled pseudo kernel rather than CTA-size retuning.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
