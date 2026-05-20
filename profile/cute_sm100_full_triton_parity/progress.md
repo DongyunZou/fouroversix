@@ -2751,6 +2751,14 @@ pseudo_quantize:  1
 block_scale_2d:   1
 ```
 
+Re-tested a similar launch retune for `Sm100NVFP6StaticQuantize`, changing the
+base NVFP6 static kernel from 256-thread CTAs to 128-thread CTAs. The targeted
+NVFP6 static accuracy slice passed (`9 passed`), but timing did not improve the
+near-threshold rows: `nvfp6_e2m3` stayed around `1.14x-1.17x`, while
+`nvfp6_e3m2 1024x1024` regressed to about `1.11x`. The retune was reverted.
+The isolated `nvfp6_e2m3 1024x1024` below-parity row in the refreshed full
+benchmark appears to be timing noise; a targeted repeat measured about `1.17x`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
