@@ -2829,6 +2829,23 @@ The only below-parity row in this run is:
 4096x4096 if3 abs_max pseudo_quantize=True: 0.987x
 ```
 
+Tested dedicated fused-transpose CTA sizes after the col-major work-order
+retune by changing only the retuned transpose classes from the default
+256-thread CTA to 128 and 512 threads. Both variants passed the targeted
+transpose accuracy slice (`5 passed` for the 128-thread run), but neither beat
+the retained 256-thread setting. The 128-thread run regressed representative
+4096x4096 rows such as `mxfp4_bs8 static_6 transpose` to about `1.15x` and
+`mxfp4 static_4 transpose` to about `1.14x`; the 512-thread run remained below
+the retained snapshot for MXFP4_BS8/NVFP4/NVINT representative rows. The CTA
+size experiment was reverted.
+
+Tested lowering the retained `NVFP4_BASE_THREADS_PER_BLOCK` from 128 to 64 for
+the non-transpose NVFP4/NVFP4_BS8 base kernels. The targeted accuracy slice
+passed (`42 passed, 6 skipped`), but representative timing did not show a
+stable improvement: 128x256 static rows stayed around `1.11x`, 1024x1024 rows
+were mixed, and 4096x4096 gains were inconsistent with regressions on BS8. The
+64-thread base CTA experiment was reverted.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
