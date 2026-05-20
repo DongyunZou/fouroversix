@@ -2438,6 +2438,57 @@ stayed below parity at roughly `0.985x`, while `mae/mse` remained around
 `1.06x`. These launch-only changes were reverted; the IF3 pseudo gap still
 requires a real tiled pseudo kernel rather than CTA-size retuning.
 
+Retuned `Sm100MXFP6StaticQuantize2D` from 256-thread CTAs to 32-thread CTAs,
+using the same `_launch_grid(..., threads_per_block=STATIC_2D_THREADS_PER_BLOCK)`
+override as MXFP3 2D. The targeted MXFP6 2D accuracy slice passes:
+
+```text
+12 passed, 35075 deselected, 1 warning in 5.22s
+```
+
+The full CuTe sm100 test selection still passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.61s
+```
+
+Targeted alternating timings for MXFP6 2D block-scale after the retune:
+
+```text
+1024x1024 mxfp6_e2m3 static_4  1.153x
+1024x1024 mxfp6_e2m3 static_6  1.156x
+1024x1024 mxfp6_e3m2 static_4  1.168x
+1024x1024 mxfp6_e3m2 static_6  1.160x
+4096x4096 mxfp6_e2m3 static_4  1.159x
+4096x4096 mxfp6_e2m3 static_6  1.192x
+4096x4096 mxfp6_e3m2 static_4  1.182x
+4096x4096 mxfp6_e3m2 static_6  1.173x
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+226/470 workloads meet 1.2x
+447/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            81
+block_scale_2d:  54
+pseudo_quantize: 58
+transpose:       33
+```
+
+The remaining below-parity rows are:
+
+```text
+transpose:       20
+block_scale_2d:   2
+pseudo_quantize:  1
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -2454,5 +2505,5 @@ requires a real tiled pseudo kernel rather than CTA-size retuning.
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `228/470`
+  latest median capability-driven benchmark snapshot reports only `226/470`
   workloads meeting 1.2x.

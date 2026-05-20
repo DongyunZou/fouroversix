@@ -7158,7 +7158,7 @@ class Sm100MXFP6StaticQuantize2D:
     ):
         self.kernel(x, values, scales, total_scale_tiles).launch(
             grid=[num_blocks, 1, 1],
-            block=[THREADS_PER_BLOCK, 1, 1],
+            block=[STATIC_2D_THREADS_PER_BLOCK, 1, 1],
             max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
             min_blocks_per_mp=BLOCKS_PER_SM,
             stream=stream,
@@ -7176,8 +7176,8 @@ class Sm100MXFP6StaticQuantize2D:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        tile_idx = bidx * THREADS_PER_BLOCK + tidx
-        stride = grid_dim_x * THREADS_PER_BLOCK
+        tile_idx = bidx * STATIC_2D_THREADS_PER_BLOCK + tidx
+        stride = grid_dim_x * STATIC_2D_THREADS_PER_BLOCK
 
         while tile_idx < total_scale_tiles:
             row_group = tile_idx // self.scale_blocks_per_row
@@ -13673,7 +13673,11 @@ def quantize_mxfp6_static_2d(
     total_scale_tiles = (m // MXFP4_SCALE_BLOCK_SIZE) * (
         k // MXFP4_SCALE_BLOCK_SIZE
     )
-    num_blocks = _launch_grid(total_scale_tiles, x.device)
+    num_blocks = _launch_grid(
+        total_scale_tiles,
+        x.device,
+        threads_per_block=STATIC_2D_THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_mxfp6_static_quantize_2d(
         k,
