@@ -2871,6 +2871,14 @@ slice passed (`5 passed`), but timing did not improve the 1024x1024 rows
 static transpose rows back below Triton (`static_4/static_6` about `0.85x`).
 The row-major work-order experiment was reverted.
 
+Re-tested NVINT6 stochastic-unbiased by temporarily allowing the existing
+static NVINT6 CuTe kernel to use the stochastic-unbiased adjustment factor. The
+targeted 1024x1024 accuracy gate failed: Triton L2 distance was about `21.590`,
+while CuTe with the standard `16/17` adjustment was about `22.723`. A small
+adjustment-factor sweep did not find a passing value; the best tested point was
+about `0.944`, with CuTe L2 distance about `22.212`. The backend still does not
+claim NVINT6 stochastic-unbiased, and the experiment was reverted.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
