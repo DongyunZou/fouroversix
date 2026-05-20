@@ -2888,6 +2888,14 @@ Also tested a smaller 16-thread CTA for the same MXFP3 2D kernel. Accuracy still
 passed, but non-BS8 MXFP3 2D slowed much further, to about `0.52x-0.60x` versus
 Triton across representative shapes. The smaller-CTA experiment was reverted as
 well.
+Also tested an intermediate 64-thread CTA dedicated to
+`Sm100MXFP3StaticQuantize2D`. The targeted MXFP3/MXFP3_BS8 2D accuracy slice
+passed (`12 passed`), but non-BS8 4096x4096 MXFP3 2D regressed to about
+`0.96x` versus Triton for both `static_4` and `static_6`, and 1024x1024 non-BS8
+rows only reached about `1.15x`. BS8 4096x4096 rows stayed above target at about
+`1.25x-1.26x`, but the non-BS8 regression makes the 64-thread CTA worse than the
+retained 32-thread mapping. The 64-thread experiment was reverted; simple CTA
+retuning across 16/64/256 threads is now exhausted for this kernel.
 
 Added cached fast dispatch paths for non-pseudo `block_scale_2d=True` CuTe
 quantize. This now covers static MX, NVFP4/NVFP4_BS8, NVFP6, NVINT, and adaptive
