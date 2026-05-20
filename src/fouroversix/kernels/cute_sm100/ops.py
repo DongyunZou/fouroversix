@@ -70,6 +70,7 @@ NVFP4_SCALE_BLOCK_SIZE = 16
 MXFP4_SCALE_BLOCK_SIZE = 32
 THREADS_PER_BLOCK = 256
 PSEUDO_THREADS_PER_BLOCK = 128
+STATIC_2D_THREADS_PER_BLOCK = 32
 BLOCKS_PER_SM = 8
 MAX_THREADS_PER_BLOCK = 1024
 E4M3_STATIC_MAX = 448.0
@@ -6341,7 +6342,7 @@ class Sm100MXFP3StaticQuantize2D:
     ):
         self.kernel(x, values, scales, total_scale_tiles).launch(
             grid=[num_blocks, 1, 1],
-            block=[THREADS_PER_BLOCK, 1, 1],
+            block=[STATIC_2D_THREADS_PER_BLOCK, 1, 1],
             max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
             min_blocks_per_mp=BLOCKS_PER_SM,
             stream=stream,
@@ -6359,8 +6360,8 @@ class Sm100MXFP3StaticQuantize2D:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        tile_idx = bidx * THREADS_PER_BLOCK + tidx
-        stride = grid_dim_x * THREADS_PER_BLOCK
+        tile_idx = bidx * STATIC_2D_THREADS_PER_BLOCK + tidx
+        stride = grid_dim_x * STATIC_2D_THREADS_PER_BLOCK
 
         while tile_idx < total_scale_tiles:
             row_group = tile_idx // self.scale_blocks_per_row
@@ -12846,11 +12847,16 @@ def _validate_mxfp4_input(
     return x.shape
 
 
-def _launch_grid(total_scale_blocks: int, device: torch.device) -> int:
+def _launch_grid(
+    total_scale_blocks: int,
+    device: torch.device,
+    *,
+    threads_per_block: int = THREADS_PER_BLOCK,
+) -> int:
     target_grid = torch.cuda.get_device_properties(device).multi_processor_count
     target_grid *= BLOCKS_PER_SM
     return min(
-        (total_scale_blocks + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK,
+        (total_scale_blocks + threads_per_block - 1) // threads_per_block,
         target_grid,
     )
 
@@ -13486,7 +13492,11 @@ def quantize_mxfp3_static_2d(
     total_scale_tiles = (m // MXFP4_SCALE_BLOCK_SIZE) * (
         k // MXFP4_SCALE_BLOCK_SIZE
     )
-    num_blocks = _launch_grid(total_scale_tiles, x.device)
+    num_blocks = _launch_grid(
+        total_scale_tiles,
+        x.device,
+        threads_per_block=STATIC_2D_THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_mxfp3_static_quantize_2d(k)
     kernel(

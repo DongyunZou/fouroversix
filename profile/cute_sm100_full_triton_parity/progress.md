@@ -2375,6 +2375,57 @@ points to a real 2D kernel mapping problem: the large static MXFP3 block-scale
 path needs a more parallel cooperative tile design with better coalescing,
 rather than another small launch-parameter retune.
 
+Retuned `Sm100MXFP3StaticQuantize2D` from 256-thread CTAs to 32-thread CTAs
+and made `_launch_grid` accept an explicit `threads_per_block` override for
+this path. This raises the 4096x4096 MXFP3 2D grid from 64 CTAs to 512 CTAs
+without changing the output layout or scale computation. The targeted accuracy
+slice passes:
+
+```text
+12 passed, 35075 deselected, 1 warning in 4.63s
+```
+
+The full CuTe sm100 test selection still passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.59s
+```
+
+Targeted alternating timings for MXFP3 2D block-scale after the retune:
+
+```text
+128x256   static_4  1.075x
+128x256   static_6  1.129x
+1024x1024 static_4  1.140x
+1024x1024 static_6  1.146x
+4096x4096 static_4  0.987x
+4096x4096 static_6  0.982x
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+228/470 workloads meet 1.2x
+446/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            80
+block_scale_2d:  58
+pseudo_quantize: 57
+transpose:       33
+```
+
+The remaining below-parity rows are:
+
+```text
+transpose:       20
+block_scale_2d:   3
+pseudo_quantize:  1
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -2391,5 +2442,5 @@ rather than another small launch-parameter retune.
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `234/470`
+  latest median capability-driven benchmark snapshot reports only `228/470`
   workloads meeting 1.2x.
