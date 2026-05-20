@@ -2681,6 +2681,20 @@ row requires reducing the FP3/INT3 candidate/error work rather than another
 frontend or launch retune. Reports and CSVs are under
 `profile/cute_sm100_full_triton_parity/ncu/if3_pseudo_absmax4096_*`.
 
+Tested the complementary IF3 pseudo `abs_max` candidate shortcut after the
+earlier failed FP3-only attempt: force INT3 selection for `abs_max` while
+leaving other scale rules unchanged. This also failed the existing accuracy
+gate for both IF3 and IF3_BS8:
+
+```text
+2 failed, 4 passed, 35081 deselected, 1 warning in 4.91s
+```
+
+The mean squared output delta versus Triton was about `0.0220` for IF3 and
+`0.0228` for IF3_BS8, far above the `3e-4` gate. The experiment was reverted.
+Together with the prior FP3-only failure, this confirms that `abs_max` pseudo
+needs per-block FP3/INT3 candidate comparison for Triton-error parity.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
