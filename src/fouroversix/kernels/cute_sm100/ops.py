@@ -3847,8 +3847,9 @@ class Sm100NVFP4StaticTransposeQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
+        work_idx = bidx * THREADS_PER_BLOCK + tidx
         stride = grid_dim_x * THREADS_PER_BLOCK
+        output_rows = total_scale_blocks // self.scale_blocks_per_row
         global_scale = _compute_global_scale(
             amax_tensor,
             float(self.max_quantized_value)
@@ -3856,9 +3857,10 @@ class Sm100NVFP4StaticTransposeQuantize:
             * float(self.adjustment_factor),
         )
 
-        while sf_idx < total_scale_blocks:
-            row_idx = sf_idx // self.scale_blocks_per_row
-            col_idx = sf_idx % self.scale_blocks_per_row
+        while work_idx < total_scale_blocks:
+            row_idx = work_idx % output_rows
+            col_idx = work_idx // output_rows
+            sf_idx = row_idx * self.scale_blocks_per_row + col_idx
             elem_base = col_idx * self.scale_block_size
 
             scale_fp8, packed64 = _process_nvfp4_static_block_bfloat_transposed(
@@ -3880,7 +3882,7 @@ class Sm100NVFP4StaticTransposeQuantize:
             else:
                 st_global_u64(output_ptr, packed64)
 
-            sf_idx = sf_idx + stride
+            work_idx = work_idx + stride
 
 
 class Sm100NVFP4AdaptiveQuantize:
@@ -3998,16 +4000,18 @@ class Sm100NVFP4AdaptiveTransposeQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
+        work_idx = bidx * THREADS_PER_BLOCK + tidx
         stride = grid_dim_x * THREADS_PER_BLOCK
+        output_rows = total_scale_blocks // self.scale_blocks_per_row
         global_scale = _compute_global_scale(
             amax_tensor,
             E2M1_MAX * E4M3_FOUROVERSIX_MAX,
         )
 
-        while sf_idx < total_scale_blocks:
-            row_idx = sf_idx // self.scale_blocks_per_row
-            col_idx = sf_idx % self.scale_blocks_per_row
+        while work_idx < total_scale_blocks:
+            row_idx = work_idx % output_rows
+            col_idx = work_idx // output_rows
+            sf_idx = row_idx * self.scale_blocks_per_row + col_idx
             elem_base = col_idx * NVFP4_SCALE_BLOCK_SIZE
 
             scale_fp8, packed64 = _process_nvfp4_adaptive_block_bfloat_transposed(
@@ -4023,7 +4027,7 @@ class Sm100NVFP4AdaptiveTransposeQuantize:
             output_ptr = get_ptr_as_int64(values[row_idx, None], output_offset)
             st_global_u64(output_ptr, packed64)
 
-            sf_idx = sf_idx + stride
+            work_idx = work_idx + stride
 
 
 class Sm100NVFP4StaticQuantize2D:
@@ -5952,12 +5956,14 @@ class Sm100MXFP4StaticTransposeQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
+        work_idx = bidx * THREADS_PER_BLOCK + tidx
         stride = grid_dim_x * THREADS_PER_BLOCK
+        output_rows = total_scale_blocks // self.scale_blocks_per_row
 
-        while sf_idx < total_scale_blocks:
-            row_idx = sf_idx // self.scale_blocks_per_row
-            col_idx = sf_idx % self.scale_blocks_per_row
+        while work_idx < total_scale_blocks:
+            row_idx = work_idx % output_rows
+            col_idx = work_idx // output_rows
+            sf_idx = row_idx * self.scale_blocks_per_row + col_idx
             elem_base = col_idx * self.scale_block_size
 
             scale_ue8m0, packed64_0, packed64_1 = (
@@ -5985,7 +5991,7 @@ class Sm100MXFP4StaticTransposeQuantize:
                 st_global_u64(output_ptr0, packed64_0)
                 st_global_u64(output_ptr1, packed64_1)
 
-            sf_idx = sf_idx + stride
+            work_idx = work_idx + stride
 
 
 class Sm100MXFP3StaticQuantize:
@@ -6156,12 +6162,14 @@ class Sm100MXFP3StaticTransposeQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
+        work_idx = bidx * THREADS_PER_BLOCK + tidx
         stride = grid_dim_x * THREADS_PER_BLOCK
+        output_rows = total_scale_blocks // self.scale_blocks_per_row
 
-        while sf_idx < total_scale_blocks:
-            row_idx = sf_idx // self.scale_blocks_per_row
-            col_idx = sf_idx % self.scale_blocks_per_row
+        while work_idx < total_scale_blocks:
+            row_idx = work_idx % output_rows
+            col_idx = work_idx // output_rows
+            sf_idx = row_idx * self.scale_blocks_per_row + col_idx
             elem_base = col_idx * self.scale_block_size
 
             h0 = _ld_transposed_bfloat2(x, elem_base, elem_base + Int32(1), row_idx)
@@ -6324,7 +6332,7 @@ class Sm100MXFP3StaticTransposeQuantize:
                 st_global_v4_u32(output_ptr1, v4, v5, v6, v7)
 
             scales[sf_idx] = scale_ue8m0
-            sf_idx = sf_idx + stride
+            work_idx = work_idx + stride
 
 
 class Sm100MXFP3StaticQuantize2D:
@@ -6640,12 +6648,14 @@ class Sm100MXFP6StaticTransposeQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
+        work_idx = bidx * THREADS_PER_BLOCK + tidx
         stride = grid_dim_x * THREADS_PER_BLOCK
+        output_rows = total_scale_blocks // self.scale_blocks_per_row
 
-        while sf_idx < total_scale_blocks:
-            row_idx = sf_idx // self.scale_blocks_per_row
-            col_idx = sf_idx % self.scale_blocks_per_row
+        while work_idx < total_scale_blocks:
+            row_idx = work_idx % output_rows
+            col_idx = work_idx // output_rows
+            sf_idx = row_idx * self.scale_blocks_per_row + col_idx
             elem_base = col_idx * MXFP4_SCALE_BLOCK_SIZE
 
             h0 = _ld_transposed_bfloat2(x, elem_base, elem_base + Int32(1), row_idx)
@@ -6826,7 +6836,7 @@ class Sm100MXFP6StaticTransposeQuantize:
             st_global_u64(output_ptr2, packed64_2)
             st_global_u64(output_ptr3, packed64_3)
 
-            sf_idx = sf_idx + stride
+            work_idx = work_idx + stride
 
 
 class Sm100MXFP3BS8StaticQuantize2D:
@@ -7428,16 +7438,18 @@ class Sm100NVINT4StaticTransposeQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
+        work_idx = bidx * THREADS_PER_BLOCK + tidx
         stride = grid_dim_x * THREADS_PER_BLOCK
+        output_rows = total_scale_blocks // self.scale_blocks_per_row
         global_scale = _compute_global_scale(
             amax_tensor,
             INT4_MAX * E4M3_STATIC_MAX * float(self.adjustment_factor),
         )
 
-        while sf_idx < total_scale_blocks:
-            row_idx = sf_idx // self.scale_blocks_per_row
-            col_idx = sf_idx % self.scale_blocks_per_row
+        while work_idx < total_scale_blocks:
+            row_idx = work_idx % output_rows
+            col_idx = work_idx // output_rows
+            sf_idx = row_idx * self.scale_blocks_per_row + col_idx
             elem_base = col_idx * self.scale_block_size
 
             scale_fp8, packed64 = _process_nvint4_static_block_bfloat_transposed(
@@ -7458,7 +7470,7 @@ class Sm100NVINT4StaticTransposeQuantize:
             else:
                 st_global_u64(output_ptr, packed64)
 
-            sf_idx = sf_idx + stride
+            work_idx = work_idx + stride
 
 
 class Sm100NVINT6StaticQuantize:
@@ -7586,16 +7598,18 @@ class Sm100NVINT6StaticTransposeQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
+        work_idx = bidx * THREADS_PER_BLOCK + tidx
         stride = grid_dim_x * THREADS_PER_BLOCK
+        output_rows = total_scale_blocks // self.scale_blocks_per_row
         global_scale = _compute_global_scale(
             amax_tensor,
             31.0 * E4M3_STATIC_MAX * float(self.adjustment_factor),
         )
 
-        while sf_idx < total_scale_blocks:
-            row_idx = sf_idx // self.scale_blocks_per_row
-            col_idx = sf_idx % self.scale_blocks_per_row
+        while work_idx < total_scale_blocks:
+            row_idx = work_idx % output_rows
+            col_idx = work_idx // output_rows
+            sf_idx = row_idx * self.scale_blocks_per_row + col_idx
             elem_base = col_idx * NVFP4_SCALE_BLOCK_SIZE
 
             scale_fp8, packed64_0, packed64_1 = (
@@ -7617,7 +7631,7 @@ class Sm100NVINT6StaticTransposeQuantize:
             st_global_u64(output_ptr0, packed64_0)
             st_global_u64(output_ptr1, packed64_1)
 
-            sf_idx = sf_idx + stride
+            work_idx = work_idx + stride
 
 
 class Sm100NVINT6StaticQuantize2D:
@@ -7878,16 +7892,18 @@ class Sm100NVINT3StaticTransposeQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
+        work_idx = bidx * THREADS_PER_BLOCK + tidx
         stride = grid_dim_x * THREADS_PER_BLOCK
+        output_rows = total_scale_blocks // self.scale_blocks_per_row
         global_scale = _compute_global_scale(
             amax_tensor,
             3.0 * E4M3_STATIC_MAX * float(self.adjustment_factor),
         )
 
-        while sf_idx < total_scale_blocks:
-            row_idx = sf_idx // self.scale_blocks_per_row
-            col_idx = sf_idx % self.scale_blocks_per_row
+        while work_idx < total_scale_blocks:
+            row_idx = work_idx % output_rows
+            col_idx = work_idx // output_rows
+            sf_idx = row_idx * self.scale_blocks_per_row + col_idx
             elem_base = col_idx * self.scale_block_size
 
             scale_fp8, v0, v1, v2, v3 = _process_nvint3_static_block_bfloat_transposed(
@@ -7907,7 +7923,7 @@ class Sm100NVINT3StaticTransposeQuantize:
             else:
                 st_global_v4_u32(output_ptr, v0, v1, v2, v3)
 
-            sf_idx = sf_idx + stride
+            work_idx = work_idx + stride
 
 
 class Sm100NVINT3StaticQuantize2D:
@@ -8230,8 +8246,9 @@ class Sm100NVFP6StaticTransposeQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
+        work_idx = bidx * THREADS_PER_BLOCK + tidx
         stride = grid_dim_x * THREADS_PER_BLOCK
+        output_rows = total_scale_blocks // self.scale_blocks_per_row
         global_scale = _compute_global_scale(
             amax_tensor,
             float(self.max_quantized_value)
@@ -8239,9 +8256,10 @@ class Sm100NVFP6StaticTransposeQuantize:
             * float(self.adjustment_factor),
         )
 
-        while sf_idx < total_scale_blocks:
-            row_idx = sf_idx // self.scale_blocks_per_row
-            col_idx = sf_idx % self.scale_blocks_per_row
+        while work_idx < total_scale_blocks:
+            row_idx = work_idx % output_rows
+            col_idx = work_idx // output_rows
+            sf_idx = row_idx * self.scale_blocks_per_row + col_idx
             elem_base = col_idx * NVFP4_SCALE_BLOCK_SIZE
 
             scale_fp8, packed64_0, packed64_1 = (
@@ -8265,7 +8283,7 @@ class Sm100NVFP6StaticTransposeQuantize:
             st_global_u64(output_ptr0, packed64_0)
             st_global_u64(output_ptr1, packed64_1)
 
-            sf_idx = sf_idx + stride
+            work_idx = work_idx + stride
 
 
 class Sm100NVFP3StaticQuantize:
@@ -8419,16 +8437,18 @@ class Sm100NVFP3StaticTransposeQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
+        work_idx = bidx * THREADS_PER_BLOCK + tidx
         stride = grid_dim_x * THREADS_PER_BLOCK
+        output_rows = total_scale_blocks // self.scale_blocks_per_row
         global_scale = _compute_global_scale(
             amax_tensor,
             4.0 * E4M3_STATIC_MAX * float(self.adjustment_factor),
         )
 
-        while sf_idx < total_scale_blocks:
-            row_idx = sf_idx // self.scale_blocks_per_row
-            col_idx = sf_idx % self.scale_blocks_per_row
+        while work_idx < total_scale_blocks:
+            row_idx = work_idx % output_rows
+            col_idx = work_idx // output_rows
+            sf_idx = row_idx * self.scale_blocks_per_row + col_idx
             elem_base = col_idx * self.scale_block_size
 
             scale_fp8, v0, v1, v2, v3 = _process_nvfp3_static_block_bfloat_transposed(
@@ -8448,7 +8468,7 @@ class Sm100NVFP3StaticTransposeQuantize:
             else:
                 st_global_v4_u32(output_ptr, v0, v1, v2, v3)
 
-            sf_idx = sf_idx + stride
+            work_idx = work_idx + stride
 
 
 class Sm100NVINT4StaticQuantize2D:

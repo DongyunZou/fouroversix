@@ -2779,6 +2779,56 @@ could move above 1.2x. The full alternating benchmark did not reproduce that:
 it dropped to `220/470` workloads meeting 1.2x and introduced broad unrelated
 timing regressions. The retune was reverted.
 
+Retuned the fused transpose kernels from row-major scale-block work ordering to
+col-major work ordering for MXFP3/MXFP4/MXFP6, NVFP3/NVFP4/NVFP6, and
+NVINT3/NVINT4/NVINT6 static transpose paths. The old order made adjacent
+threads work on the same output row and different scale blocks, so each warp
+issued strided BF16 loads across the original matrix. The new order makes
+adjacent threads work on consecutive output rows for the same scale block,
+coalescing the larger BF16 input reads while leaving only the smaller packed
+output stores strided.
+
+The full CuTe sm100 quantize selection passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 34.28s
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+331/470 workloads meet 1.2x
+469/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            123
+block_scale_2d:  85
+pseudo_quantize: 66
+transpose:       57
+```
+
+The 4096x4096 transpose rows that were previously below parity now clear
+parity, and almost all clear 1.2x. Examples:
+
+```text
+mxfp4 static_4 transpose:       0.751x -> 1.219x
+mxfp4 static_6 transpose:       0.775x -> 1.204x
+mxfp3 static_4 transpose:       0.848x -> 1.437x
+mxfp6_e2m3 static_4 transpose:  0.778x -> 1.321x
+nvfp4 static_4 transpose:       0.849x -> 1.297x
+nvfp6_e2m3 static_6 transpose:  0.783x -> 1.232x
+nvint4 static_6 transpose:      0.972x -> 1.474x
+```
+
+The only below-parity row in this run is:
+
+```text
+4096x4096 if3 abs_max pseudo_quantize=True: 0.987x
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -2795,5 +2845,5 @@ timing regressions. The retune was reverted.
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `267/470`
+  latest median capability-driven benchmark snapshot reports `331/470`
   workloads meeting 1.2x.
