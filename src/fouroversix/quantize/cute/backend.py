@@ -213,6 +213,28 @@ def _static_nvint_2d_quantizers():
     )
 
 
+@functools.lru_cache
+def _pseudo_quantizers():
+    from fouroversix.kernels.cute_sm100 import ops
+
+    return (
+        ops.pseudo_quantize_if3_adaptive,
+        ops.pseudo_quantize_if4_adaptive,
+        ops.pseudo_quantize_if6_adaptive,
+        ops.pseudo_quantize_mxfp3_static,
+        ops.pseudo_quantize_mxfp4_static,
+        ops.pseudo_quantize_mxfp6_static,
+        ops.pseudo_quantize_nvfp3_static,
+        ops.pseudo_quantize_nvfp6_static,
+        ops.pseudo_quantize_nvfp4_adaptive,
+        ops.pseudo_quantize_nvfp4_static,
+        ops.pseudo_quantize_nvint3_static,
+        ops.pseudo_quantize_nvint4_static,
+        ops.pseudo_quantize_nvint6_static,
+        ops.rht_transform,
+    )
+
+
 class CuteSm100QuantizeBackend(QuantizeBackendBase):
     """CuTe-DSL quantization backend for B200/GB200 (sm_100)."""
 
@@ -757,7 +779,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
         }:
             return super().pseudo_quantize(x, config)
 
-        from fouroversix.kernels.cute_sm100.ops import (
+        (
             pseudo_quantize_if3_adaptive,
             pseudo_quantize_if4_adaptive,
             pseudo_quantize_if6_adaptive,
@@ -772,7 +794,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             pseudo_quantize_nvint4_static,
             pseudo_quantize_nvint6_static,
             rht_transform,
-        )
+        ) = _pseudo_quantizers()
 
         x_quantize = x.T.contiguous() if config.transpose else x
         if config.rht:

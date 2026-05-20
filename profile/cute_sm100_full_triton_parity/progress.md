@@ -2913,6 +2913,15 @@ IF/NVINT transpose rows are about `1.39x-1.44x`. Several transpose rows are
 still below the 1.2x goal, but the remaining gap is smaller and concentrated in
 fixed kernel/body cost rather than Python dispatch.
 
+Cached the CuTe pseudo-quantize op lookup behind an `lru_cache` helper, matching
+the ordinary/2D/transpose fast dispatch style. The targeted pseudo accuracy
+slice passes (`72 passed`) and the full CuTe sm100 test selection passes
+(`449 passed, 7 skipped`). Focused pseudo timings remain consistent with the
+prior profiling: MX/NVINT/NVFP6 pseudo rows are at or above the target in the
+representative timing sweep, while the critical 4096x4096 IF3 abs_max pseudo row
+still sits around `0.98x`; that row is still dominated by the IF3 pseudo kernel
+body and needs a real candidate/error mapping redesign.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
