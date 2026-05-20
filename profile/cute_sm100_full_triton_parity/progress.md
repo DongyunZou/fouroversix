@@ -2879,6 +2879,12 @@ adjustment-factor sweep did not find a passing value; the best tested point was
 about `0.944`, with CuTe L2 distance about `22.212`. The backend still does not
 claim NVINT6 stochastic-unbiased, and the experiment was reverted.
 
+Re-tested `Sm100MXFP3StaticQuantize2D` with a larger 256-thread CTA instead of
+the retained 32-thread CTA. The targeted MXFP3/MXFP3_BS8 2D accuracy slice
+passed (`12 passed`), but non-BS8 MXFP3 2D performance regressed: representative
+1024x1024 and 4096x4096 `mxfp3 static_4/static_6 block_scale_2d=True` rows fell
+to about `0.89x-0.93x` versus Triton. The larger-CTA experiment was reverted.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
