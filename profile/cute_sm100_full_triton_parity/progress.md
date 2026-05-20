@@ -1456,6 +1456,22 @@ block_scale_2d:  16
 transpose:        9
 ```
 
+Also tested a 128-thread CTA variant for the 1D NV static kernels
+(`Sm100NVFP4StaticQuantize`, `Sm100NVFP6StaticQuantize`, and
+`Sm100NVFP3StaticQuantize`) because the 4096x4096 NV static/base rows remain
+around `0.90-0.93x`. The targeted static test slice passed, but timing did not
+improve the lagging rows:
+
+```text
+nvfp4 base        0.920x
+nvfp6_e2m3 base   0.915x
+nvfp6_e3m2 base   0.923x
+nvfp3 base        0.908x
+```
+
+The experiment was reverted; NV static needs a deeper kernel change rather than
+the same CTA-size retune that helps some fused pseudo paths.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
