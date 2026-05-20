@@ -2979,6 +2979,14 @@ snapshot's `~1.25x-1.31x` range down to about `1.17x`. The MXFP4 cooperative
 experiment was reverted; the original serial-tile mapping is still better for
 large MXFP4 2D on this benchmark.
 
+Rechecked MXFP3 rows that still appear below target in the retained benchmark
+snapshot after the cooperative MXFP3 2D rewrite. Focused alternating timings
+show the retained snapshot is stale/noisy for most of these rows: 1024x1024
+MXFP3/MXFP3_BS8 transpose rows now measure about `1.21x-1.24x`, and 128x256 plus
+4096x4096 MXFP3 2D rows measure about `1.24x-1.27x`. The 1024x1024
+`mxfp3 static_4 block_scale_2d=True` row remains borderline at about
+`1.20x`, while `static_6` is about `1.23x`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
