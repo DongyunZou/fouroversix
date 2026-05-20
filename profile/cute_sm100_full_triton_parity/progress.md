@@ -2971,6 +2971,14 @@ block_scale_2d=True` is about `1.21x`, 4096x4096 `static_6` is about `1.26x`,
 (`~1.22x-1.25x`) but was otherwise noisy and dropped unrelated rows, so
 `benchmark_current.json` was restored to the retained stable snapshot.
 
+Tried applying the same warp-per-tile cooperative mapping to
+`Sm100MXFP4StaticQuantize2D`. The MXFP3/MXFP4 2D accuracy slice passed
+(`24 passed`), and 1024x1024 MXFP4 2D rows improved to about `1.22x-1.23x`.
+However, the important 4096x4096 MXFP4 2D rows regressed from the retained
+snapshot's `~1.25x-1.31x` range down to about `1.17x`. The MXFP4 cooperative
+experiment was reverted; the original serial-tile mapping is still better for
+large MXFP4 2D on this benchmark.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
