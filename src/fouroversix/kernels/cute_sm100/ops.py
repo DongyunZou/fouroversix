@@ -68,6 +68,7 @@ from fouroversix.kernels.cute_sm100.fp4_common import (
 NVFP4_SCALE_BLOCK_SIZE = 16
 MXFP4_SCALE_BLOCK_SIZE = 32
 THREADS_PER_BLOCK = 256
+PSEUDO_THREADS_PER_BLOCK = 128
 BLOCKS_PER_SM = 8
 MAX_THREADS_PER_BLOCK = 1024
 E4M3_STATIC_MAX = 448.0
@@ -3894,7 +3895,7 @@ class Sm100IF6AdaptivePseudoQuantize:
     ):
         self.kernel(x, out, total_scale_blocks, amax_tensor).launch(
             grid=[num_blocks, 1, 1],
-            block=[THREADS_PER_BLOCK, 1, 1],
+            block=[PSEUDO_THREADS_PER_BLOCK, 1, 1],
             max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
             min_blocks_per_mp=BLOCKS_PER_SM,
             stream=stream,
@@ -3912,8 +3913,8 @@ class Sm100IF6AdaptivePseudoQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
-        stride = grid_dim_x * THREADS_PER_BLOCK
+        sf_idx = bidx * PSEUDO_THREADS_PER_BLOCK + tidx
+        stride = grid_dim_x * PSEUDO_THREADS_PER_BLOCK
         global_scale = _compute_global_scale(
             amax_tensor,
             float(self.max_quantized_value) * E4M3_STATIC_MAX,
@@ -6570,7 +6571,7 @@ class Sm100NVFP4StaticPseudoQuantize:
     ):
         self.kernel(x, out, total_scale_blocks, amax_tensor).launch(
             grid=[num_blocks, 1, 1],
-            block=[THREADS_PER_BLOCK, 1, 1],
+            block=[PSEUDO_THREADS_PER_BLOCK, 1, 1],
             max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
             min_blocks_per_mp=BLOCKS_PER_SM,
             stream=stream,
@@ -6588,8 +6589,8 @@ class Sm100NVFP4StaticPseudoQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
-        stride = grid_dim_x * THREADS_PER_BLOCK
+        sf_idx = bidx * PSEUDO_THREADS_PER_BLOCK + tidx
+        stride = grid_dim_x * PSEUDO_THREADS_PER_BLOCK
         global_scale = _compute_global_scale(
             amax_tensor,
             float(self.max_quantized_value) * E4M3_STATIC_MAX,
@@ -7323,7 +7324,7 @@ class Sm100IF4AdaptivePseudoQuantize:
     ):
         self.kernel(x, out, total_scale_blocks, amax_tensor).launch(
             grid=[num_blocks, 1, 1],
-            block=[THREADS_PER_BLOCK, 1, 1],
+            block=[PSEUDO_THREADS_PER_BLOCK, 1, 1],
             max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
             min_blocks_per_mp=BLOCKS_PER_SM,
             stream=stream,
@@ -7341,8 +7342,8 @@ class Sm100IF4AdaptivePseudoQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
-        stride = grid_dim_x * THREADS_PER_BLOCK
+        sf_idx = bidx * PSEUDO_THREADS_PER_BLOCK + tidx
+        stride = grid_dim_x * PSEUDO_THREADS_PER_BLOCK
         global_scale = _compute_global_scale(
             amax_tensor,
             E2M1_MAX * E4M3_STATIC_MAX,

@@ -1422,6 +1422,40 @@ lower than the earlier `65/470` snapshot, but the workload classes that still
 drive the failure set are the same: transpose materialization, IF3 pseudo,
 NVFP/NVFP6 static/base rows, and near-threshold small-shape launch overheads.
 
+Retuned selected fused pseudo kernels to launch 128 threads per CTA instead of
+the shared 256-thread default. This is retained only for the pseudo paths that
+benefited or stayed stable in targeted checks: IF4 adaptive pseudo, IF6 adaptive
+pseudo, and NVFP4 static pseudo. IF3 pseudo was explicitly tested with the same
+128-thread setting and reverted because it regressed the already-slow IF3 path.
+
+The targeted pseudo test slice passes:
+
+```text
+42 passed, 35045 deselected, 1 warning in 9.80s
+```
+
+The full CuTe sm100 test selection passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 34.13s
+```
+
+The refreshed full benchmark now reports:
+
+```text
+65/470 workloads meet 1.2x
+250/470 workloads are at least Triton parity
+```
+
+The class breakdown for 1.2x rows is:
+
+```text
+pseudo_quantize: 23
+base:            17
+block_scale_2d:  16
+transpose:        9
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1438,5 +1472,5 @@ NVFP/NVFP6 static/base rows, and near-threshold small-shape launch overheads.
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `57/470`
+  latest median capability-driven benchmark snapshot reports only `65/470`
   workloads meeting 1.2x.
