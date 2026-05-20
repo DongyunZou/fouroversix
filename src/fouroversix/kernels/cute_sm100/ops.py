@@ -71,6 +71,7 @@ MXFP4_SCALE_BLOCK_SIZE = 32
 THREADS_PER_BLOCK = 256
 PSEUDO_THREADS_PER_BLOCK = 128
 MX_STATIC_THREADS_PER_BLOCK = 128
+NVFP4_BASE_THREADS_PER_BLOCK = 128
 STATIC_2D_THREADS_PER_BLOCK = 32
 BLOCKS_PER_SM = 8
 MAX_THREADS_PER_BLOCK = 1024
@@ -3744,7 +3745,7 @@ class Sm100NVFP4StaticQuantize:
     ):
         self.kernel(x, values, scales, total_scale_blocks, amax_tensor).launch(
             grid=[num_blocks, 1, 1],
-            block=[THREADS_PER_BLOCK, 1, 1],
+            block=[NVFP4_BASE_THREADS_PER_BLOCK, 1, 1],
             max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
             min_blocks_per_mp=BLOCKS_PER_SM,
             stream=stream,
@@ -3763,8 +3764,8 @@ class Sm100NVFP4StaticQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
-        stride = grid_dim_x * THREADS_PER_BLOCK
+        sf_idx = bidx * NVFP4_BASE_THREADS_PER_BLOCK + tidx
+        stride = grid_dim_x * NVFP4_BASE_THREADS_PER_BLOCK
         global_scale = _compute_global_scale(
             amax_tensor,
             float(self.max_quantized_value)
@@ -3907,7 +3908,7 @@ class Sm100NVFP4AdaptiveQuantize:
     ):
         self.kernel(x, values, scales, total_scale_blocks, amax_tensor).launch(
             grid=[num_blocks, 1, 1],
-            block=[THREADS_PER_BLOCK, 1, 1],
+            block=[NVFP4_BASE_THREADS_PER_BLOCK, 1, 1],
             max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
             min_blocks_per_mp=BLOCKS_PER_SM,
             stream=stream,
@@ -3926,8 +3927,8 @@ class Sm100NVFP4AdaptiveQuantize:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        sf_idx = bidx * THREADS_PER_BLOCK + tidx
-        stride = grid_dim_x * THREADS_PER_BLOCK
+        sf_idx = bidx * NVFP4_BASE_THREADS_PER_BLOCK + tidx
+        stride = grid_dim_x * NVFP4_BASE_THREADS_PER_BLOCK
         global_scale = _compute_global_scale(
             amax_tensor,
             E2M1_MAX * E4M3_FOUROVERSIX_MAX,

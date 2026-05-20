@@ -2709,6 +2709,48 @@ Forcing INT4 was closer but still failed, with MSE about `0.0023` and
 `0.0031`. Both experiments were reverted. Like IF3, IF4 `abs_max` pseudo needs
 the per-block FP/INT candidate comparison to satisfy the current accuracy gate.
 
+Retuned the non-transpose, non-2D NVFP4 static/adaptive base kernels from the
+shared 256-thread CTA to a dedicated 128-thread CTA. This affects
+`Sm100NVFP4StaticQuantize` and `Sm100NVFP4AdaptiveQuantize`, but leaves
+transpose, pseudo, and 2D paths on their existing launch shapes.
+
+The targeted NVFP4 base accuracy selection passes:
+
+```text
+42 passed, 6 skipped, 35039 deselected, 1 warning in 8.54s
+```
+
+The full CuTe sm100 quantize selection also passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.30s
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+267/470 workloads meet 1.2x
+447/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            96
+block_scale_2d:  73
+pseudo_quantize: 65
+transpose:       33
+```
+
+The remaining below-parity rows in this run are:
+
+```text
+transpose:       20
+base:             1
+pseudo_quantize:  1
+block_scale_2d:   1
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -2725,5 +2767,5 @@ the per-block FP/INT candidate comparison to satisfy the current accuracy gate.
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `257/470`
+  latest median capability-driven benchmark snapshot reports only `267/470`
   workloads meeting 1.2x.
