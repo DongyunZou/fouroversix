@@ -2636,6 +2636,14 @@ The full benchmark rerun also did not improve the retained 1.2x snapshot, so
 the launch retune was reverted. The NVINT transpose rows still need the same
 coalesced/tiled transpose design as the other remaining large transpose gaps.
 
+Tested an IF6 base-only launch retune by changing `Sm100IF6AdaptiveQuantize`
+from 256-thread CTAs to 128-thread CTAs. The targeted non-pseudo IF6 accuracy
+selection passed (`32 passed`), but the timing did not improve the rows that
+need help: 128x256 and 1024x1024 IF6 stayed around `1.15x-1.17x`, below the
+retained 256-thread snapshot for several rows. The 4096x4096 rows remained
+above 1.2x, as before. The retune was reverted; IF6 base needs a deeper
+per-block instruction/body optimization rather than a smaller CTA.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
