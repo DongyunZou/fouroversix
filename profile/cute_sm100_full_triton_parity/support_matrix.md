@@ -41,7 +41,7 @@ completion claim.
 | feature | Triton | CuTe sm100 current |
 |---|---|---|
 | `block_scale_2d` | `True` | `nvfp4`, static NVFP4_BS8, adaptive IF3/IF3_BS8/IF4/IF4_BS8, static MXFP3/MXFP3_BS8/MXFP4/MXFP4_BS8/MXFP6/NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6/NVFP6 |
-| `transpose` | `True` | `True`; static MXFP3/MXFP3_BS8/MXFP4/MXFP4_BS8/MXFP6, static NVFP4/NVFP4_BS8, static NVFP6, and static NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6 use fused CuTe transpose quantize paths |
+| `transpose` | `True` | `True`; static MXFP3/MXFP3_BS8/MXFP4/MXFP4_BS8/MXFP6, static NVFP3/NVFP3_BS8, static NVFP4/NVFP4_BS8, static NVFP6, and static NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6 use fused CuTe transpose quantize paths |
 | `rht` | `True` | `True` (CuTe RHT pre-transform + CuTe quantize) |
 | `pseudo_quantize` | `True` | `True` for supported quantize configs; IF3/IF3_BS8/IF4/IF4_BS8/IF6 adaptive nearest 1D, NVFP3/NVFP3_BS8/NVFP4/NVFP4_BS8/NVFP6/NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6 nearest 1D, and static MXFP3/MXFP3_BS8/MXFP4/MXFP4_BS8/MXFP6 nearest 1D are fused; NVFP4 block-scale-2D/stochastic-unbiased and other dtypes use CuTe quantize plus CuTe/backend dequantize |
 | `x_amax` kwarg | `True` | NV/IF formats with global amax honor a provided precomputed amax; MX formats do not use global amax |

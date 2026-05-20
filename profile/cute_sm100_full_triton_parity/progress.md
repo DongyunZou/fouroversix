@@ -2123,6 +2123,59 @@ block_scale_2d:   4
 pseudo_quantize:  1
 ```
 
+Added fused CuTe sm100 static NVFP3/NVFP3_BS8 transpose quantize paths for
+`static_6`. This removes the explicit `x.T.contiguous()` copy for those two
+rows and uses the same scalar direct-transpose block shape as the retained
+NVINT3 path, but with E2M0 value packing and the NVFP3 static scale rule.
+
+A direct 128x128 Triton/CuTe comparison showed bit-exact values and matching
+dequant MSE for both NVFP3 variants; scale bytes differ in some rows but
+preserve the same dequantized error. The targeted CuTe sm100 NVFP3 test
+selection passes:
+
+```text
+13 passed, 35074 deselected, 1 warning in 4.62s
+```
+
+The full CuTe sm100 test selection also passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.50s
+```
+
+Targeted alternating timings improved the affected transpose rows:
+
+```text
+1024x1024 nvfp3 static_6 transpose       0.925x -> 1.022x
+1024x1024 nvfp3_bs8 static_6 transpose   0.949x -> 1.051x
+4096x4096 nvfp3 static_6 transpose       0.685x -> 0.846x
+4096x4096 nvfp3_bs8 static_6 transpose   0.828x -> 1.048x
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+243/470 workloads meet 1.2x
+436/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            94
+block_scale_2d:  60
+pseudo_quantize: 64
+transpose:       25
+```
+
+The remaining below-parity rows are still dominated by large transpose cases:
+
+```text
+transpose:       29
+block_scale_2d:   4
+pseudo_quantize:  1
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -2139,5 +2192,5 @@ pseudo_quantize:  1
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `241/470`
+  latest median capability-driven benchmark snapshot reports only `243/470`
   workloads meeting 1.2x.
