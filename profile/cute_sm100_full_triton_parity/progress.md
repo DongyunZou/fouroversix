@@ -1973,6 +1973,19 @@ pseudo_quantize: 59
 transpose:       25
 ```
 
+Profiled the 4096x4096 `nvfp4 + static_6 + transpose=True` row where Triton is
+still faster. The retained CuTe NVFP4 quantize kernel is not the slow part:
+NCU reports the CuTe quantizer at about `11.3-11.7 us`, versus Triton's main
+quantization kernel at about `43.4-43.7 us`. The CuTe end-to-end path loses
+because the current non-MX transpose implementation first materializes
+`x.T.contiguous()`, and that copy takes about `72.1-72.3 us` per profiled call.
+The amax reductions are similar (`17.2-18.4 us` CuTe, `18.0-18.3 us` Triton).
+A low-risk experiment that computed global amax before transpose gave only
+about a 1% improvement for 4096x4096 NV transpose rows and regressed a
+1024x1024 NVFP4 transpose row, so it was reverted. The profile reinforces that
+NV transpose needs a real fused tiled transpose-plus-quantize kernel rather
+than another frontend/launch retune.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
