@@ -3006,14 +3006,39 @@ remained above Triton by about `1.3` L2 for IF6 E2M3 and about `1.1` for IF6
 E3M2. The backend still does not claim IF6 stochastic-unbiased, and the
 experiment was reverted.
 
-Rechecked the missing NVFP3/NVFP3_BS8 `block_scale_2d=True` path after the
-successful MXFP3 and IF3 cooperative 2D rewrites. It is not a simple dispatch
-gap: the existing NVINT3 2D kernels have the right 3-bit storage shape but use
-integer-3 quantization and a `3.0` max divisor, while NVFP3 needs E2M0 conversion
-and a `4.0` divisor. Adding this feature requires new NVFP3/NVFP3_BS8 2D
-kernels, compile wrappers, public ops, backend routing, and replacing the
-current negative capability test; it cannot safely be claimed by reusing the
-NVINT3 2D path.
+Added CuTe sm100 NVFP3/NVFP3_BS8 `static_6 block_scale_2d=True` support with
+new format-specific 2D kernels, compile wrappers, public ops, backend routing,
+and an accuracy test replacing the previous negative capability check. The
+non-BS8 NVFP3 kernel uses a 16-lane group-per-tile mapping so each lane handles
+one row of the 16x16 scale tile and `warp_reduction_max(...,
+threads_in_group=16)` computes the shared E2M0 scale. The BS8 kernel keeps the
+serial 8-row tile mapping after an 8-lane cooperative experiment regressed the
+128x256 row and did not materially improve the larger rows.
+
+Targeted NVFP3/NVFP3_BS8 2D accuracy results:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/test_quantize.py -q -rxXs -k 'nvfp3_block_scale_2d and cute_sm100'
+2 passed
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/test_quantize.py -q -rxXs -k 'block_scale_2d and cute_sm100 and (nvfp3 or nvint3)'
+4 passed
+```
+
+Full CuTe sm100 test selection after enabling NVFP3/NVFP3_BS8 2D:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/test_quantize.py -q -rxXs -k cute_sm100
+449 passed, 7 skipped
+```
+
+Focused alternating timings for the new rows are still mixed and noisy. One
+stable run measured `nvfp3` at about `1.20x` for 128x256, `1.17x` for 1024x1024,
+and `1.21x` for 4096x4096; `nvfp3_bs8` measured about `1.19x`, `1.17x`, and
+`1.70x` respectively. The retained full benchmark snapshot has not been
+overwritten because previous full refreshes have moved unrelated rows
+substantially; the new feature is accurate, but several NVFP3 2D rows remain
+borderline or below the 1.2x target in focused timing.
 
 ## Remaining major gaps
 
@@ -3027,9 +3052,7 @@ NVINT3 2D path.
 - `block_scale_2d=True` is currently implemented for `nvfp4`,
   `nvfp4_bs8 static_4/static_6`,
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
-  `nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include
-  NVFP3/NVFP3_BS8,
-  and related non-nearest variants.
+  `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
   latest median capability-driven benchmark snapshot reports `331/470`
   workloads meeting 1.2x.

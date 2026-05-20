@@ -8092,6 +8092,191 @@ class Sm100NVINT3BS8StaticQuantize2D:
             tile_idx = tile_idx + stride
 
 
+class Sm100NVFP3StaticQuantize2D:
+    def __init__(self, k: int):
+        self.k = k
+        self.scale_blocks_per_row = k // NVFP4_SCALE_BLOCK_SIZE
+
+    @cute.jit
+    def __call__(
+        self,
+        x: cute.Tensor,
+        values: cute.Tensor,
+        scales: cute.Tensor,
+        total_scale_tiles: Int32,
+        num_blocks: Int32,
+        amax_tensor: cute.Tensor,
+        stream,
+    ):
+        self.kernel(x, values, scales, total_scale_tiles, amax_tensor).launch(
+            grid=[num_blocks, 1, 1],
+            block=[THREADS_PER_BLOCK, 1, 1],
+            max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
+            min_blocks_per_mp=BLOCKS_PER_SM,
+            stream=stream,
+        )
+
+    @cute.kernel
+    def kernel(
+        self,
+        x: cute.Tensor,
+        values: cute.Tensor,
+        scales: cute.Tensor,
+        total_scale_tiles: Int32,
+        amax_tensor: cute.Tensor,
+    ):
+        tidx, _, _ = cute.arch.thread_idx()
+        bidx, _, _ = cute.arch.block_idx()
+        grid_dim_x, _, _ = cute.arch.grid_dim()
+
+        lane_idx = tidx % Int32(IF3_2D_GROUP_SIZE)
+        group_idx = tidx // Int32(IF3_2D_GROUP_SIZE)
+        tile_idx = bidx * IF3_2D_GROUPS_PER_BLOCK + group_idx
+        stride = grid_dim_x * IF3_2D_GROUPS_PER_BLOCK
+        global_scale = _compute_global_scale(
+            amax_tensor,
+            E2M0_MAX * E4M3_STATIC_MAX,
+        )
+
+        while tile_idx < total_scale_tiles:
+            row_group = tile_idx // self.scale_blocks_per_row
+            col_idx = tile_idx % self.scale_blocks_per_row
+            elem_base = col_idx * NVFP4_SCALE_BLOCK_SIZE
+
+            row_idx = row_group * NVFP4_SCALE_BLOCK_SIZE + lane_idx
+            ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
+            ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
+            h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
+            h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
+            row_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
+            row_max = bfloat2_hmax_reduce_to_f32(row_max_h2)
+            block_max = cute.arch.warp_reduction_max(
+                row_max,
+                threads_in_group=IF3_2D_GROUP_SIZE,
+            )
+            scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(E2M0_MAX)))
+            scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
+            scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
+            output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
+
+            v0, v1, v2, v3 = bfloat2x8_to_e2m0x16_values(
+                h0,
+                h1,
+                h2,
+                h3,
+                h4,
+                h5,
+                h6,
+                h7,
+                output_scale,
+            )
+
+            sf_idx = row_idx * self.scale_blocks_per_row + col_idx
+            scales[sf_idx] = scale_fp8
+            output_offset = col_idx * NVFP4_SCALE_BLOCK_SIZE
+            output_ptr = get_ptr_as_int64(values[row_idx, None], output_offset)
+            st_global_v4_u32(output_ptr, v0, v1, v2, v3)
+
+            tile_idx = tile_idx + stride
+
+
+class Sm100NVFP3BS8StaticQuantize2D:
+    def __init__(self, k: int):
+        self.k = k
+        self.scale_blocks_per_row = k // 8
+
+    @cute.jit
+    def __call__(
+        self,
+        x: cute.Tensor,
+        values: cute.Tensor,
+        scales: cute.Tensor,
+        total_scale_tiles: Int32,
+        num_blocks: Int32,
+        amax_tensor: cute.Tensor,
+        stream,
+    ):
+        self.kernel(x, values, scales, total_scale_tiles, amax_tensor).launch(
+            grid=[num_blocks, 1, 1],
+            block=[THREADS_PER_BLOCK, 1, 1],
+            max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
+            min_blocks_per_mp=BLOCKS_PER_SM,
+            stream=stream,
+        )
+
+    @cute.kernel
+    def kernel(
+        self,
+        x: cute.Tensor,
+        values: cute.Tensor,
+        scales: cute.Tensor,
+        total_scale_tiles: Int32,
+        amax_tensor: cute.Tensor,
+    ):
+        tidx, _, _ = cute.arch.thread_idx()
+        bidx, _, _ = cute.arch.block_idx()
+        grid_dim_x, _, _ = cute.arch.grid_dim()
+
+        tile_idx = bidx * THREADS_PER_BLOCK + tidx
+        stride = grid_dim_x * THREADS_PER_BLOCK
+        global_scale = _compute_global_scale(
+            amax_tensor,
+            E2M0_MAX * E4M3_STATIC_MAX,
+        )
+
+        while tile_idx < total_scale_tiles:
+            row_group = tile_idx // self.scale_blocks_per_row
+            col_idx = tile_idx % self.scale_blocks_per_row
+            elem_base = col_idx * Int32(8)
+
+            block_max_h2 = cutlass.Uint32(0)
+            row_offset = Int32(0)
+            while row_offset < Int32(8):
+                row_idx = row_group * Int32(8) + row_offset
+                ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
+                h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
+                row_max = bfloat2_max_abs_8(
+                    h0,
+                    h1,
+                    h2,
+                    h3,
+                    h0,
+                    h1,
+                    h2,
+                    h3,
+                )
+                block_max_h2 = bfloat2_hmax2(block_max_h2, row_max)
+                row_offset = row_offset + Int32(1)
+
+            block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
+            scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(E2M0_MAX)))
+            scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
+            scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
+            output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
+
+            row_offset = Int32(0)
+            while row_offset < Int32(8):
+                row_idx = row_group * Int32(8) + row_offset
+                ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
+                h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
+                v0, v1 = bfloat2x4_to_e2m0x8_values(
+                    h0,
+                    h1,
+                    h2,
+                    h3,
+                    output_scale,
+                )
+
+                sf_idx = row_idx * self.scale_blocks_per_row + col_idx
+                scales[sf_idx] = scale_fp8
+                output_ptr = get_ptr_as_int64(values[row_idx, None], elem_base)
+                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(v0)
+                st_global_u64(output_ptr, packed64)
+                row_offset = row_offset + Int32(1)
+
+            tile_idx = tile_idx + stride
+
+
 class Sm100NVFP6StaticQuantize:
     def __init__(
         self,
@@ -12166,6 +12351,92 @@ def _compile_nvint3_bs8_static_quantize_2d(k: int):
 
 
 @functools.cache
+def _compile_nvfp3_static_quantize_2d(k: int):
+    sym_m = cute.sym_int()
+    sym_scale_blocks = cute.sym_int()
+
+    x_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.BFloat16,
+        (sym_m, k),
+        stride_order=(1, 0),
+        assumed_align=16,
+    )
+    values_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.Uint8,
+        (sym_m, k),
+        stride_order=(1, 0),
+        assumed_align=16,
+    )
+    scales_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.Uint8,
+        (sym_scale_blocks,),
+        assumed_align=16,
+    )
+    amax_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.Float32,
+        (1,),
+        assumed_align=4,
+    )
+    stream_fake = cute.runtime.make_fake_stream()
+
+    kernel = Sm100NVFP3StaticQuantize2D(k)
+    compiled = cute.compile(
+        kernel,
+        x_fake,
+        values_fake,
+        scales_fake,
+        Int32(1),
+        Int32(1),
+        amax_fake,
+        stream_fake,
+    )
+    return compiled
+
+
+@functools.cache
+def _compile_nvfp3_bs8_static_quantize_2d(k: int):
+    sym_m = cute.sym_int()
+    sym_scale_blocks = cute.sym_int()
+
+    x_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.BFloat16,
+        (sym_m, k),
+        stride_order=(1, 0),
+        assumed_align=16,
+    )
+    values_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.Uint8,
+        (sym_m, k),
+        stride_order=(1, 0),
+        assumed_align=16,
+    )
+    scales_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.Uint8,
+        (sym_scale_blocks,),
+        assumed_align=16,
+    )
+    amax_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.Float32,
+        (1,),
+        assumed_align=4,
+    )
+    stream_fake = cute.runtime.make_fake_stream()
+
+    kernel = Sm100NVFP3BS8StaticQuantize2D(k)
+    compiled = cute.compile(
+        kernel,
+        x_fake,
+        values_fake,
+        scales_fake,
+        Int32(1),
+        Int32(1),
+        amax_fake,
+        stream_fake,
+    )
+    return compiled
+
+
+@functools.cache
 def _compile_nvint6_static_quantize(
     k: int,
     adjustment_factor: float = 1.0,
@@ -13974,6 +14245,80 @@ def quantize_nvint3_bs8_static_2d(
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
     kernel = _compile_nvint3_bs8_static_quantize_2d(k)
+    kernel(
+        x,
+        values,
+        scale_factors.reshape(-1),
+        total_scale_tiles,
+        num_blocks,
+        amax.reshape(1),
+        cutlass_torch.current_stream(),
+    )
+    return values, scale_factors, amax
+
+
+def quantize_nvfp3_static_2d(
+    x: torch.Tensor,
+    *,
+    x_amax: torch.Tensor | None = None,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    m, k = _validate_quantize_input(x, 4)
+    if m % NVFP4_SCALE_BLOCK_SIZE != 0:
+        msg = f"rows must be divisible by {NVFP4_SCALE_BLOCK_SIZE}, got {m}"
+        raise ValueError(msg)
+    x = x.contiguous()
+
+    values = torch.empty((m, k), dtype=torch.uint8, device=x.device)
+    scale_factors = torch.empty(
+        (m, k // NVFP4_SCALE_BLOCK_SIZE),
+        dtype=torch.uint8,
+        device=x.device,
+    )
+    amax = _resolve_amax(x, x_amax)
+    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
+        k // NVFP4_SCALE_BLOCK_SIZE
+    )
+    num_blocks = _launch_grid(
+        total_scale_tiles,
+        x.device,
+        threads_per_block=IF3_2D_GROUPS_PER_BLOCK,
+    )
+
+    kernel = _compile_nvfp3_static_quantize_2d(k)
+    kernel(
+        x,
+        values,
+        scale_factors.reshape(-1),
+        total_scale_tiles,
+        num_blocks,
+        amax.reshape(1),
+        cutlass_torch.current_stream(),
+    )
+    return values, scale_factors, amax
+
+
+def quantize_nvfp3_bs8_static_2d(
+    x: torch.Tensor,
+    *,
+    x_amax: torch.Tensor | None = None,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    m, k = _validate_quantize_input(x, 4)
+    if m % 8 != 0:
+        msg = f"rows must be divisible by 8, got {m}"
+        raise ValueError(msg)
+    x = x.contiguous()
+
+    values = torch.empty((m, k), dtype=torch.uint8, device=x.device)
+    scale_factors = torch.empty(
+        (m, k // 8),
+        dtype=torch.uint8,
+        device=x.device,
+    )
+    amax = _resolve_amax(x, x_amax)
+    total_scale_tiles = (m // 8) * (k // 8)
+    num_blocks = _launch_grid(total_scale_tiles, x.device)
+
+    kernel = _compile_nvfp3_bs8_static_quantize_2d(k)
     kernel(
         x,
         values,

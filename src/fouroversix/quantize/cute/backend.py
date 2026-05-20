@@ -214,6 +214,16 @@ def _static_nvint_2d_quantizers():
 
 
 @functools.lru_cache
+def _static_nvfp3_2d_quantizers():
+    from fouroversix.kernels.cute_sm100 import ops
+
+    return (
+        ops.quantize_nvfp3_static_2d,
+        ops.quantize_nvfp3_bs8_static_2d,
+    )
+
+
+@functools.lru_cache
 def _pseudo_quantizers():
     from fouroversix.kernels.cute_sm100 import ops
 
@@ -453,7 +463,6 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 or (
                     config.dtype in {DataType.nvfp3, DataType.nvfp3_bs8}
                     and config.scale_rule == ScaleRule.static_6
-                    and not config.block_scale_2d
                     and not config.pseudo_quantize
                 )
                 or (
@@ -567,6 +576,11 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 not config.block_scale_2d
                 or (
                     config.dtype in {DataType.nvfp4, DataType.nvfp4_bs8}
+                    and not config.pseudo_quantize
+                )
+                or (
+                    config.dtype in {DataType.nvfp3, DataType.nvfp3_bs8}
+                    and config.scale_rule == ScaleRule.static_6
                     and not config.pseudo_quantize
                 )
                 or (
@@ -1533,6 +1547,39 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 adjustment_factor=config.round_style.adjustment_factor,
                 x_amax=config.kwargs.get("x_amax"),
             )
+            return QuantizedTensor(
+                values,
+                scale_factors_u8.view(torch.float8_e4m3fn),
+                amax,
+                config.dtype,
+                x.shape,
+                config.scale_rule,
+                config.round_style,
+                scale_factors_are_in_blackwell_layout=False,
+            )
+
+        if (
+            not config.transpose
+            and not config.rht
+            and config.block_scale_2d
+            and not config.pseudo_quantize
+            and config.dtype in {DataType.nvfp3, DataType.nvfp3_bs8}
+            and config.scale_rule == ScaleRule.static_6
+        ):
+            quantize_nvfp3_static_2d, quantize_nvfp3_bs8_static_2d = (
+                _static_nvfp3_2d_quantizers()
+            )
+            x_amax = config.kwargs.get("x_amax")
+            if config.dtype == DataType.nvfp3:
+                values, scale_factors_u8, amax = quantize_nvfp3_static_2d(
+                    x,
+                    x_amax=x_amax,
+                )
+            else:
+                values, scale_factors_u8, amax = quantize_nvfp3_bs8_static_2d(
+                    x,
+                    x_amax=x_amax,
+                )
             return QuantizedTensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
