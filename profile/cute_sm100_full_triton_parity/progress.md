@@ -1371,6 +1371,15 @@ The full CuTe sm100 test selection after the IF6 blocked-scale write change:
 449 passed, 7 skipped, 34631 deselected, 1 warning in 33.64s
 ```
 
+Re-tested IF3/IF4 fused pseudo candidate dequantization. The experiment moved
+FP/INT candidate dequantization after the error comparison so the kernel only
+dequantized the selected candidate. It passed the targeted IF3/IF4 pseudo tests
+(`14 passed`) and full CuTe sm100 selection (`449 passed, 7 skipped`), but did
+not materially improve the stable IF3 gap and the full benchmark did not gain
+1.2x rows. The code change was reverted. The current retained conclusion is
+unchanged: IF3 pseudo needs a different tiled/warp-cooperative mapping rather
+than local scalar cleanup inside the one-thread-per-scale-block kernel.
+
 Profiled and re-tested the 4096x4096 NVFP6 static base path after the IF6
 scale-layout fix. Torch profiler shows CuTe's main NVFP6 static kernel is
 shorter than Triton's main kernel, but repeated end-to-end event timing still
@@ -1407,6 +1416,12 @@ a real algorithmic kernel gap: the fused CuTe IF3 pseudo path remains about
 `0.79x` on 4096x4096 because it evaluates both FP3 and INT3 candidates plus
 the error metric per 16-value block.
 
+A fresh full median benchmark rerun with no retained kernel-code changes reports
+`57/470` workloads meeting 1.2x and `261/470` at least matching Triton. This is
+lower than the earlier `65/470` snapshot, but the workload classes that still
+drive the failure set are the same: transpose materialization, IF3 pseudo,
+NVFP/NVFP6 static/base rows, and near-threshold small-shape launch overheads.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1423,5 +1438,5 @@ the error metric per 16-value block.
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `65/470`
+  latest median capability-driven benchmark snapshot reports only `57/470`
   workloads meeting 1.2x.
