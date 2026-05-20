@@ -2846,6 +2846,14 @@ stable improvement: 128x256 static rows stayed around `1.11x`, 1024x1024 rows
 were mixed, and 4096x4096 gains were inconsistent with regressions on BS8. The
 64-thread base CTA experiment was reverted.
 
+Re-tested IF3/IF3_BS8 pseudo selected-only dequantization on top of the current
+post-transpose baseline. The experiment initializes the pseudo output registers
+and dequantizes only the selected FP3 or INT3 candidate after the error
+comparison. The targeted IF3 pseudo accuracy slice passed (`6 passed`), but
+representative timing did not improve the remaining row:
+`4096x4096 if3 abs_max pseudo_quantize=True` stayed around `0.98x`, while small
+IF3/IF3_BS8 pseudo rows were slightly slower. The experiment was reverted.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
