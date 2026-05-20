@@ -1269,6 +1269,21 @@ helpers assuming row-major alignment. This route was not retained; real
 transpose improvement needs a dedicated tiled transpose+quantize kernel rather
 than reusing the row-major static kernels on a strided view.
 
+Profiled a Triton-leading non-transpose workload,
+4096x4096 `if3 + abs_max + pseudo_quantize`, with Nsight Compute. A targeted
+microbenchmark first corrected a stale benchmark-snapshot anomaly: MXFP3/MXFP4
+`static_6 + pseudo_quantize` is roughly Triton-parity on repeated runs, not the
+`0.68-0.70x` reported by the older full sweep. The stable remaining IF3 pseudo
+gap is architectural: Triton's kernel runs in about `33.6-33.7 us`, while the
+CuTe fused IF3 pseudo kernel runs in about `47.1-47.2 us`. CuTe shows higher SM
+throughput (`82.6-82.9%` vs Triton's `63.8-63.9%`) and lower DRAM throughput
+(`9.4%` vs `13.2%`), but uses more registers (`54` vs `43`) and has lower
+active warps (`42.8%` vs `48.2%`). This points at the current one-thread-per
+scale-block CuTe mapping being too register-heavy and too coarse for IF3
+pseudo; the likely next optimization is a dedicated 2D tiled IF3/IF3_BS8 pseudo
+kernel rather than another small launch-parameter change. The raw NCU reports
+and command notes are under `profile/cute_sm100_full_triton_parity/ncu/`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
