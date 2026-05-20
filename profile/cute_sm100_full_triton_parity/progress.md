@@ -2527,6 +2527,26 @@ for IF3_BS8, far above the `3e-4` gate. The experiment was reverted; the INT3
 candidate remains necessary for `abs_max` pseudo parity, so the performance gap
 cannot be closed by dropping candidate selection.
 
+Temporarily relaxed `can_quantize` to test two remaining stochastic-unbiased
+feature gaps. The implementation already propagates `round_style.adjustment_factor`
+to the relevant kernels, so this tested whether the existing kernels could be
+claimed as-is. They cannot:
+
+```text
+nvfp6_e2m3 static_6 1D stochastic_unbiased:
+  triton_dist=4.5735 cute_dist=4.6279 delta=+0.0544
+
+if6_e2m3 abs_max/mae/mse 1D stochastic_unbiased:
+  cute_dist was about 11.44-11.49 vs Triton about 3.63-3.75
+
+if6_e3m2 abs_max/mae/mse 1D stochastic_unbiased:
+  cute_dist was about 11.48-11.52 vs Triton about 3.82-3.85
+```
+
+The gating relaxation was reverted. NVFP6 E2M3 1D stochastic-unbiased and IF6
+stochastic-unbiased still need real kernel work; they cannot be claimed through
+dispatch changes alone.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
