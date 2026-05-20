@@ -3047,8 +3047,12 @@ confirmed the gap is real for non-BS8 IF3 pseudo: `abs_max` measured about
 the bottleneck and measures about `1.33x-1.47x`. A 128-thread CTA retune for
 `Sm100IF3AdaptivePseudoQuantize` was tested and reverted because it regressed
 the same large rows (`abs_max` dropped to about `0.96x`, `mae/mse` to about
-`1.04x-1.05x`). Fixing IF3 non-BS8 pseudo needs a deeper kernel change than the
-simple launch retune.
+`1.04x-1.05x`). A 4-blocks/SM residency retune was also neutral at 4096 and
+slightly worse for 1024 `abs_max`, so it was not retained. A more aggressive
+`abs_max` fast path that always selected INT3 was rejected because it failed the
+existing IF3 pseudo accuracy gate (`diff MSE` around `0.022` versus a
+`0.0003` limit). Fixing IF3 non-BS8 pseudo needs a deeper kernel change than
+launch retuning or candidate-selection shortcuts.
 
 ## Remaining major gaps
 
