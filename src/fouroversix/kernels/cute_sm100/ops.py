@@ -49,6 +49,7 @@ from fouroversix.kernels.cute_sm100.fp4_common import (
     float2_to_bfloat2,
     float_to_ue8m0_ceil,
     get_ptr_as_int64,
+    ld_global_u16,
     ld_global_v4_u32,
     nvfp4_compute_dequant_scale,
     nvfp4_compute_output_scale,
@@ -250,6 +251,194 @@ def _process_nvfp4_static_pseudo_block_bfloat(
         bfloat2_nvfp4_dequant_bfloat2(h6, output_scale, dequant_scale),
         bfloat2_nvfp4_dequant_bfloat2(h7, output_scale, dequant_scale),
     )
+
+
+@cute.jit
+def _ld_transposed_bfloat2(
+    x: cute.Tensor,
+    row0: Int32,
+    row1: Int32,
+    col_idx: Int32,
+) -> Uint32:
+    ptr0 = get_ptr_as_int64(x[row0, None], col_idx)
+    ptr1 = get_ptr_as_int64(x[row1, None], col_idx)
+    lo = Uint32(ld_global_u16(ptr0))
+    hi = Uint32(ld_global_u16(ptr1))
+    return lo | (hi << Uint32(16))
+
+
+@cute.jit
+def _process_mxfp4_static_block_bfloat_transposed(
+    x: cute.Tensor,
+    col_idx: Int32,
+    elem_base: Int32,
+    max_quantized_value: cutlass.Constexpr[int],
+    scale_block_size: cutlass.Constexpr[int] = MXFP4_SCALE_BLOCK_SIZE,
+    stochastic_rounding: cutlass.Constexpr[bool] = False,
+    seed_base: Uint32 = Uint32(0),
+) -> tuple[Uint8, cutlass.Uint64, cutlass.Uint64]:
+    h0 = _ld_transposed_bfloat2(x, elem_base, elem_base + Int32(1), col_idx)
+    h1 = _ld_transposed_bfloat2(
+        x,
+        elem_base + Int32(2),
+        elem_base + Int32(3),
+        col_idx,
+    )
+    h2 = _ld_transposed_bfloat2(
+        x,
+        elem_base + Int32(4),
+        elem_base + Int32(5),
+        col_idx,
+    )
+    h3 = _ld_transposed_bfloat2(
+        x,
+        elem_base + Int32(6),
+        elem_base + Int32(7),
+        col_idx,
+    )
+
+    if cutlass.const_expr(scale_block_size == 8):
+        max0 = bfloat2_max_abs_8(h0, h1, h2, h3, h0, h1, h2, h3)
+        block_max = bfloat2_hmax_reduce_to_f32(max0)
+        normalized_max = block_max * rcp_approx_ftz(
+            Float32(float(max_quantized_value)),
+        )
+        scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
+        scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
+        inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
+        packed32 = bfloat2x4_to_e2m1x8_packed(h0, h1, h2, h3, inv_scale)
+        return scale_ue8m0, cutlass.Uint64(packed32), cutlass.Uint64(0)
+    else:
+        h4 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(8),
+            elem_base + Int32(9),
+            col_idx,
+        )
+        h5 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(10),
+            elem_base + Int32(11),
+            col_idx,
+        )
+        h6 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(12),
+            elem_base + Int32(13),
+            col_idx,
+        )
+        h7 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(14),
+            elem_base + Int32(15),
+            col_idx,
+        )
+        h8 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(16),
+            elem_base + Int32(17),
+            col_idx,
+        )
+        h9 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(18),
+            elem_base + Int32(19),
+            col_idx,
+        )
+        h10 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(20),
+            elem_base + Int32(21),
+            col_idx,
+        )
+        h11 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(22),
+            elem_base + Int32(23),
+            col_idx,
+        )
+        h12 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(24),
+            elem_base + Int32(25),
+            col_idx,
+        )
+        h13 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(26),
+            elem_base + Int32(27),
+            col_idx,
+        )
+        h14 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(28),
+            elem_base + Int32(29),
+            col_idx,
+        )
+        h15 = _ld_transposed_bfloat2(
+            x,
+            elem_base + Int32(30),
+            elem_base + Int32(31),
+            col_idx,
+        )
+        max0 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
+        max1 = bfloat2_max_abs_8(h8, h9, h10, h11, h12, h13, h14, h15)
+        block_max = bfloat2_hmax_reduce_to_f32(bfloat2_hmax2(max0, max1))
+
+    normalized_max = block_max * rcp_approx_ftz(Float32(float(max_quantized_value)))
+    scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
+    scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
+    inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
+
+    if cutlass.const_expr(stochastic_rounding):
+        packed64_0 = bfloat2x8_to_e2m1x16_packed_stochastic(
+            h0,
+            h1,
+            h2,
+            h3,
+            h4,
+            h5,
+            h6,
+            h7,
+            inv_scale,
+            seed_base,
+        )
+        packed64_1 = bfloat2x8_to_e2m1x16_packed_stochastic(
+            h8,
+            h9,
+            h10,
+            h11,
+            h12,
+            h13,
+            h14,
+            h15,
+            inv_scale,
+            seed_base + Uint32(16),
+        )
+    else:
+        packed64_0 = bfloat2x8_to_e2m1x16_packed(
+            h0,
+            h1,
+            h2,
+            h3,
+            h4,
+            h5,
+            h6,
+            h7,
+            inv_scale,
+        )
+        packed64_1 = bfloat2x8_to_e2m1x16_packed(
+            h8,
+            h9,
+            h10,
+            h11,
+            h12,
+            h13,
+            h14,
+            h15,
+            inv_scale,
+        )
+    return scale_ue8m0, packed64_0, packed64_1
 
 
 @cute.jit
@@ -4565,6 +4754,86 @@ class Sm100MXFP4StaticQuantize:
             scale_ue8m0, packed64_0, packed64_1 = (
                 _process_mxfp4_static_block_bfloat(
                     x[row_idx, None],
+                    elem_base,
+                    self.max_quantized_value,
+                    self.scale_block_size,
+                    self.stochastic_rounding,
+                    Uint32(row_idx * self.k + elem_base),
+                )
+            )
+
+            scales[sf_idx] = scale_ue8m0
+            output_offset = col_idx * (self.scale_block_size // 2)
+            output_ptr0 = get_ptr_as_int64(values[row_idx, None], output_offset)
+            if cutlass.const_expr(self.scale_block_size == 8):
+                st_global_u32(output_ptr0, Uint32(packed64_0 & cutlass.Uint64(0xFFFFFFFF)))
+            else:
+                output_ptr1 = get_ptr_as_int64(
+                    values[row_idx, None],
+                    output_offset + Int32(8),
+                )
+                st_global_u64(output_ptr0, packed64_0)
+                st_global_u64(output_ptr1, packed64_1)
+
+            sf_idx = sf_idx + stride
+
+
+class Sm100MXFP4StaticTransposeQuantize:
+    def __init__(
+        self,
+        k: int,
+        max_quantized_value: int,
+        scale_block_size: int = MXFP4_SCALE_BLOCK_SIZE,
+        stochastic_rounding: bool = False,
+    ):
+        self.k = k
+        self.max_quantized_value = max_quantized_value
+        self.scale_block_size = scale_block_size
+        self.stochastic_rounding = stochastic_rounding
+        self.scale_blocks_per_row = k // scale_block_size
+
+    @cute.jit
+    def __call__(
+        self,
+        x: cute.Tensor,
+        values: cute.Tensor,
+        scales: cute.Tensor,
+        total_scale_blocks: Int32,
+        num_blocks: Int32,
+        stream,
+    ):
+        self.kernel(x, values, scales, total_scale_blocks).launch(
+            grid=[num_blocks, 1, 1],
+            block=[THREADS_PER_BLOCK, 1, 1],
+            max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
+            min_blocks_per_mp=BLOCKS_PER_SM,
+            stream=stream,
+        )
+
+    @cute.kernel
+    def kernel(
+        self,
+        x: cute.Tensor,
+        values: cute.Tensor,
+        scales: cute.Tensor,
+        total_scale_blocks: Int32,
+    ):
+        tidx, _, _ = cute.arch.thread_idx()
+        bidx, _, _ = cute.arch.block_idx()
+        grid_dim_x, _, _ = cute.arch.grid_dim()
+
+        sf_idx = bidx * THREADS_PER_BLOCK + tidx
+        stride = grid_dim_x * THREADS_PER_BLOCK
+
+        while sf_idx < total_scale_blocks:
+            row_idx = sf_idx // self.scale_blocks_per_row
+            col_idx = sf_idx % self.scale_blocks_per_row
+            elem_base = col_idx * self.scale_block_size
+
+            scale_ue8m0, packed64_0, packed64_1 = (
+                _process_mxfp4_static_block_bfloat_transposed(
+                    x,
+                    row_idx,
                     elem_base,
                     self.max_quantized_value,
                     self.scale_block_size,
@@ -8968,6 +9237,53 @@ def _compile_mxfp4_static_quantize(
 
 
 @functools.cache
+def _compile_mxfp4_static_transpose_quantize(
+    k: int,
+    n: int,
+    max_quantized_value: int,
+    scale_block_size: int = MXFP4_SCALE_BLOCK_SIZE,
+    stochastic_rounding: bool = False,
+):
+    sym_scale_blocks = cute.sym_int()
+
+    x_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.BFloat16,
+        (k, n),
+        stride_order=(1, 0),
+        assumed_align=16,
+    )
+    values_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.Uint8,
+        (n, k // 2),
+        stride_order=(1, 0),
+        assumed_align=16,
+    )
+    scales_fake = cute.runtime.make_fake_compact_tensor(
+        cutlass.Uint8,
+        (sym_scale_blocks,),
+        assumed_align=16,
+    )
+    stream_fake = cute.runtime.make_fake_stream()
+
+    kernel = Sm100MXFP4StaticTransposeQuantize(
+        k,
+        max_quantized_value,
+        scale_block_size,
+        stochastic_rounding,
+    )
+    compiled = cute.compile(
+        kernel,
+        x_fake,
+        values_fake,
+        scales_fake,
+        Int32(1),
+        Int32(1),
+        stream_fake,
+    )
+    return compiled
+
+
+@functools.cache
 def _compile_mxfp3_static_quantize(
     k: int,
     scale_block_size: int,
@@ -10505,6 +10821,46 @@ def quantize_mxfp4_static(
 
     kernel = _compile_mxfp4_static_quantize(
         k,
+        max_quantized_value,
+        scale_block_size,
+        stochastic_rounding,
+    )
+    kernel(
+        x,
+        values,
+        scale_factors.reshape(-1),
+        total_scale_blocks,
+        num_blocks,
+        cutlass_torch.current_stream(),
+    )
+    return values, scale_factors
+
+
+def quantize_mxfp4_static_transpose(
+    x: torch.Tensor,
+    *,
+    max_quantized_value: int,
+    scale_block_size: int = MXFP4_SCALE_BLOCK_SIZE,
+    stochastic_rounding: bool = False,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    m, n = _validate_mxfp4_input(x, max_quantized_value, scale_block_size)
+    if m % scale_block_size != 0:
+        msg = f"rows must be divisible by {scale_block_size}, got {m}"
+        raise ValueError(msg)
+    x = x.contiguous()
+
+    values = torch.empty((n, m // 2), dtype=torch.uint8, device=x.device)
+    scale_factors = torch.empty(
+        (n, m // scale_block_size),
+        dtype=torch.uint8,
+        device=x.device,
+    )
+    total_scale_blocks = n * (m // scale_block_size)
+    num_blocks = _launch_grid(total_scale_blocks, x.device)
+
+    kernel = _compile_mxfp4_static_transpose_quantize(
+        m,
+        n,
         max_quantized_value,
         scale_block_size,
         stochastic_rounding,

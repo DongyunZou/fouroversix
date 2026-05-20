@@ -763,6 +763,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             quantize_mxfp4_static,
             quantize_mxfp4_bs8_static_2d,
             quantize_mxfp4_static_2d,
+            quantize_mxfp4_static_transpose,
             quantize_mxfp6_static,
             quantize_mxfp6_static_2d,
             quantize_nvfp4_adaptive_2d,
@@ -785,7 +786,20 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
         )
 
         quantized_shape = (x.shape[1], x.shape[0]) if config.transpose else x.shape
-        x_quantize = x.T.contiguous() if config.transpose else x
+        use_mxfp4_static_transpose_kernel = (
+            config.transpose
+            and not config.rht
+            and not config.block_scale_2d
+            and config.dtype in {DataType.mxfp4, DataType.mxfp4_bs8}
+            and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+        )
+        x_quantize = (
+            x
+            if use_mxfp4_static_transpose_kernel
+            else x.T.contiguous()
+            if config.transpose
+            else x
+        )
         if config.rht:
             x_quantize = rht_transform(x_quantize)
         x_amax = None if config.rht else config.kwargs.get("x_amax")
@@ -1002,7 +1016,11 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             config.dtype == DataType.mxfp4_bs8
             and config.scale_rule == ScaleRule.static_6
         ):
-            values, scale_factors_u8 = quantize_mxfp4_static(
+            values, scale_factors_u8 = (
+                quantize_mxfp4_static_transpose
+                if use_mxfp4_static_transpose_kernel
+                else quantize_mxfp4_static
+            )(
                 x_quantize,
                 max_quantized_value=6,
                 scale_block_size=config.dtype.block_size,
@@ -1014,7 +1032,11 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             config.dtype == DataType.mxfp4_bs8
             and config.scale_rule == ScaleRule.static_4
         ):
-            values, scale_factors_u8 = quantize_mxfp4_static(
+            values, scale_factors_u8 = (
+                quantize_mxfp4_static_transpose
+                if use_mxfp4_static_transpose_kernel
+                else quantize_mxfp4_static
+            )(
                 x_quantize,
                 max_quantized_value=4,
                 scale_block_size=config.dtype.block_size,
@@ -1023,7 +1045,11 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             amax = None
             scale_dtype = torch.float8_e8m0fnu
         elif config.dtype == DataType.mxfp4 and config.scale_rule == ScaleRule.static_6:
-            values, scale_factors_u8 = quantize_mxfp4_static(
+            values, scale_factors_u8 = (
+                quantize_mxfp4_static_transpose
+                if use_mxfp4_static_transpose_kernel
+                else quantize_mxfp4_static
+            )(
                 x_quantize,
                 max_quantized_value=6,
                 stochastic_rounding=config.round_style.is_stochastic,
@@ -1031,7 +1057,11 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             amax = None
             scale_dtype = torch.float8_e8m0fnu
         elif config.dtype == DataType.mxfp4 and config.scale_rule == ScaleRule.static_4:
-            values, scale_factors_u8 = quantize_mxfp4_static(
+            values, scale_factors_u8 = (
+                quantize_mxfp4_static_transpose
+                if use_mxfp4_static_transpose_kernel
+                else quantize_mxfp4_static
+            )(
                 x_quantize,
                 max_quantized_value=4,
                 stochastic_rounding=config.round_style.is_stochastic,

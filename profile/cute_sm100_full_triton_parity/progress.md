@@ -1443,16 +1443,16 @@ The full CuTe sm100 test selection passes:
 The refreshed full benchmark now reports:
 
 ```text
-65/470 workloads meet 1.2x
-250/470 workloads are at least Triton parity
+66/470 workloads meet 1.2x
+269/470 workloads are at least Triton parity
 ```
 
 The class breakdown for 1.2x rows is:
 
 ```text
-pseudo_quantize: 23
-base:            17
-block_scale_2d:  16
+pseudo_quantize: 22
+base:            18
+block_scale_2d:  17
 transpose:        9
 ```
 
@@ -1472,6 +1472,32 @@ nvfp3 base        0.908x
 The experiment was reverted; NV static needs a deeper kernel change rather than
 the same CTA-size retune that helps some fused pseudo paths.
 
+Profiled a Triton-leading static MXFP4 transpose workload
+(`4096x4096 mxfp4 static_6 transpose=True`) with Nsight Compute. Triton's
+profiled call is a single fused `quantization_kernel` at about `47-50 us`.
+The old CuTe path spent about `72 us` in PyTorch's transpose copy kernel before
+running the CuTe static quantize kernel, which itself took only about `11 us`.
+This confirmed that static MXFP4 transpose was losing mainly to
+materialization, not to the CuTe quantize body.
+
+Added a narrow fused CuTe transpose path for 1D `mxfp4` and `mxfp4_bs8`
+`static_4/static_6` quantize. It loads BF16 values from the original matrix in
+transposed order and writes the existing output contract directly, avoiding
+`x.T.contiguous()` for these modes. Accuracy matches Triton dequantization on
+the targeted checks, and the MXFP4 CuTe test slice passes:
+
+```text
+38 passed, 35049 deselected, 1 warning in 9.40s
+```
+
+The fused path is a partial performance win, not a final fix. It improves the
+4096x4096 MXFP4 transpose rows from the previous `0.077-0.080 ms` range to
+about `0.063-0.064 ms`, and improves 1024x1024 MXFP4 transpose to about
+`1.11-1.12x` versus Triton. Large 4096x4096 MXFP4 transpose remains below
+Triton (`0.77-0.79x`) because the new kernel uses strided scalar BF16 loads;
+the next step is a tiled/shared-memory transpose+quantize kernel with coalesced
+loads.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1488,5 +1514,5 @@ the same CTA-size retune that helps some fused pseudo paths.
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `65/470`
+  latest median capability-driven benchmark snapshot reports only `66/470`
   workloads meeting 1.2x.

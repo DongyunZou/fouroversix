@@ -4,7 +4,7 @@ from typing import Tuple
 
 import cutlass
 import cutlass.cute as cute
-from cutlass import Float32, Int32, Int64, Uint32, Uint64
+from cutlass import Float32, Int32, Int64, Uint16, Uint32, Uint64
 from cutlass._mlir import ir
 from cutlass._mlir.dialects import llvm
 from cutlass.cutlass_dsl import T, dsl_user_op
@@ -40,6 +40,28 @@ def ld_global_v4_u32(
         Uint32(llvm.extractvalue(T.i32(), result, [1], loc=loc, ip=ip)),
         Uint32(llvm.extractvalue(T.i32(), result, [2], loc=loc, ip=ip)),
         Uint32(llvm.extractvalue(T.i32(), result, [3], loc=loc, ip=ip)),
+    )
+
+
+@dsl_user_op
+def ld_global_u16(
+    base_ptr: Int64,
+    *,
+    loc=None,
+    ip=None,
+) -> Uint16:
+    return Uint16(
+        llvm.inline_asm(
+            T.i16(),
+            [Int64(base_ptr).ir_value(loc=loc, ip=ip)],
+            "ld.global.u16 $0, [$1];",
+            "=h,l",
+            has_side_effects=False,
+            is_align_stack=False,
+            asm_dialect=llvm.AsmDialect.AD_ATT,
+            loc=loc,
+            ip=ip,
+        )
     )
 
 
