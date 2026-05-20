@@ -2772,6 +2772,13 @@ block-scale-2D kernels. The targeted IF3/MX/NV 2D accuracy slice passed
 1.2x. It also pushed the `4096x4096 mxfp3 static_4/static_6 block_scale_2d`
 rows below parity, so the global 2D CTA retune was reverted.
 
+Tested an MX static base CTA retune from the retained 128 threads to 64
+threads. The targeted MX static accuracy slice passed (`56 passed`), and a
+small isolated timing script suggested several near-threshold MX static rows
+could move above 1.2x. The full alternating benchmark did not reproduce that:
+it dropped to `220/470` workloads meeting 1.2x and introduced broad unrelated
+timing regressions. The retune was reverted.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
