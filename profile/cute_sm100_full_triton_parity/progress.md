@@ -2237,6 +2237,62 @@ base:             1
 pseudo_quantize:  1
 ```
 
+Added a fused CuTe sm100 nearest NVFP4 adaptive transpose quantize path for
+`abs_max`/`mae`/`mse`. Stochastic adaptive NVFP4 transpose intentionally keeps
+the existing materialized-transpose route so this change does not alter the
+stochastic seed mapping. The fused nearest path directly reads BF16 in
+transposed order and performs the existing per-block `static_6` vs `static_4`
+error selection.
+
+The targeted CuTe sm100 NVFP4 test selection passes:
+
+```text
+83 passed, 6 skipped, 34998 deselected, 1 warning in 9.63s
+```
+
+The full CuTe sm100 test selection also passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.70s
+```
+
+Targeted alternating timings improved the affected adaptive transpose rows:
+
+```text
+1024x1024 nvfp4 abs_max transpose  1.025x
+1024x1024 nvfp4 mae transpose      1.043x
+1024x1024 nvfp4 mse transpose      1.077x
+4096x4096 nvfp4 abs_max transpose  2.597x
+4096x4096 nvfp4 mae transpose      2.590x
+4096x4096 nvfp4 mse transpose      2.600x
+```
+
+The refreshed full alternating benchmark snapshot is noisy on unrelated small
+base/pseudo rows and reports fewer overall 1.2x rows than the prior snapshot,
+but the transpose parity count still improves:
+
+```text
+215/470 workloads meet 1.2x
+445/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            80
+block_scale_2d:  55
+pseudo_quantize: 52
+transpose:       28
+```
+
+The remaining below-parity rows are now:
+
+```text
+transpose:       20
+block_scale_2d:   4
+pseudo_quantize:  1
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -2253,5 +2309,5 @@ pseudo_quantize:  1
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `243/470`
+  latest median capability-driven benchmark snapshot reports only `215/470`
   workloads meeting 1.2x.

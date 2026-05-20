@@ -1109,6 +1109,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             quantize_mxfp6_static_transpose,
             quantize_mxfp6_static_2d,
             quantize_nvfp4_adaptive_2d,
+            quantize_nvfp4_adaptive_transpose,
             quantize_nvint3_static,
             quantize_nvint3_static_transpose,
             quantize_nvint3_bs8_static_2d,
@@ -1162,6 +1163,14 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             and config.dtype in {DataType.nvfp4, DataType.nvfp4_bs8}
             and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
         )
+        use_nvfp4_adaptive_transpose_kernel = (
+            config.transpose
+            and not config.rht
+            and not config.block_scale_2d
+            and config.dtype == DataType.nvfp4
+            and config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+            and config.round_style == RoundStyle.nearest
+        )
         use_nvfp6_static_transpose_kernel = (
             config.transpose
             and not config.rht
@@ -1203,6 +1212,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 use_mxfp4_static_transpose_kernel
                 or use_mxfp3_static_transpose_kernel
                 or use_mxfp6_static_transpose_kernel
+                or use_nvfp4_adaptive_transpose_kernel
                 or use_nvfp4_static_transpose_kernel
                 or use_nvfp6_static_transpose_kernel
                 or use_nvfp3_static_transpose_kernel
@@ -1822,12 +1832,19 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             )
             scale_dtype = torch.float8_e4m3fn
         elif config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}:
-            values, scale_factors_u8, amax = quantize_nvfp4_adaptive(
-                x_quantize,
-                scale_rule_id=config.scale_rule.cuda_id,
-                stochastic_rounding=config.round_style == RoundStyle.stochastic,
-                x_amax=x_amax,
-            )
+            if use_nvfp4_adaptive_transpose_kernel:
+                values, scale_factors_u8, amax = quantize_nvfp4_adaptive_transpose(
+                    x_quantize,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    x_amax=x_amax,
+                )
+            else:
+                values, scale_factors_u8, amax = quantize_nvfp4_adaptive(
+                    x_quantize,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    stochastic_rounding=config.round_style == RoundStyle.stochastic,
+                    x_amax=x_amax,
+                )
             scale_dtype = torch.float8_e4m3fn
         else:
             msg = f"Unsupported CuTe sm100 scale rule: {config.scale_rule}"
