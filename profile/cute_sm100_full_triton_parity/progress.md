@@ -2644,6 +2644,22 @@ retained 256-thread snapshot for several rows. The 4096x4096 rows remained
 above 1.2x, as before. The retune was reverted; IF6 base needs a deeper
 per-block instruction/body optimization rather than a smaller CTA.
 
+Tested a smaller occupancy-hint change for the retained scalar MX transpose
+kernels by lowering `min_blocks_per_mp` from 8 to 4. Targeted 4096x4096 MX
+transpose timings were effectively unchanged and still below parity:
+
+```text
+mxfp3 static_4 transpose      0.846x
+mxfp3_bs8 static_4 transpose  0.795x
+mxfp4 static_4 transpose      0.725x
+mxfp4_bs8 static_4 transpose  0.768x
+mxfp6_e2m3 static_6 transpose 0.779x
+mxfp6_e3m2 static_6 transpose 0.776x
+```
+
+The occupancy-hint change was reverted. This again points at the strided
+scalar transposed loads rather than a launch-bound occupancy setting.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
