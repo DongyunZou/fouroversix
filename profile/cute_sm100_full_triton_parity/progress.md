@@ -184,6 +184,10 @@ This is a progress record, not a completion claim.
   `mxfp3_bs8`, `mxfp6_e2m3`, and `mxfp6_e3m2` static quantize. These reuse
   the existing scalar transposed-load approach from the MXFP4 transpose path
   and avoid `x.T.contiguous()` for these modes.
+- Retuned the fused MX pseudo-quantize kernels (`mxfp3`, `mxfp4`, and
+  `mxfp6`) from the shared 256-thread CTA to the pseudo-kernel 128-thread CTA.
+  This reduces launch/body overhead for the small pseudo kernels without
+  changing their output contract.
 - Re-tested NVFP3/NVFP3_BS8 `block_scale_2d=True` implementation feasibility.
   The experimental 2D FP3 path matched Triton scales for NVFP3, but raw values
   were invalid/non-matching (`valueeq` around `0.07`) and dequantized distance
@@ -1604,6 +1608,43 @@ materially but remain below Triton: `mxfp3 static_6` is `0.844x`,
 tiled/shared-memory transpose+quantize kernel with coalesced loads; scalar
 transposed loads cannot close the large-shape gap.
 
+Retuned fused MX pseudo kernels (`Sm100MXFP3StaticPseudoQuantize`,
+`Sm100MXFP4StaticPseudoQuantize`, and `Sm100MXFP6StaticPseudoQuantize`) to use
+the 128-thread pseudo CTA. The targeted MX pseudo accuracy slice passes:
+
+```text
+18 passed, 35069 deselected, 1 warning in 4.71s
+```
+
+The full CuTe sm100 test selection passes after the retune:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.56s
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+148/470 workloads meet 1.2x
+290/470 workloads are at least Triton parity
+```
+
+The class breakdown for 1.2x rows is:
+
+```text
+block_scale_2d:  58
+pseudo_quantize: 55
+base:            26
+transpose:        9
+```
+
+The retained MX pseudo movement is substantial: most MX pseudo rows are now
+above 1.2x, including all 1024x1024 MX pseudo rows and most 4096x4096 rows.
+Examples include `mxfp6_e2m3 static_6 pseudo_quantize=True` at `1.282x` on
+128x256, `1.260x` on 1024x1024, and `1.312x` on 4096x4096. Remaining misses
+include near-threshold rows such as 4096x4096 `mxfp4 static_4
+pseudo_quantize=True` at `1.196x`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1620,5 +1661,5 @@ transposed loads cannot close the large-shape gap.
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `125/470`
+  latest median capability-driven benchmark snapshot reports only `148/470`
   workloads meeting 1.2x.
