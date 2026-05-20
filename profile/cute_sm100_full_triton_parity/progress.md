@@ -3068,6 +3068,22 @@ noise and reports `278/476` workloads meeting 1.2x, but the MXFP4_BS8 2D rows
 now clear the target except for a borderline `1024x1024 static_4` row measured
 at `1.189x` in that full run.
 
+Changed fused CuTe sm100 pseudo-quantize wrappers to allocate their BF16 output
+with `torch.empty_like(x)` after making the input contiguous, instead of
+spelling out `(m, k), dtype=torch.bfloat16, device=x.device` at each call site.
+This is a small fixed-overhead reduction that affects the shared pseudo path
+without changing kernel code. The focused pseudo accuracy selection passes
+(`72 passed`) and the full CuTe sm100 test selection still passes (`449 passed,
+7 skipped`). Focused timings improved representative small and medium pseudo
+rows: 128x256 IF3 `abs_max` measured about `1.12x`, IF4 `abs_max` about
+`1.10x`, NVINT4 `static_6` about `1.14x`, and 1024x1024 NVFP4 `static_4` about
+`1.12x`. MXFP4 pseudo rows now reach about `1.20x-1.26x` in focused timing.
+The large IF3 pseudo rows remain kernel-body limited and unchanged
+(`4096x4096 if3 abs_max pseudo` is still about `0.98x`). The refreshed full
+benchmark reports `295/476` workloads meeting 1.2x, with the current 1.2x class
+breakdown at `base=76`, `block_scale_2d=92`, `pseudo_quantize=67`, and
+`transpose=60`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3082,5 +3098,5 @@ at `1.189x` in that full run.
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `278/476`
+  latest median capability-driven benchmark snapshot reports `295/476`
   workloads meeting 1.2x.

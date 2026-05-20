@@ -13348,7 +13348,7 @@ def pseudo_quantize_nvfp4_static(
         raise ValueError(msg)
     x = x.contiguous()
 
-    out = torch.empty((m, k), dtype=torch.bfloat16, device=x.device)
+    out = torch.empty_like(x)
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = m * (k // scale_block_size)
     num_blocks = _launch_grid(total_scale_blocks, x.device)
@@ -13380,7 +13380,7 @@ def pseudo_quantize_nvfp3_static(
         raise ValueError(msg)
     x = x.contiguous()
 
-    out = torch.empty((m, k), dtype=torch.bfloat16, device=x.device)
+    out = torch.empty_like(x)
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = m * (k // scale_block_size)
     num_blocks = _launch_grid(total_scale_blocks, x.device)
@@ -13407,7 +13407,7 @@ def pseudo_quantize_nvfp6_static(
     m, k = _validate_quantize_input(x, 6)
     x = x.contiguous()
 
-    out = torch.empty((m, k), dtype=torch.bfloat16, device=x.device)
+    out = torch.empty_like(x)
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = m * (k // NVFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(total_scale_blocks, x.device)
@@ -13436,7 +13436,7 @@ def pseudo_quantize_nvint6_static(
     m, k = _validate_quantize_input(x, 6)
     x = x.contiguous()
 
-    out = torch.empty((m, k), dtype=torch.bfloat16, device=x.device)
+    out = torch.empty_like(x)
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = m * (k // NVFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(total_scale_blocks, x.device)
@@ -13468,7 +13468,7 @@ def pseudo_quantize_nvint3_static(
         raise ValueError(msg)
     x = x.contiguous()
 
-    out = torch.empty((m, k), dtype=torch.bfloat16, device=x.device)
+    out = torch.empty_like(x)
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = m * (k // scale_block_size)
     num_blocks = _launch_grid(total_scale_blocks, x.device)
@@ -13500,7 +13500,7 @@ def pseudo_quantize_nvint4_static(
         raise ValueError(msg)
     x = x.contiguous()
 
-    out = torch.empty((m, k), dtype=torch.bfloat16, device=x.device)
+    out = torch.empty_like(x)
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = m * (k // scale_block_size)
     num_blocks = _launch_grid(total_scale_blocks, x.device)
@@ -13526,7 +13526,7 @@ def pseudo_quantize_mxfp4_static(
     m, k = _validate_mxfp4_input(x, max_quantized_value, scale_block_size)
     x = x.contiguous()
 
-    out = torch.empty((m, k), dtype=torch.bfloat16, device=x.device)
+    out = torch.empty_like(x)
     total_scale_blocks = m * (k // scale_block_size)
     num_blocks = _launch_grid(total_scale_blocks, x.device)
 
@@ -13553,7 +13553,7 @@ def pseudo_quantize_mxfp3_static(
     m, k = _validate_mxfp4_input(x, 4, scale_block_size)
     x = x.contiguous()
 
-    out = torch.empty((m, k), dtype=torch.bfloat16, device=x.device)
+    out = torch.empty_like(x)
     total_scale_blocks = m * (k // scale_block_size)
     num_blocks = _launch_grid(total_scale_blocks, x.device)
 
@@ -13580,7 +13580,7 @@ def pseudo_quantize_mxfp6_static(
         raise ValueError(msg)
     x = x.contiguous()
 
-    out = torch.empty((m, k), dtype=torch.bfloat16, device=x.device)
+    out = torch.empty_like(x)
     total_scale_blocks = m * (k // MXFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(total_scale_blocks, x.device)
 
@@ -15237,7 +15237,7 @@ def pseudo_quantize_if6_adaptive(
     m, k = _validate_quantize_input(x, 6)
     x = x.contiguous()
 
-    out = torch.empty((m, k), dtype=torch.bfloat16, device=x.device)
+    out = torch.empty_like(x)
     amax = _resolve_amax(x, x_amax)
 
     total_scale_blocks = m * (k // NVFP4_SCALE_BLOCK_SIZE)
@@ -15327,7 +15327,7 @@ def pseudo_quantize_nvfp4_adaptive(
     m, k = _validate_quantize_input(x, 6)
     x = x.contiguous()
 
-    out = torch.empty((m, k), dtype=torch.bfloat16, device=x.device)
+    out = torch.empty_like(x)
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = m * (k // NVFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(total_scale_blocks, x.device)
@@ -15364,7 +15364,7 @@ def pseudo_quantize_if4_adaptive(
         raise ValueError(msg)
     x = x.contiguous()
 
-    out = torch.empty((m, k), dtype=torch.bfloat16, device=x.device)
+    out = torch.empty_like(x)
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = m * (k // scale_block_size)
     num_blocks = _launch_grid(total_scale_blocks, x.device)
@@ -15405,7 +15405,7 @@ def pseudo_quantize_if3_adaptive(
         raise ValueError(msg)
     x = x.contiguous()
 
-    out = torch.empty((m, k), dtype=torch.bfloat16, device=x.device)
+    out = torch.empty_like(x)
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = m * (k // scale_block_size)
     num_blocks = _launch_grid(total_scale_blocks, x.device)
