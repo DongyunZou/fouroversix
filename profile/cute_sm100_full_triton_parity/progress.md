@@ -3040,6 +3040,16 @@ overwritten because previous full refreshes have moved unrelated rows
 substantially; the new feature is accurate, but several NVFP3 2D rows remain
 borderline or below the 1.2x target in focused timing.
 
+Rechecked the retained benchmark's worst pseudo row,
+`4096x4096 if3 abs_max pseudo_quantize=True`. Focused alternating timing
+confirmed the gap is real for non-BS8 IF3 pseudo: `abs_max` measured about
+`0.985x`, while `mae/mse` measured about `1.05x-1.06x`; IF3_BS8 pseudo is not
+the bottleneck and measures about `1.33x-1.47x`. A 128-thread CTA retune for
+`Sm100IF3AdaptivePseudoQuantize` was tested and reverted because it regressed
+the same large rows (`abs_max` dropped to about `0.96x`, `mae/mse` to about
+`1.04x-1.05x`). Fixing IF3 non-BS8 pseudo needs a deeper kernel change than the
+simple launch retune.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
