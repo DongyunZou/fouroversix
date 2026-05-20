@@ -6854,7 +6854,7 @@ class Sm100NVFP3StaticQuantize:
             grid=[num_blocks, 1, 1],
             block=[THREADS_PER_BLOCK, 1, 1],
             max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
-            min_blocks_per_mp=BLOCKS_PER_SM,
+            min_blocks_per_mp=16,
             stream=stream,
         )
 

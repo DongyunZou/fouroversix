@@ -47,6 +47,8 @@ This is a progress record, not a completion claim.
 - Added cached-dispatch fast paths for ordinary 1D adaptive IF, 1D static MX,
   1D static NVINT, and 1D adaptive NVFP4 quantize calls so these common cases
   skip the long generic backend import/dispatch chain.
+- Retuned the 1D NVFP3 static quantize launch to require 16 blocks/SM. This is
+  a targeted occupancy tweak for the NVFP3/NVFP3_BS8 static kernel.
 - Added `rht=True` support through a CuTe DSL 16-point RHT pre-transform kernel
   before dispatching to the CuTe quantize kernels.
 - Added NVFP4 `block_scale_2d=True` support for all five scale rules. The CuTe
@@ -1832,6 +1834,41 @@ pseudo_quantize: 54
 transpose:        9
 ```
 
+Retuned the 1D NVFP3 static quantize kernel launch from the shared
+`BLOCKS_PER_SM=8` setting to `min_blocks_per_mp=16`. The targeted breakdown for
+4096x4096 `nvfp3 static_6` improved CuTe frontend timing to roughly `0.061 ms`,
+close to Triton at roughly `0.058 ms`; the larger retained win is
+4096x4096 `nvfp3_bs8 static_6`, which now reaches `1.364x` in the refreshed
+full benchmark. Ordinary `nvfp3 static_6` still remains below parity.
+
+The targeted NVFP3/NVFP3_BS8 static accuracy slice passes:
+
+```text
+1 passed, 35086 deselected, 1 warning in 4.30s
+```
+
+The full CuTe sm100 test selection passes after this retune:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.47s
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+221/470 workloads meet 1.2x
+290/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            90
+block_scale_2d:  67
+pseudo_quantize: 55
+transpose:        9
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1848,5 +1885,5 @@ transpose:        9
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `216/470`
+  latest median capability-driven benchmark snapshot reports only `221/470`
   workloads meeting 1.2x.
