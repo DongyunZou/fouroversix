@@ -1907,6 +1907,17 @@ kernel rather than another launch-only tweak. Raw reports, CSV exports, and
 the command summary are under
 `profile/cute_sm100_full_triton_parity/ncu/if3_2d_*`.
 
+Re-tested IF3/IF3_BS8 2D with a 128-thread CTA mapping, updating both the
+launch block size and the tile-index stride so the 4096x4096 case would launch
+512 active CTAs instead of 256. The targeted IF 2D accuracy slice passed
+(`24 passed`), but timing regressed the IF3 rows: 4096x4096 IF3
+`abs_max/mae/mse` measured about `0.833x/0.918x/0.829x` versus Triton, below
+the retained 256-thread baseline (`0.889x/0.958x/0.903x` in
+`benchmark_current.json`). IF3_BS8 remained above 1.2x but also slowed versus
+the retained baseline. The experiment was reverted, reinforcing that the 2D
+gap is not solved by more/smaller CTAs while each thread still serializes a
+full scale tile.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
