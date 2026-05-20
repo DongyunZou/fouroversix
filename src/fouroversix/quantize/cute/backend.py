@@ -545,6 +545,8 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             DataType.mxfp6_e3m2,
             DataType.nvint3,
             DataType.nvint3_bs8,
+            DataType.nvint4,
+            DataType.nvint4_bs8,
             DataType.nvint6,
             DataType.nvfp6_e2m3,
             DataType.nvfp6_e3m2,

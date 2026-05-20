@@ -1235,8 +1235,27 @@ about `0.33 ms`. The latest benchmark snapshot records IF6 pseudo as:
 The latest capability-driven benchmark snapshot reports `62/470` workloads
 meeting 1.2x and `248/470` workloads at least matching Triton. The main
 large-shape regressions are now dominated by unfused `transpose=True`, which
-materializes `x.T.contiguous()` before launching CuTe, and by slow NVINT4
-pseudo direct-dequant behavior.
+materializes `x.T.contiguous()` before launching CuTe, and by remaining
+small/medium pseudo launch overhead.
+
+NVINT4/NVINT4_BS8 pseudo had a backend routing bug: the fused kernel branch
+existed, but the dtype allow-list omitted `nvint4` and `nvint4_bs8`, so those
+configs fell back to the generic quantize/dequantize path. After adding them
+to the allow-list, the targeted 4096x4096 pseudo rows moved from about
+`0.20-0.25x` to faster-than-Triton:
+
+```text
+[128, 256]     nvint4     pseudo 0.757x
+[128, 256]     nvint4_bs8 pseudo 0.749x
+[1024, 1024]   nvint4     pseudo 0.760x
+[1024, 1024]   nvint4_bs8 pseudo 0.754x
+[4096, 4096]   nvint4     pseudo 1.299x
+[4096, 4096]   nvint4_bs8 pseudo 1.540x
+```
+
+The latest capability-driven benchmark snapshot still reports `62/470`
+workloads meeting 1.2x because several near-threshold rows moved with timing
+noise, but the pseudo pass breakdown improved to 21 rows.
 
 ## Remaining major gaps
 
