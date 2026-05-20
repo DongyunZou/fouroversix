@@ -199,6 +199,10 @@ This is a progress record, not a completion claim.
   about `66 us` at only `~8%` SM throughput with high L2 activity. This
   confirms the transpose gap needs a real tiled/shared-memory
   transpose-plus-quantize kernel rather than another small launch retune.
+- Re-tested a transpose-only MX launch retune by changing the fused
+  `MXFP3`/`MXFP4`/`MXFP6` transpose kernels from 256-thread CTAs to
+  128-thread CTAs. The 4096x4096 MX transpose slice still measured only about
+  `0.69x-0.85x` versus Triton, so the change was not retained.
 - Re-tested NVFP3/NVFP3_BS8 `block_scale_2d=True` implementation feasibility.
   The experimental 2D FP3 path matched Triton scales for NVFP3, but raw values
   were invalid/non-matching (`valueeq` around `0.07`) and dequantized distance
