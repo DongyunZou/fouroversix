@@ -1735,6 +1735,51 @@ The refreshed full alternating benchmark now reports:
 289/470 workloads are at least Triton parity
 ```
 
+Added a cached-dispatch fast path for 1D static NVINT quantize calls
+(`NVINT3`/`NVINT3_BS8`/`NVINT4`/`NVINT4_BS8`/`NVINT6`) when
+`transpose=False`, `rht=False`, `block_scale_2d=False`,
+`pseudo_quantize=False`, and `scale_rule=static_6`. This preserves the
+existing x_amax, stochastic, and adjustment-factor semantics while avoiding
+the generic backend import/dispatch chain.
+
+The targeted NVINT static accuracy slice passes:
+
+```text
+24 passed, 35063 deselected, 1 warning in 5.86s
+```
+
+The targeted NVINT static timing slice reports all 15 rows above 1.2x:
+
+```text
+128x256   nvint3       1.234x
+128x256   nvint6       1.280x
+1024x1024 nvint4_bs8   1.265x
+4096x4096 nvint3_bs8   1.618x
+4096x4096 nvint4_bs8   1.443x
+```
+
+The full CuTe sm100 test selection passes after this fast path:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.55s
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+199/470 workloads meet 1.2x
+291/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            80
+block_scale_2d:  56
+pseudo_quantize: 53
+transpose:       10
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1751,5 +1796,5 @@ The refreshed full alternating benchmark now reports:
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `131/470`
+  latest median capability-driven benchmark snapshot reports only `199/470`
   workloads meeting 1.2x.

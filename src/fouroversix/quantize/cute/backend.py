@@ -44,6 +44,15 @@ _STATIC_MX_DTYPES = frozenset(
         DataType.mxfp6_e3m2,
     },
 )
+_STATIC_NVINT_DTYPES = frozenset(
+    {
+        DataType.nvint3,
+        DataType.nvint3_bs8,
+        DataType.nvint4,
+        DataType.nvint4_bs8,
+        DataType.nvint6,
+    },
+)
 
 
 @functools.lru_cache
@@ -76,6 +85,17 @@ def _static_mx_quantizers():
         ops.quantize_mxfp3_static,
         ops.quantize_mxfp4_static,
         ops.quantize_mxfp6_static,
+    )
+
+
+@functools.lru_cache
+def _static_nvint_quantizers():
+    from fouroversix.kernels.cute_sm100 import ops
+
+    return (
+        ops.quantize_nvint3_static,
+        ops.quantize_nvint4_static,
+        ops.quantize_nvint6_static,
     )
 
 
@@ -982,6 +1002,51 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 values,
                 scale_factors_u8.view(torch.float8_e8m0fnu),
                 None,
+                config.dtype,
+                x.shape,
+                config.scale_rule,
+                config.round_style,
+                scale_factors_are_in_blackwell_layout=False,
+            )
+
+        if (
+            not config.transpose
+            and not config.rht
+            and not config.block_scale_2d
+            and not config.pseudo_quantize
+            and config.dtype in _STATIC_NVINT_DTYPES
+            and config.scale_rule == ScaleRule.static_6
+        ):
+            quantize_nvint3_static, quantize_nvint4_static, quantize_nvint6_static = (
+                _static_nvint_quantizers()
+            )
+            x_amax = config.kwargs.get("x_amax")
+            if config.dtype in {DataType.nvint3, DataType.nvint3_bs8}:
+                values, scale_factors_u8, amax = quantize_nvint3_static(
+                    x,
+                    scale_block_size=config.dtype.block_size,
+                    adjustment_factor=1.0,
+                    x_amax=x_amax,
+                )
+            elif config.dtype in {DataType.nvint4, DataType.nvint4_bs8}:
+                values, scale_factors_u8, amax = quantize_nvint4_static(
+                    x,
+                    scale_block_size=config.dtype.block_size,
+                    stochastic_rounding=config.round_style.is_stochastic,
+                    adjustment_factor=config.round_style.adjustment_factor,
+                    x_amax=x_amax,
+                )
+            else:
+                values, scale_factors_u8, amax = quantize_nvint6_static(
+                    x,
+                    adjustment_factor=config.round_style.adjustment_factor,
+                    x_amax=x_amax,
+                )
+
+            return QuantizedTensor(
+                values,
+                scale_factors_u8.view(torch.float8_e4m3fn),
+                amax,
                 config.dtype,
                 x.shape,
                 config.scale_rule,
