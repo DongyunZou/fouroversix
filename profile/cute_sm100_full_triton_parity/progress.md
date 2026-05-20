@@ -1302,6 +1302,42 @@ repeated alternating-order medians before treating those rows as kernel
 rewrite targets. Raw reports and the command summary are in
 `profile/cute_sm100_full_triton_parity/ncu/`.
 
+Updated `benchmark_current.py` to use repeated alternating-order timing and
+median aggregation. Each workload now pre-warms both backends, alternates
+Triton/CuTe timing order across five repeats, records both sample lists in
+`benchmark_current.json`, and uses the median values for the pass/fail
+decision. The refreshed 470-row snapshot reports:
+
+```text
+64/470 workloads meet 1.2x
+257/470 workloads are at least Triton parity
+```
+
+The refreshed 1.2x pass breakdown is:
+
+```text
+pseudo_quantize: 21
+base:            18
+block_scale_2d:  16
+transpose:        9
+```
+
+The refreshed below-1.2x failure breakdown is:
+
+```text
+base:            120
+pseudo_quantize: 117
+block_scale_2d:   98
+transpose:        71
+```
+
+This median run confirms that the old MXFP3/MXFP4 `static_6 + pseudo_quantize`
+large-shape regression was timing noise; those rows are now around parity.
+The worst large-shape failures remain dominated by static `transpose=True`
+paths (`0.59-0.75x` for many MX/NV static formats), followed by IF3 fused
+pseudo (`0.79-0.84x`) and IF6 base (`0.86-0.91x` end-to-end despite the main
+CuTe IF6 kernel itself being faster under NCU).
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1318,5 +1354,5 @@ rewrite targets. Raw reports and the command summary are in
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest capability-driven benchmark snapshot reports only `62/470` workloads
-  meeting 1.2x.
+  latest median capability-driven benchmark snapshot reports only `64/470`
+  workloads meeting 1.2x.

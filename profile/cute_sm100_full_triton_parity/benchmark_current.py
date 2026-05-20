@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import statistics
 from pathlib import Path
 
 import torch
@@ -71,6 +72,7 @@ FEATURES = [
     {"pseudo_quantize": True},
     {"block_scale_2d": True},
 ]
+REPEATS = 5
 
 
 def time_ms(fn, *, iters: int, warmup: int = 20) -> float:
@@ -86,6 +88,36 @@ def time_ms(fn, *, iters: int, warmup: int = 20) -> float:
     end.record()
     torch.cuda.synchronize()
     return start.elapsed_time(end) / iters
+
+
+def compare_ms(
+    triton_fn,
+    cute_fn,
+    *,
+    iters: int,
+    repeats: int = REPEATS,
+) -> tuple[float, float, list[float], list[float]]:
+    for _ in range(3):
+        triton_fn()
+        cute_fn()
+    torch.cuda.synchronize()
+
+    triton_samples = []
+    cute_samples = []
+    for repeat_idx in range(repeats):
+        if repeat_idx % 2 == 0:
+            triton_samples.append(time_ms(triton_fn, iters=iters, warmup=10))
+            cute_samples.append(time_ms(cute_fn, iters=iters, warmup=10))
+        else:
+            cute_samples.append(time_ms(cute_fn, iters=iters, warmup=10))
+            triton_samples.append(time_ms(triton_fn, iters=iters, warmup=10))
+
+    return (
+        statistics.median(triton_samples),
+        statistics.median(cute_samples),
+        triton_samples,
+        cute_samples,
+    )
 
 
 def main() -> None:
@@ -125,12 +157,11 @@ def main() -> None:
                     if not cute_backend.can_quantize(x, config_cute):
                         continue
 
-                    triton_ms = time_ms(
-                        lambda: quantize(x, config_triton),
-                        iters=iters,
-                    )
-                    cute_ms = time_ms(
-                        lambda: quantize(x, config_cute),
+                    triton_fn = lambda: quantize(x, config_triton)
+                    cute_fn = lambda: quantize(x, config_cute)
+                    triton_ms, cute_ms, triton_samples, cute_samples = compare_ms(
+                        triton_fn,
+                        cute_fn,
                         iters=iters,
                     )
                     rows.append(
@@ -141,6 +172,8 @@ def main() -> None:
                             "features": feature_kwargs,
                             "triton_ms": triton_ms,
                             "cute_sm100_ms": cute_ms,
+                            "triton_samples_ms": triton_samples,
+                            "cute_sm100_samples_ms": cute_samples,
                             "speedup_vs_triton": triton_ms / cute_ms,
                             "meets_1_2x": triton_ms / cute_ms >= 1.2,
                         },
@@ -151,6 +184,10 @@ def main() -> None:
         "capability": torch.cuda.get_device_capability(0),
         "torch": torch.__version__,
         "cuda": torch.version.cuda,
+        "timing": {
+            "method": "median of alternating-order repeats",
+            "repeats": REPEATS,
+        },
         "rows": rows,
     }
     out_path = Path(__file__).with_name("benchmark_current.json")
