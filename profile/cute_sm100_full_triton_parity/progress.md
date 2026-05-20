@@ -2884,6 +2884,10 @@ the retained 32-thread CTA. The targeted MXFP3/MXFP3_BS8 2D accuracy slice
 passed (`12 passed`), but non-BS8 MXFP3 2D performance regressed: representative
 1024x1024 and 4096x4096 `mxfp3 static_4/static_6 block_scale_2d=True` rows fell
 to about `0.89x-0.93x` versus Triton. The larger-CTA experiment was reverted.
+Also tested a smaller 16-thread CTA for the same MXFP3 2D kernel. Accuracy still
+passed, but non-BS8 MXFP3 2D slowed much further, to about `0.52x-0.60x` versus
+Triton across representative shapes. The smaller-CTA experiment was reverted as
+well.
 
 ## Remaining major gaps
 
