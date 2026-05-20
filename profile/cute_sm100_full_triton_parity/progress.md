@@ -2489,6 +2489,20 @@ block_scale_2d:   2
 pseudo_quantize:  1
 ```
 
+Tested two follow-up launch-only retunes for the static MX 2D paths:
+
+- `STATIC_2D_THREADS_PER_BLOCK=16` for MXFP3/MXFP6 2D. Accuracy still passed
+  for the targeted MXFP3/MXFP6 2D slice, but 4096x4096 MXFP3 remained around
+  `0.98x` and MXFP6 did not improve consistently.
+- `STATIC_2D_BLOCKS_PER_SM=16` with 32-thread CTAs for MXFP3/MXFP6 2D. Accuracy
+  still passed, but 4096x4096 MXFP3 stayed below parity (`0.982x` static_4,
+  `0.972x` static_6) and MXFP6 mostly regressed versus the 32-thread/8-blocks
+  launch bound. This launch-bound experiment was reverted.
+
+These results reinforce that the remaining MXFP3 2D gap is not solved by
+smaller CTAs or launch bounds alone; it needs a more cooperative tile mapping
+with better memory behavior.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
