@@ -2906,7 +2906,8 @@ passes (`449 passed, 7 skipped`). Focused alternating timings show lower
 CuTe-side time for most 2D rows, especially IF/NVINT and static NV/MX paths; for
 example 4096x4096 NVFP4 static 2D rows are around `1.15x-1.17x`, and NVFP6 E2M3
 2D is around `1.17x`. The remaining weak 2D rows are still algorithmic kernel
-mapping issues, notably 4096x4096 IF3 abs/mse and non-BS8 MXFP3 2D.
+mapping issues, notably 4096x4096 IF3 abs/mse and the original non-BS8 MXFP3 2D
+mapping before the cooperative MXFP3 rewrite below.
 
 Added cached fast dispatch paths for fused transpose CuTe quantize. This covers
 nearest NVFP4/NVFP4_BS8/NVFP3/NVFP3_BS8/NVFP6, adaptive IF3/IF3_BS8 and
@@ -2955,6 +2956,20 @@ looked strong at about `1.44x-1.45x`, but the critical 4096x4096 rows regressed:
 `abs_max` measured about `0.96x` and `mse` about `0.95x` versus Triton. The
 smaller-CTA IF3 2D experiment was reverted; fixing this row still needs a
 cooperative tile mapping rather than a simple CTA split.
+
+Reworked `Sm100MXFP3StaticQuantize2D` from one thread serially scanning a 32x32
+scale tile to a cooperative warp-per-tile mapping. Each warp now handles one
+32x32 scale tile, with each lane loading and quantizing one row and
+`warp_reduction_max` computing the shared tile scale. This keeps each row's data
+in registers across max and quantization instead of loading each tile twice.
+The targeted MXFP3/MXFP3_BS8 2D accuracy slice passes (`12 passed`) and the full
+CuTe sm100 test selection passes (`449 passed, 7 skipped`). Focused alternating
+timings improved the key non-BS8 rows: 4096x4096 `mxfp3 static_4
+block_scale_2d=True` is about `1.21x`, 4096x4096 `static_6` is about `1.26x`,
+1024x1024 `static_4` is about `1.18x`, and 1024x1024 `static_6` is about
+`1.22x`. A full benchmark refresh showed the MXFP3 2D rows over target
+(`~1.22x-1.25x`) but was otherwise noisy and dropped unrelated rows, so
+`benchmark_current.json` was restored to the retained stable snapshot.
 
 ## Remaining major gaps
 

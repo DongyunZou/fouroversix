@@ -73,6 +73,8 @@ PSEUDO_THREADS_PER_BLOCK = 128
 MX_STATIC_THREADS_PER_BLOCK = 128
 NVFP4_BASE_THREADS_PER_BLOCK = 128
 STATIC_2D_THREADS_PER_BLOCK = 32
+MXFP3_2D_WARPS_PER_BLOCK = 4
+MXFP3_2D_THREADS_PER_BLOCK = 128
 BLOCKS_PER_SM = 8
 MAX_THREADS_PER_BLOCK = 1024
 E4M3_STATIC_MAX = 448.0
@@ -6352,7 +6354,7 @@ class Sm100MXFP3StaticQuantize2D:
     ):
         self.kernel(x, values, scales, total_scale_tiles).launch(
             grid=[num_blocks, 1, 1],
-            block=[STATIC_2D_THREADS_PER_BLOCK, 1, 1],
+            block=[MXFP3_2D_THREADS_PER_BLOCK, 1, 1],
             max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
             min_blocks_per_mp=BLOCKS_PER_SM,
             stream=stream,
@@ -6370,90 +6372,75 @@ class Sm100MXFP3StaticQuantize2D:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        tile_idx = bidx * STATIC_2D_THREADS_PER_BLOCK + tidx
-        stride = grid_dim_x * STATIC_2D_THREADS_PER_BLOCK
+        lane_idx = tidx % Int32(MXFP4_SCALE_BLOCK_SIZE)
+        warp_idx = tidx // Int32(MXFP4_SCALE_BLOCK_SIZE)
+        tile_idx = bidx * MXFP3_2D_WARPS_PER_BLOCK + warp_idx
+        stride = grid_dim_x * MXFP3_2D_WARPS_PER_BLOCK
 
         while tile_idx < total_scale_tiles:
             row_group = tile_idx // self.scale_blocks_per_row
             col_idx = tile_idx % self.scale_blocks_per_row
             elem_base = col_idx * MXFP4_SCALE_BLOCK_SIZE
 
-            block_max_h2 = cutlass.Uint32(0)
-            row_offset = Int32(0)
-            while row_offset < Int32(MXFP4_SCALE_BLOCK_SIZE):
-                row_idx = row_group * MXFP4_SCALE_BLOCK_SIZE + row_offset
-                ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
-                ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
-                ptr2 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(16))
-                ptr3 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(24))
-                h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
-                h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
-                h8, h9, h10, h11 = ld_global_v4_u32(ptr2)
-                h12, h13, h14, h15 = ld_global_v4_u32(ptr3)
-                max0 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
-                max1 = bfloat2_max_abs_8(
-                    h8,
-                    h9,
-                    h10,
-                    h11,
-                    h12,
-                    h13,
-                    h14,
-                    h15,
-                )
-                block_max_h2 = bfloat2_hmax2(block_max_h2, bfloat2_hmax2(max0, max1))
-                row_offset = row_offset + Int32(1)
-
-            block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
+            row_idx = row_group * MXFP4_SCALE_BLOCK_SIZE + lane_idx
+            ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
+            ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
+            ptr2 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(16))
+            ptr3 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(24))
+            h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
+            h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
+            h8, h9, h10, h11 = ld_global_v4_u32(ptr2)
+            h12, h13, h14, h15 = ld_global_v4_u32(ptr3)
+            max0 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
+            max1 = bfloat2_max_abs_8(
+                h8,
+                h9,
+                h10,
+                h11,
+                h12,
+                h13,
+                h14,
+                h15,
+            )
+            row_max = bfloat2_hmax_reduce_to_f32(bfloat2_hmax2(max0, max1))
+            block_max = cute.arch.warp_reduction_max(row_max)
             normalized_max = block_max * rcp_approx_ftz(Float32(4.0))
             scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
             scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
             inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
 
-            row_offset = Int32(0)
-            while row_offset < Int32(MXFP4_SCALE_BLOCK_SIZE):
-                row_idx = row_group * MXFP4_SCALE_BLOCK_SIZE + row_offset
-                ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
-                ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
-                ptr2 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(16))
-                ptr3 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(24))
-                h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
-                h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
-                h8, h9, h10, h11 = ld_global_v4_u32(ptr2)
-                h12, h13, h14, h15 = ld_global_v4_u32(ptr3)
-                v0, v1, v2, v3 = bfloat2x8_to_e2m0x16_values(
-                    h0,
-                    h1,
-                    h2,
-                    h3,
-                    h4,
-                    h5,
-                    h6,
-                    h7,
-                    inv_scale,
-                )
-                v4, v5, v6, v7 = bfloat2x8_to_e2m0x16_values(
-                    h8,
-                    h9,
-                    h10,
-                    h11,
-                    h12,
-                    h13,
-                    h14,
-                    h15,
-                    inv_scale,
-                )
+            v0, v1, v2, v3 = bfloat2x8_to_e2m0x16_values(
+                h0,
+                h1,
+                h2,
+                h3,
+                h4,
+                h5,
+                h6,
+                h7,
+                inv_scale,
+            )
+            v4, v5, v6, v7 = bfloat2x8_to_e2m0x16_values(
+                h8,
+                h9,
+                h10,
+                h11,
+                h12,
+                h13,
+                h14,
+                h15,
+                inv_scale,
+            )
 
-                sf_idx = row_idx * self.scale_blocks_per_row + col_idx
-                scales[sf_idx] = scale_ue8m0
-                output_ptr0 = get_ptr_as_int64(values[row_idx, None], elem_base)
-                output_ptr1 = get_ptr_as_int64(
-                    values[row_idx, None],
-                    elem_base + Int32(16),
-                )
-                st_global_v4_u32(output_ptr0, v0, v1, v2, v3)
-                st_global_v4_u32(output_ptr1, v4, v5, v6, v7)
-                row_offset = row_offset + Int32(1)
+            sf_idx = row_idx * self.scale_blocks_per_row + col_idx
+            scales[sf_idx] = scale_ue8m0
+            output_ptr0 = get_ptr_as_int64(values[row_idx, None], elem_base)
+            output_ptr1 = get_ptr_as_int64(
+                values[row_idx, None],
+                elem_base + Int32(16),
+            )
+            st_global_v4_u32(output_ptr0, v0, v1, v2, v3)
+            st_global_v4_u32(output_ptr1, v4, v5, v6, v7)
 
             tile_idx = tile_idx + stride
 
@@ -13517,7 +13504,7 @@ def quantize_mxfp3_static_2d(
     num_blocks = _launch_grid(
         total_scale_tiles,
         x.device,
-        threads_per_block=STATIC_2D_THREADS_PER_BLOCK,
+        threads_per_block=MXFP3_2D_WARPS_PER_BLOCK,
     )
 
     kernel = _compile_mxfp3_static_quantize_2d(k)
