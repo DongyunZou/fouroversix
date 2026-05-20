@@ -1887,6 +1887,12 @@ meeting 1.2x; in that full run IF6 base rows also did not consistently remain
 above the target. This suggests IF6 launch tuning is too noise-sensitive to
 claim without a more robust kernel-level change.
 
+Tested `min_blocks_per_mp=16` for MXFP4/MXFP4_BS8 2D static block-scale
+kernels. A narrowed variant that only retuned MXFP4_BS8 showed targeted
+4096x4096 BS8 rows near or above 1.2x, but the full alternating benchmark fell
+to `189/470` workloads meeting 1.2x and the MXFP4_BS8 2D rows did not stay
+reliably above target. The launch-only retune is not retained.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
