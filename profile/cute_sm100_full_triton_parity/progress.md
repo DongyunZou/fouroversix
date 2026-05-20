@@ -1879,6 +1879,14 @@ well short of the 1.2x target; the result confirms that avoiding materialization
 alone is insufficient and the transpose gap needs a coalesced/tiled transpose
 quantize design.
 
+Tested `min_blocks_per_mp=16` for the 1D IF6 adaptive base quantize kernel.
+Targeted 4096x4096 timing showed a possible large-shape improvement, with most
+IF6 E2M3/E3M2 rows around or above 1.2x. The change is not retained because the
+full alternating benchmark was not stable and dropped to `140/470` workloads
+meeting 1.2x; in that full run IF6 base rows also did not consistently remain
+above the target. This suggests IF6 launch tuning is too noise-sensitive to
+claim without a more robust kernel-level change.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
