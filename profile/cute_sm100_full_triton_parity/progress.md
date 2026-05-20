@@ -2293,6 +2293,66 @@ block_scale_2d:   4
 pseudo_quantize:  1
 ```
 
+Added fused CuTe sm100 nearest IF4/IF4_BS8 adaptive transpose quantize paths
+for `abs_max`/`mae`/`mse`. Like the NVFP4 adaptive transpose path, stochastic
+IF4 keeps the existing materialized-transpose route to avoid changing the
+seed mapping. The BS8 path stores the 8-value packed block with a 32-bit global
+store; an initial 64-bit store experiment hit a CUDA misaligned-address fault
+because consecutive BS8 blocks are only 4-byte aligned.
+
+The targeted CuTe sm100 IF4 test selection passes:
+
+```text
+63 passed, 1 skipped, 35023 deselected, 1 warning in 10.21s
+```
+
+The full CuTe sm100 test selection also passes:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.33s
+```
+
+Targeted alternating timings show all IF4 transpose rows now exceed 1.2x:
+
+```text
+1024x1024 if4 abs_max transpose      1.377x
+1024x1024 if4 mae transpose          1.389x
+1024x1024 if4 mse transpose          1.345x
+1024x1024 if4_bs8 abs_max transpose  1.352x
+1024x1024 if4_bs8 mae transpose      1.375x
+1024x1024 if4_bs8 mse transpose      1.336x
+4096x4096 if4 abs_max transpose      2.434x
+4096x4096 if4 mae transpose          2.499x
+4096x4096 if4 mse transpose          2.499x
+4096x4096 if4_bs8 abs_max transpose  2.154x
+4096x4096 if4_bs8 mae transpose      2.156x
+4096x4096 if4_bs8 mse transpose      2.161x
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+234/470 workloads meet 1.2x
+445/470 workloads are at least Triton parity
+```
+
+The current 1.2x class breakdown is:
+
+```text
+base:            83
+block_scale_2d:  57
+pseudo_quantize: 61
+transpose:       33
+```
+
+The remaining below-parity rows are:
+
+```text
+transpose:       20
+block_scale_2d:   4
+pseudo_quantize:  1
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -2309,5 +2369,5 @@ pseudo_quantize:  1
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `215/470`
+  latest median capability-driven benchmark snapshot reports only `234/470`
   workloads meeting 1.2x.

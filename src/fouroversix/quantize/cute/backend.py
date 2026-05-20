@@ -1093,6 +1093,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             quantize_if3_adaptive_2d,
             quantize_if3_bs8_adaptive_2d,
             quantize_if4_adaptive,
+            quantize_if4_adaptive_transpose,
             quantize_if4_adaptive_2d,
             quantize_if4_bs8_adaptive_2d,
             quantize_if6_adaptive,
@@ -1192,6 +1193,14 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             and config.dtype in {DataType.if3, DataType.if3_bs8}
             and config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
         )
+        use_if4_adaptive_transpose_kernel = (
+            config.transpose
+            and not config.rht
+            and not config.block_scale_2d
+            and config.dtype in {DataType.if4, DataType.if4_bs8}
+            and config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
+            and config.round_style == RoundStyle.nearest
+        )
         use_nvint_static_transpose_kernel = (
             config.transpose
             and not config.rht
@@ -1217,6 +1226,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 or use_nvfp6_static_transpose_kernel
                 or use_nvfp3_static_transpose_kernel
                 or use_if3_adaptive_transpose_kernel
+                or use_if4_adaptive_transpose_kernel
                 or use_nvint_static_transpose_kernel
             )
             else x.T.contiguous()
@@ -1281,12 +1291,19 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             ScaleRule.mae,
             ScaleRule.mse,
         }:
-            values, scale_factors_u8, amax = quantize_if4_adaptive(
-                x_quantize,
-                scale_rule_id=config.scale_rule.cuda_id,
-                stochastic_rounding=config.round_style == RoundStyle.stochastic,
-                x_amax=x_amax,
-            )
+            if use_if4_adaptive_transpose_kernel:
+                values, scale_factors_u8, amax = quantize_if4_adaptive_transpose(
+                    x_quantize,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    x_amax=x_amax,
+                )
+            else:
+                values, scale_factors_u8, amax = quantize_if4_adaptive(
+                    x_quantize,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    stochastic_rounding=config.round_style == RoundStyle.stochastic,
+                    x_amax=x_amax,
+                )
             scale_dtype = torch.float8_e4m3fn
         elif config.dtype == DataType.if4_bs8 and config.scale_rule in {
             ScaleRule.abs_max,
@@ -1304,7 +1321,11 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             ScaleRule.mae,
             ScaleRule.mse,
         }:
-            values, scale_factors_u8, amax = quantize_if4_adaptive(
+            values, scale_factors_u8, amax = (
+                quantize_if4_adaptive_transpose
+                if use_if4_adaptive_transpose_kernel
+                else quantize_if4_adaptive
+            )(
                 x_quantize,
                 scale_rule_id=config.scale_rule.cuda_id,
                 scale_block_size=config.dtype.block_size,
