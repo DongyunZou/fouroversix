@@ -2669,6 +2669,18 @@ regressed to `235/470` workloads meeting 1.2x and `446/470` at parity, with
 extra low-parity noise in pseudo/2D rows, so the IF4 pseudo launch retune was
 reverted.
 
+Profiled the remaining `4096x4096 if3 abs_max pseudo_quantize=True` row with
+Nsight Compute. CuTe launches only two kernels per iteration, a torch AbsMax
+reduce (`~18 us`) and `Sm100IF3AdaptivePseudoQuantize` (`~49 us`). Triton
+launches four kernels, abs (`~13 us`), max reduce (`~18 us`), scalar copy
+(`~4 us`), and `pseudo_quantization_kernel` (`~34 us`). This matches the
+retained benchmark row near `0.98x`: CuTe already has fewer launches, but its
+IF3 pseudo kernel body is about `15 us` slower than Triton's. The CuTe kernel is
+compute-heavy (`~80%` SM throughput, `~9%` memory throughput), so closing this
+row requires reducing the FP3/INT3 candidate/error work rather than another
+frontend or launch retune. Reports and CSVs are under
+`profile/cute_sm100_full_triton_parity/ncu/if3_pseudo_absmax4096_*`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
