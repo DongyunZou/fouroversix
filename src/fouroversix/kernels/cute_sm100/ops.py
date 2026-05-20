@@ -75,6 +75,8 @@ NVFP4_BASE_THREADS_PER_BLOCK = 128
 STATIC_2D_THREADS_PER_BLOCK = 32
 MXFP3_2D_WARPS_PER_BLOCK = 4
 MXFP3_2D_THREADS_PER_BLOCK = 128
+IF3_2D_GROUP_SIZE = 16
+IF3_2D_GROUPS_PER_BLOCK = 16
 BLOCKS_PER_SM = 8
 MAX_THREADS_PER_BLOCK = 1024
 E4M3_STATIC_MAX = 448.0
@@ -4767,8 +4769,10 @@ class Sm100IF3AdaptiveQuantize2D:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        tile_idx = bidx * THREADS_PER_BLOCK + tidx
-        stride = grid_dim_x * THREADS_PER_BLOCK
+        lane_idx = tidx % Int32(IF3_2D_GROUP_SIZE)
+        group_idx = tidx // Int32(IF3_2D_GROUP_SIZE)
+        tile_idx = bidx * IF3_2D_GROUPS_PER_BLOCK + group_idx
+        stride = grid_dim_x * IF3_2D_GROUPS_PER_BLOCK
         global_scale = _compute_global_scale(
             amax_tensor,
             E2M0_MAX * E4M3_STATIC_MAX,
@@ -4779,19 +4783,17 @@ class Sm100IF3AdaptiveQuantize2D:
             col_idx = tile_idx % self.scale_blocks_per_row
             elem_base = col_idx * NVFP4_SCALE_BLOCK_SIZE
 
-            block_max_h2 = cutlass.Uint32(0)
-            row_offset = Int32(0)
-            while row_offset < Int32(NVFP4_SCALE_BLOCK_SIZE):
-                row_idx = row_group * NVFP4_SCALE_BLOCK_SIZE + row_offset
-                ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
-                ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
-                h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
-                h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
-                row_max = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
-                block_max_h2 = bfloat2_hmax2(block_max_h2, row_max)
-                row_offset = row_offset + Int32(1)
-
-            block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
+            row_idx = row_group * NVFP4_SCALE_BLOCK_SIZE + lane_idx
+            ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
+            ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
+            h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
+            h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
+            row_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
+            row_max = bfloat2_hmax_reduce_to_f32(row_max_h2)
+            block_max = cute.arch.warp_reduction_max(
+                row_max,
+                threads_in_group=IF3_2D_GROUP_SIZE,
+            )
             scale_float = global_scale * (
                 block_max * rcp_approx_ftz(Float32(E2M0_MAX))
             )
@@ -4801,76 +4803,78 @@ class Sm100IF3AdaptiveQuantize2D:
             dequant_scale = nvfp4_compute_dequant_scale(scale_fp8_u32, global_scale)
             output_scale_int = output_scale * Float32(IF3_INT_EXPANSION_FACTOR_RCP)
 
-            error_fp = Float32(0.0)
-            error_int = Float32(0.0)
-            row_offset = Int32(0)
-            while row_offset < Int32(NVFP4_SCALE_BLOCK_SIZE):
-                row_idx = row_group * NVFP4_SCALE_BLOCK_SIZE + row_offset
-                ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
-                ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
-                h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
-                h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
-                fp0, fp1, fp2, fp3 = bfloat2x8_to_e2m0x16_values(
-                    h0,
-                    h1,
-                    h2,
-                    h3,
-                    h4,
-                    h5,
-                    h6,
-                    h7,
-                    output_scale,
+            fp0, fp1, fp2, fp3 = bfloat2x8_to_e2m0x16_values(
+                h0,
+                h1,
+                h2,
+                h3,
+                h4,
+                h5,
+                h6,
+                h7,
+                output_scale,
+            )
+            int0, int1, int2, int3 = bfloat2x8_to_int3x16_values(
+                h0,
+                h1,
+                h2,
+                h3,
+                h4,
+                h5,
+                h6,
+                h7,
+                output_scale_int,
+            )
+            row_error_fp = _fp3_block_error_bfloat(
+                h0,
+                h1,
+                h2,
+                h3,
+                h4,
+                h5,
+                h6,
+                h7,
+                fp0,
+                fp1,
+                fp2,
+                fp3,
+                dequant_scale,
+                self.scale_rule_id,
+            )
+            row_error_int = _int3_block_error_bfloat(
+                h0,
+                h1,
+                h2,
+                h3,
+                h4,
+                h5,
+                h6,
+                h7,
+                int0,
+                int1,
+                int2,
+                int3,
+                dequant_scale,
+                self.scale_rule_id,
+            )
+            if cutlass.const_expr(self.scale_rule_id == SCALE_RULE_ABS_MAX):
+                error_fp = cute.arch.warp_reduction_max(
+                    row_error_fp,
+                    threads_in_group=IF3_2D_GROUP_SIZE,
                 )
-                int0, int1, int2, int3 = bfloat2x8_to_int3x16_values(
-                    h0,
-                    h1,
-                    h2,
-                    h3,
-                    h4,
-                    h5,
-                    h6,
-                    h7,
-                    output_scale_int,
+                error_int = cute.arch.warp_reduction_max(
+                    row_error_int,
+                    threads_in_group=IF3_2D_GROUP_SIZE,
                 )
-                row_error_fp = _fp3_block_error_bfloat(
-                    h0,
-                    h1,
-                    h2,
-                    h3,
-                    h4,
-                    h5,
-                    h6,
-                    h7,
-                    fp0,
-                    fp1,
-                    fp2,
-                    fp3,
-                    dequant_scale,
-                    self.scale_rule_id,
+            else:
+                error_fp = cute.arch.warp_reduction_sum(
+                    row_error_fp,
+                    threads_in_group=IF3_2D_GROUP_SIZE,
                 )
-                row_error_int = _int3_block_error_bfloat(
-                    h0,
-                    h1,
-                    h2,
-                    h3,
-                    h4,
-                    h5,
-                    h6,
-                    h7,
-                    int0,
-                    int1,
-                    int2,
-                    int3,
-                    dequant_scale,
-                    self.scale_rule_id,
+                error_int = cute.arch.warp_reduction_sum(
+                    row_error_int,
+                    threads_in_group=IF3_2D_GROUP_SIZE,
                 )
-                if cutlass.const_expr(self.scale_rule_id == SCALE_RULE_ABS_MAX):
-                    error_fp = cutlass.max(error_fp, row_error_fp)
-                    error_int = cutlass.max(error_int, row_error_int)
-                else:
-                    error_fp = error_fp + row_error_fp
-                    error_int = error_int + row_error_int
-                row_offset = row_offset + Int32(1)
 
             output_scale_selected = output_scale
             scale_fp8_selected = scale_fp8
@@ -4878,14 +4882,9 @@ class Sm100IF3AdaptiveQuantize2D:
                 output_scale_selected = output_scale_int
                 scale_fp8_selected = scale_fp8 + Uint8(128)
 
-            row_offset = Int32(0)
-            while row_offset < Int32(NVFP4_SCALE_BLOCK_SIZE):
-                row_idx = row_group * NVFP4_SCALE_BLOCK_SIZE + row_offset
-                ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
-                ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
-                h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
-                h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
-                v0, v1, v2, v3 = bfloat2x8_to_e2m0x16_values(
+            v0, v1, v2, v3 = fp0, fp1, fp2, fp3
+            if error_int < error_fp:
+                v0, v1, v2, v3 = bfloat2x8_to_int3x16_values(
                     h0,
                     h1,
                     h2,
@@ -4896,24 +4895,11 @@ class Sm100IF3AdaptiveQuantize2D:
                     h7,
                     output_scale_selected,
                 )
-                if error_int < error_fp:
-                    v0, v1, v2, v3 = bfloat2x8_to_int3x16_values(
-                        h0,
-                        h1,
-                        h2,
-                        h3,
-                        h4,
-                        h5,
-                        h6,
-                        h7,
-                        output_scale_selected,
-                    )
 
-                sf_idx = row_idx * self.scale_blocks_per_row + col_idx
-                scales[sf_idx] = scale_fp8_selected
-                output_ptr = get_ptr_as_int64(values[row_idx, None], elem_base)
-                st_global_v4_u32(output_ptr, v0, v1, v2, v3)
-                row_offset = row_offset + Int32(1)
+            sf_idx = row_idx * self.scale_blocks_per_row + col_idx
+            scales[sf_idx] = scale_fp8_selected
+            output_ptr = get_ptr_as_int64(values[row_idx, None], elem_base)
+            st_global_v4_u32(output_ptr, v0, v1, v2, v3)
 
             tile_idx = tile_idx + stride
 
@@ -14701,7 +14687,11 @@ def quantize_if3_adaptive_2d(
     total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
         k // NVFP4_SCALE_BLOCK_SIZE
     )
-    num_blocks = _launch_grid(total_scale_tiles, x.device)
+    num_blocks = _launch_grid(
+        total_scale_tiles,
+        x.device,
+        threads_per_block=IF3_2D_GROUPS_PER_BLOCK,
+    )
 
     kernel = _compile_if3_adaptive_quantize_2d(k, scale_rule_id)
     kernel(

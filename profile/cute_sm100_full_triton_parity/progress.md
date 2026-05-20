@@ -2987,6 +2987,16 @@ MXFP3/MXFP3_BS8 transpose rows now measure about `1.21x-1.24x`, and 128x256 plus
 `mxfp3 static_4 block_scale_2d=True` row remains borderline at about
 `1.20x`, while `static_6` is about `1.23x`.
 
+Reworked `Sm100IF3AdaptiveQuantize2D` from one thread serially scanning a 16x16
+scale tile three times to a cooperative 16-lane group-per-tile mapping. Each
+lane handles one row, 16-lane warp reductions compute the tile max and FP3/INT3
+candidate errors, and the row data stays in registers through the selected
+write path. The targeted IF3 2D accuracy slice passes (`12 passed`) and the full
+CuTe sm100 test selection passes (`449 passed, 7 skipped`). Focused timings show
+the former worst IF3 2D rows now well above target: 4096x4096 `abs_max` is about
+`1.39x`, `mse` about `1.49x`, and `mae` about `1.49x`; 1024x1024 IF3 2D rows
+are about `1.43x-1.45x`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
