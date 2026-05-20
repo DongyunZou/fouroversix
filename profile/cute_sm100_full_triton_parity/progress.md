@@ -2660,6 +2660,15 @@ mxfp6_e3m2 static_6 transpose 0.776x
 The occupancy-hint change was reverted. This again points at the strided
 scalar transposed loads rather than a launch-bound occupancy setting.
 
+Tested IF4 adaptive pseudo-only CTA retunes for the remaining small
+`if4 abs_max pseudo_quantize=True` below-parity row. A 64-thread CTA made the
+targeted 128x256 IF4 pseudo slice pass accuracy and moved `if4 abs_max` to
+about `1.06x`, and a 32-thread CTA reached about `1.08x` on that one row.
+Neither approached 1.2x. The full benchmark with the 32-thread variant
+regressed to `235/470` workloads meeting 1.2x and `446/470` at parity, with
+extra low-parity noise in pseudo/2D rows, so the IF4 pseudo launch retune was
+reverted.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
