@@ -1698,6 +1698,43 @@ completion claim. It now reports:
 289/470 workloads are at least Triton parity
 ```
 
+Added the same cached-dispatch fast path for 1D static MX quantize calls
+(`MXFP3`/`MXFP3_BS8`/`MXFP4`/`MXFP4_BS8`/`MXFP6`) when
+`transpose=False`, `rht=False`, `block_scale_2d=False`, and
+`pseudo_quantize=False`. This avoids the long generic backend import/dispatch
+chain for ordinary MX static calls while preserving the existing UE8M0 scale
+layout.
+
+The targeted MX static accuracy slice passes:
+
+```text
+56 passed, 35031 deselected, 1 warning in 6.38s
+```
+
+The targeted MX static timing slice reports all 36 rows at Triton parity and
+29/36 at 1.2x. Examples:
+
+```text
+128x256   mxfp3 static_6       1.241x
+1024x1024 mxfp3_bs8 static_6   1.252x
+1024x1024 mxfp6_e2m3 static_6  1.237x
+4096x4096 mxfp4 static_4       1.220x
+4096x4096 mxfp6_e2m3 static_4  1.249x
+```
+
+The full CuTe sm100 test selection passes after this fast path:
+
+```text
+449 passed, 7 skipped, 34631 deselected, 1 warning in 33.42s
+```
+
+The refreshed full alternating benchmark now reports:
+
+```text
+131/470 workloads meet 1.2x
+289/470 workloads are at least Triton parity
+```
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -1714,5 +1751,5 @@ completion claim. It now reports:
   NVFP3/NVFP3_BS8,
   and related non-nearest variants.
 - Performance target still missing for most current supported workloads. The
-  latest median capability-driven benchmark snapshot reports only `129/470`
+  latest median capability-driven benchmark snapshot reports only `131/470`
   workloads meeting 1.2x.
