@@ -15145,7 +15145,16 @@ def quantize_nvfp4_adaptive(
     amax = _resolve_amax(x, x_amax)
 
     total_scale_blocks = m * (k // scale_block_size)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    grid_threads_per_block = (
+        THREADS_PER_BLOCK
+        if total_scale_blocks <= 4096
+        else NVFP4_BASE_THREADS_PER_BLOCK
+    )
+    num_blocks = _launch_grid(
+        total_scale_blocks,
+        x.device,
+        threads_per_block=grid_threads_per_block,
+    )
 
     kernel = _compile_adaptive_quantize(
         k,

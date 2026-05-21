@@ -20,6 +20,13 @@ HOME=/tmp PYTHONDONTWRITEBYTECODE=1 ncu --target-processes all \
   .venv/bin/python profile/cute_sm100_full_triton_parity/profile_transpose_kernel.py \
   --backend cute_sm100 --dtype nvfp4 --scale-rule abs_max \
   --shape 1024 --iters 3 --no-transpose
+
+HOME=/tmp PYTHONDONTWRITEBYTECODE=1 ncu --target-processes all \
+  --profile-from-start off --csv --force-overwrite \
+  -o profile/cute_sm100_full_triton_parity/ncu/nvfp4_absmax1024_base_cute_adaptive_grid \
+  .venv/bin/python profile/cute_sm100_full_triton_parity/profile_transpose_kernel.py \
+  --backend cute_sm100 --dtype nvfp4 --scale-rule abs_max \
+  --shape 1024 --iters 3 --no-transpose
 ```
 
 Summary:
@@ -31,6 +38,11 @@ Summary:
   `Sm100NVFP4AdaptiveQuantize` (`~6.4-6.6 us`, block `128`, grid `256`).
 - Across three profiled calls, summed GPU kernel duration is about `151.75 us`
   for Triton versus `48.62 us` for CuTe.
+- Retuning the CuTe adaptive wrapper to compute the launch grid with the actual
+  128-thread kernel block, only when the workload has more than 4096 scale
+  blocks, raises the 1024x1024 launch from grid `256` to grid `512`. The CuTe
+  adaptive kernel drops to `~5.4-5.7 us`, and the three-call CuTe kernel sum
+  drops to about `44.38 us`.
 - The narrow end-to-end benchmark margin around `1.2x` for this class is not
   evidence that Triton's main kernel is stronger; NCU shows CuTe's kernel body
   is much faster and the remaining margin is dominated by fixed frontend,

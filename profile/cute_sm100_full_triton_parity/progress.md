@@ -3971,6 +3971,20 @@ launch, and reduction overhead compressing the end-to-end ratio. Details are
 recorded in
 `profile/cute_sm100_full_triton_parity/ncu/nvfp4_absmax1024_base_profile.md`.
 
+Retuned the 1D NVFP4 adaptive CuTe launch grid to match its actual 128-thread
+CTA size for medium/large workloads, while retaining the old 256-thread grid
+calculation for <=4096 scale blocks to avoid small-shape CTA overhead. NCU on
+`1024x1024 nvfp4 abs_max` confirms the CuTe adaptive launch moves from grid
+`256` to `512`; the adaptive kernel drops from `~6.4-6.6 us` to `~5.4-5.7 us`,
+and the three-call CuTe GPU kernel sum drops from about `48.62 us` to
+`44.38 us`. Focused timing on the NVFP4 adaptive rows shows the small shapes
+still above target (`1.223x-1.250x`) and 1024x1024 `abs_max/mse` around
+`1.23x`, with `mae` remaining the thinnest row at about `1.20x`. The refreshed
+full benchmark reports `476/476` rows meeting the required target, `338/338`
+non-pseudo rows at `>=1.2x`, `138/138` pseudo rows strictly faster than Triton,
+and `471/476` total rows meeting the old all-rows-1.2x policy. The full
+`cute_sm100` test selection passes (`488 passed, 10 skipped`).
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
