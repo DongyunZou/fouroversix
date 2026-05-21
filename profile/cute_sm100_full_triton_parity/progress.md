@@ -3233,6 +3233,18 @@ SM utilization, more registers per thread, and worse elapsed time. The next
 real IF3 pseudo attempt should therefore be a cooperative row-block kernel
 rather than another scalar-thread shortcut or launch retune.
 
+Tested an IF3/IF3_BS8 pseudo launch-grid experiment that removed the
+`SM * BLOCKS_PER_SM` cap only for `pseudo_quantize_if3_adaptive`, launching one
+CTA per `THREADS_PER_BLOCK` scale blocks. The targeted IF3 pseudo accuracy slice
+passed (`6 passed`). Focused alternating timings improved small and medium IF3
+pseudo rows substantially, with representative 128x256 and 1024x1024 rows
+moving from roughly `1.08x-1.13x` to about `1.15x-1.22x`. The critical
+4096x4096 non-BS8 IF3 row did not move: `abs_max` remained about `0.989x`, and
+`mae/mse` stayed around `1.07x`. A full benchmark with the experiment produced
+only `305/476` workloads meeting 1.2x, below the retained `319/476` snapshot, so
+the code and benchmark JSON were restored. This is a useful local signal for
+small IF3 pseudo overhead, but not a retained global improvement.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
