@@ -37,6 +37,16 @@ Source: `executable_support_current.json`
 The 18 Triton predicate-only failures are rows where Triton claims support but
 the actual sm100 Triton kernel does not compile/run in the executable audit.
 
+Fresh executable-support verification on 2026-05-21:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python profile/cute_sm100_full_triton_parity/audit_executable_support.py
+triton_predicate 423 triton_runnable 405 cute_predicate 411 cute_runnable 411
+triton_predicate_failures 18
+cute_missing_runnable 0
+cute_predicate_failures 0
+```
+
 ## Validation
 
 Fresh verification on 2026-05-21:
