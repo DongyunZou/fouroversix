@@ -13660,7 +13660,10 @@ def quantize_mxfp4_static(
         device=x.device,
     )
     total_scale_blocks = m * (k // scale_block_size)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _uncapped_launch_grid(
+        total_scale_blocks,
+        threads_per_block=MX_STATIC_THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_mxfp4_static_quantize(
         k,
@@ -13734,7 +13737,10 @@ def quantize_mxfp3_static(
         device=x.device,
     )
     total_scale_blocks = m * (k // scale_block_size)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _uncapped_launch_grid(
+        total_scale_blocks,
+        threads_per_block=MX_STATIC_THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_mxfp3_static_quantize(k, scale_block_size)
     kernel(
@@ -13835,7 +13841,10 @@ def quantize_mxfp6_static(
         device=x.device,
     )
     total_scale_blocks = m * (k // MXFP4_SCALE_BLOCK_SIZE)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _uncapped_launch_grid(
+        total_scale_blocks,
+        threads_per_block=MX_STATIC_THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_mxfp6_static_quantize(
         k,

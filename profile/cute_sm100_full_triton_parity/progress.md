@@ -3278,6 +3278,16 @@ improved from `355/476` to `363/476` workloads meeting 1.2x, so this change
 was retained. Remaining misses are now `113/476`; ordinary misses dropped from
 `37` to `31`.
 
+Removed the launch-grid cap from the ordinary MXFP3, MXFP4, and MXFP6 static
+1D wrappers, using a full `ceil(total_scale_blocks / MX_STATIC_THREADS_PER_BLOCK)`
+grid that matches those kernels' retained 128-thread CTA size. The targeted
+non-pseudo non-2D non-transpose MX CuTe accuracy slice passed (`56 passed`).
+Focused timings moved all sampled MX ordinary near-threshold rows above target,
+typically to about `1.25x-1.30x`. The full median benchmark improved from
+`363/476` to `366/476` workloads meeting 1.2x, and the refreshed miss breakdown
+has no remaining MX ordinary rows below target. Remaining misses are now
+`110/476`; ordinary misses dropped from `31` to `22`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3292,5 +3302,5 @@ was retained. Remaining misses are now `113/476`; ordinary misses dropped from
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `363/476`
+  latest median capability-driven benchmark snapshot reports `366/476`
   workloads meeting 1.2x.
