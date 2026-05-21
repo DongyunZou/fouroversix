@@ -3528,6 +3528,18 @@ strictly slower row is `4096x4096 if3 abs_max pseudo_quantize=True`
 fallback, but it was much slower (`~0.658 ms`) than both Triton and the fused
 CuTe pseudo path (`~0.060 ms`), so no fallback routing was retained.
 
+Profiled the remaining slow pseudo row,
+`4096x4096 if3 abs_max pseudo_quantize=True`, with Nsight Compute. Triton's
+`pseudo_quantization_kernel` runs in `34.43 us` with block `128`, grid `32x64`,
+`262k` launched threads, `43` registers/thread, `48.17%` achieved occupancy,
+and `64.08%` SM throughput. CuTe's `Sm100IF3AdaptivePseudoQuantize` runs in
+`46.91 us` with block `256`, grid `4096`, `1,048k` launched threads, `64`
+registers/thread, `42.92%` achieved occupancy, and `84.82%` SM throughput.
+CuTe has lower DRAM throughput (`9.45%` vs Triton `12.91%`), so the gap is not
+memory bandwidth; it is compute/instruction pressure from the current flat
+one-thread-per-scale-block mapping. Reports and details are recorded under
+`profile/cute_sm100_full_triton_parity/ncu/if3_absmax4096_*current*`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but

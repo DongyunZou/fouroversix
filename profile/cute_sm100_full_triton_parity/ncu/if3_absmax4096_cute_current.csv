@@ -1,0 +1,7 @@
+==WARNING== Could not deploy stock section files to "/home/dongyun/Documents/NVIDIA Nsight Compute/2026.1.0/Sections".
+Set the HOME environment variable to a writable directory.
+==WARNING== Using "/usr/local/cuda-13.2/nsight-compute-2026.1.0/target/linux-desktop-glibc_2_11_3-x64/../../sections" instead.
+==WARNING== See https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#faq.
+==PROF== Connected to process 1430095 (/home/dongyun/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/bin/python3.12)
+==PROF== Disconnected from process 1430095
+==PROF== Report: /home/dongyun/workspace/projects/fouroversix/profile/cute_sm100_full_triton_parity/ncu/if3_absmax4096_cute_current.ncu-rep
