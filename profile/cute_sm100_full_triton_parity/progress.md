@@ -4048,6 +4048,16 @@ margin is therefore not a Triton kernel-body advantage. 128-thread and
 benchmark runs made the lowest NVFP4 2D rows worse; the retained kernel keeps
 the 256-thread CTA mapping.
 
+Measured Python dispatch overhead on the same `4096x4096 nvfp4 static_4 2D`
+row. CUDA-event timing showed the public `quantize(...)` frontend at about
+`44.7 us`, `CuteSm100QuantizeBackend.quantize(...)` at about `43.0 us`, and
+the direct CuTe op call `quantize_nvfp4_static_2d(...)` at about `39.8 us`.
+Moving the NVFP4 2D backend branch earlier in the condition chain was tested
+and did not produce a meaningful improvement (`~42.9 us` backend median), so
+the retained code leaves the dispatch order unchanged. The remaining end-to-end
+compression is mostly QuantizedTensor wrapping and fixed Python/call-stack
+overhead around short GPU kernels, not a simple branch-order issue.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
