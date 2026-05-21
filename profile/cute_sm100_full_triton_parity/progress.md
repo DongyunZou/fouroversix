@@ -4080,6 +4080,11 @@ timings moved to about `41.2 us` Triton versus `38.6 us` CuTe on
 benchmark still reports `476/476` rows meeting the required target; in this
 run all `476/476` rows also meet the old all-rows-1.2x policy.
 
+Ran the full `cute_sm100` quantize test selection after the `x_amax` cache
+change and refreshed benchmark. It passes with `488 passed, 10 skipped`, and
+the repo-local `profile`, `src`, and `tests` trees are clean of `__pycache__`
+directories after the run.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
