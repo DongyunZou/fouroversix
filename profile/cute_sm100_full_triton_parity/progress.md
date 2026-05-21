@@ -3713,13 +3713,32 @@ division had no effect on either equality or distance, so the gap is not caused
 by reciprocal approximation; the code was restored and the targeted NVFP6
 stochastic slice still passes (`10 passed`).
 
+Fixed the 1D NVFP6 E2M3 stochastic-unbiased mismatch by splitting the NVFP6
+static scale computation into two global scales: scale-byte quantization uses
+`max_quantized_value * E4M3_STATIC_MAX / amax`, while value quantization uses
+the stochastic-unbiased adjustment factor. This matches Triton's
+`compute_scale_factors_kernel` semantics where `SR_SCALE` cancels out of the
+stored E4M3 scale factors but remains in the value scaling. On a direct
+`1024x1024` probe, NVFP6 E2M3 stochastic-unbiased now has `100%` equal scale
+bytes, `100%` equal packed values, and identical dequantized L2 distance
+(`26.0165`) versus Triton. The same probe preserved exact parity for NVFP6
+E2M3 stochastic and NVFP6 E3M2 stochastic/stochastic-unbiased. The supported
+NVFP6 stochastic test slice now passes with the new E2M3 unbiased row included
+(`10 passed`).
+
+A refreshed full benchmark reports `456/476` workloads meeting 1.2x and
+`476/476` strictly faster than Triton. All remaining rows below 1.2x are
+`pseudo_quantize=True` rows; ordinary/base, transpose, and block-scale-2d have
+no misses under the current supported workload matrix. Under the relaxed pseudo
+target, these rows are acceptable because every pseudo row remains strictly
+faster than Triton.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
   1D static NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8 stochastic-unbiased is now
   claimed. Remaining non-nearest gaps include 1D NVINT6 stochastic-unbiased.
-- Feature flags still missing: IF6 stochastic-unbiased and 1D NVFP6 E2M3
-  stochastic-unbiased. True stochastic NVFP4 pseudo is also intentionally not
+- Feature flags still missing: IF6 stochastic-unbiased. True stochastic NVFP4 pseudo is also intentionally not
   claimed after failing the current Triton-error gate.
 - `block_scale_2d=True` is currently implemented for `nvfp4`,
   `nvfp4_bs8 static_4/static_6`,
@@ -3728,5 +3747,5 @@ stochastic slice still passes (`10 passed`).
 - Performance target is now met for all ordinary quantize, transpose, and
   block-scale-2d rows in the current supported workload matrix. Pseudo-quantize
   is no longer required to meet 1.2x; all pseudo rows are strictly faster than
-  Triton in the refreshed benchmark, with one small-shape IF4 pseudo row below
-  1.2x but still at `1.185x`.
+  Triton in the refreshed benchmark. The current benchmark has `20` pseudo
+  rows below 1.2x, all still above Triton.

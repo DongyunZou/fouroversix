@@ -541,13 +541,6 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                         or (
                             config.round_style
                             == RoundStyle.stochastic_unbiased
-                            and (
-                                (
-                                    config.dtype == DataType.nvfp6_e3m2
-                                    and not config.block_scale_2d
-                                )
-                                or config.block_scale_2d
-                            )
                         )
                     )
                 )
