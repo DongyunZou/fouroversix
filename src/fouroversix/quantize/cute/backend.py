@@ -465,7 +465,18 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     and config.scale_rule
                     in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
                     and not config.pseudo_quantize
-                    and config.round_style == RoundStyle.stochastic
+                    and (
+                        config.round_style == RoundStyle.stochastic
+                        or (
+                            config.round_style == RoundStyle.stochastic_unbiased
+                            and not config.block_scale_2d
+                            and (
+                                config.dtype == DataType.if3
+                                or config.scale_rule
+                                in {ScaleRule.abs_max, ScaleRule.mse}
+                            )
+                        )
+                    )
                 )
                 or (
                     config.dtype == DataType.if4_bs8
@@ -598,6 +609,15 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                         or config.round_style == RoundStyle.nearest
                         or (
                             config.round_style == RoundStyle.stochastic
+                        )
+                        or (
+                            config.round_style == RoundStyle.stochastic_unbiased
+                            and not config.block_scale_2d
+                            and (
+                                config.dtype == DataType.if3
+                                or config.scale_rule
+                                in {ScaleRule.abs_max, ScaleRule.mse}
+                            )
                         )
                     )
                 )
@@ -1344,6 +1364,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 x,
                 scale_rule_id=config.scale_rule.cuda_id,
                 scale_block_size=config.dtype.block_size,
+                adjustment_factor=config.round_style.adjustment_factor,
                 x_amax=config.kwargs.get("x_amax"),
             )
             return _make_quantized_tensor(
@@ -1845,6 +1866,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     x,
                     scale_rule_id=config.scale_rule.cuda_id,
                     scale_block_size=config.dtype.block_size,
+                    adjustment_factor=config.round_style.adjustment_factor,
                     x_amax=x_amax,
                 )
             elif config.dtype in {DataType.if4, DataType.if4_bs8}:
@@ -2171,6 +2193,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 x_quantize,
                 scale_rule_id=config.scale_rule.cuda_id,
                 scale_block_size=config.dtype.block_size,
+                adjustment_factor=config.round_style.adjustment_factor,
                 x_amax=x_amax,
             )
             scale_dtype = torch.float8_e4m3fn

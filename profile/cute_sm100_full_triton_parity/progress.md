@@ -3769,13 +3769,25 @@ pseudo path therefore remains correctly limited to nearest-style semantics; true
 stochastic NVFP4 pseudo would require a dedicated stochastic pseudo design and
 is intentionally not pursued further under the relaxed pseudo target.
 
+Added IF3 1D/transpose stochastic-unbiased support by splitting the adaptive
+IF3 stored-scale and value/candidate global scales. Ordinary IF3 now matches
+Triton bit-exactly for `abs_max/mae/mse` across the focused stochastic-unbiased
+probe. IF3_BS8 `abs_max` and `mse` are also claimed; IF3_BS8 `mae` remains
+unclaimed because a 5-seed probe found rare scale/candidate mismatches that can
+exceed the current `1e-4` L2 gate by about `1.5e-4`. The targeted IF3
+stochastic slice passed with that unsupported row skipped
+(`20 passed, 1 skipped`), and the full `cute_sm100` selection passed
+(`465 passed, 8 skipped`).
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
   1D static NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6,
-  NVFP6, IF4/IF4_BS8, IF6, and MX stochastic-unbiased paths are now claimed.
+  NVFP6, IF3, partial IF3_BS8 (`abs_max`/`mse`), IF4/IF4_BS8, IF6, and MX
+  stochastic-unbiased paths are now claimed.
 - Feature flags still missing: true stochastic NVFP4 pseudo is intentionally not
-  claimed after failing the current Triton-error gate.
+  claimed after failing the current Triton-error gate; IF3_BS8 `mae`
+  stochastic-unbiased remains unclaimed after rare candidate mismatches.
 - `block_scale_2d=True` is currently implemented for `nvfp4`,
   `nvfp4_bs8 static_4/static_6`,
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
