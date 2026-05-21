@@ -6,3 +6,10 @@ theme:
 plugins:
   - search
   - mkdocstrings
+
+nav:
+  - Home: index.md
+  - Quantization: quantization.md
+  - Matrix Multiplication: matmul.md
+  - PTQ: ptq.md
+  - CuTe Backend Notes: cute_backend_notes.md
