@@ -15145,9 +15145,8 @@ def quantize_nvfp4_adaptive(
     amax = _resolve_amax(x, x_amax)
 
     total_scale_blocks = m * (k // scale_block_size)
-    num_blocks = _launch_grid(
+    num_blocks = _uncapped_launch_grid(
         total_scale_blocks,
-        x.device,
         threads_per_block=NVFP4_BASE_THREADS_PER_BLOCK,
     )
 

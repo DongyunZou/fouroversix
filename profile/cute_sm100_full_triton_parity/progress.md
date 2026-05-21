@@ -4012,6 +4012,17 @@ the required target, with `338/338` non-pseudo rows at `>=1.2x`,
 `138/138` pseudo rows strictly faster than Triton, and `474/476` total rows
 meeting the old all-rows-1.2x policy.
 
+Retuned NVFP4 adaptive again to use the uncapped launch-grid calculation. The
+SM-count cap did not affect the 128x256 or 1024x1024 rows, but it limited
+4096x4096 NVFP4 adaptive to fewer CTAs than the natural grid. The refreshed
+full benchmark still reports `476/476` rows meeting the required target, and
+the NVFP4 adaptive rows now show about `1.28x-1.32x` for 128x256/1024x1024 and
+about `2.49x-2.53x` for 4096x4096. NCU on `4096x4096 nvfp4 mae` confirms the
+CuTe quant kernel now launches grid `8192`, block `128`, with about `6.92`
+waves/SM and `22.6-23.1 us` kernel duration. The old all-rows-1.2x count is
+`471/476` in this refreshed run; all non-pseudo rows remain at or above
+`1.2x`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
