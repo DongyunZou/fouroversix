@@ -3595,12 +3595,22 @@ temporary gating and argument-passing changes were restored. IF6
 stochastic-unbiased still requires a different quantization implementation,
 not just support plumbing or scale adjustment.
 
+Enabled 1D static NVFP3/NVFP3_BS8 and NVINT3/NVINT3_BS8
+`stochastic_unbiased` support by routing the existing static kernels through
+`round_style.adjustment_factor` instead of hard-coded `1.0`, and opening the
+support predicates for these non-2D, non-pseudo paths. The new Triton-error
+tests passed for both nearest-stochastic and stochastic-unbiased variants
+(`8 passed`). On the targeted `1024x1024` stochastic-unbiased check, CuTe was
+not worse than Triton for all four newly claimed dtypes: NVFP3 `197.25` vs
+Triton `208.82`, NVFP3_BS8 `172.04` vs `185.33`, NVINT3 `203.93` vs `220.25`,
+and NVINT3_BS8 `172.33` vs `188.79`.
+
 ## Remaining major gaps
 
-- Nearest 1D coverage is complete for the current dtype/rule test matrix, but
-  several non-nearest variants are still not implemented, including FP3/INT3
-  stochastic-unbiased on NV scale formats. NVINT6 stochastic is now claimed;
-  NVINT6 stochastic-unbiased remains unsupported.
+- Nearest 1D coverage is complete for the current dtype/rule test matrix, and
+  1D static NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8 stochastic-unbiased is now
+  claimed. Remaining non-nearest gaps include NVINT6 stochastic-unbiased and
+  related non-claimed 2D variants.
 - Feature flags still missing: IF6 stochastic-unbiased and 1D NVFP6 E2M3
   stochastic-unbiased. True stochastic NVFP4 pseudo is also intentionally not
   claimed after failing the current Triton-error gate.

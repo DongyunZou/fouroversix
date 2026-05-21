@@ -435,7 +435,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     and config.scale_rule == ScaleRule.static_6
                     and not config.block_scale_2d
                     and not config.pseudo_quantize
-                    and config.round_style == RoundStyle.stochastic
+                    and config.round_style.is_stochastic
                 )
                 or (
                     config.dtype == DataType.nvfp4_bs8
@@ -514,7 +514,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     and config.scale_rule == ScaleRule.static_6
                     and not config.block_scale_2d
                     and not config.pseudo_quantize
-                    and config.round_style == RoundStyle.stochastic
+                    and config.round_style.is_stochastic
                 )
                 or (
                     config.dtype == DataType.nvint6
@@ -659,7 +659,11 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                         or (
                             config.dtype in {DataType.nvint3, DataType.nvint3_bs8}
                             and config.round_style
-                            in {RoundStyle.nearest, RoundStyle.stochastic}
+                            in {
+                                RoundStyle.nearest,
+                                RoundStyle.stochastic,
+                                RoundStyle.stochastic_unbiased,
+                            }
                         )
                         or (
                             config.dtype == DataType.nvint6
@@ -1166,7 +1170,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 values, scale_factors_u8, amax = quantize_nvfp3_static(
                     x,
                     scale_block_size=config.dtype.block_size,
-                    adjustment_factor=1.0,
+                    adjustment_factor=config.round_style.adjustment_factor,
                     x_amax=x_amax,
                 )
             else:
@@ -1941,7 +1945,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 values, scale_factors_u8, amax = quantize_nvint3_static(
                     x,
                     scale_block_size=config.dtype.block_size,
-                    adjustment_factor=1.0,
+                    adjustment_factor=config.round_style.adjustment_factor,
                     x_amax=x_amax,
                 )
             elif config.dtype in {DataType.nvint4, DataType.nvint4_bs8}:
