@@ -3143,6 +3143,23 @@ breakdown `base=92`, `block_scale_2d=93`, `pseudo_quantize=67`, and
 `transpose=67`. The full-run row movement still includes unrelated MX boundary
 noise, so this remains a progress snapshot rather than a completion claim.
 
+Re-tested the remaining NVFP3/NVFP3_BS8 static/base near-threshold rows with
+smaller CTAs. A 128-thread CTA variant with matching wrapper grid improved the
+focused small/medium timings slightly (`nvfp3/nvfp3_bs8 static_6` around
+`1.15x-1.17x`) but still did not reach 1.2x, and a 64-thread CTA variant was
+worse. A full benchmark with the 128-thread experiment dropped to `293/476`
+because many unrelated near-threshold rows also moved down, so the NVFP3 CTA
+retune was not retained.
+
+Re-ran `profile_static_breakdown.py` after the NVFP4 static residency retune.
+For 4096x4096 `nvfp4 static_6`, the current focused frontend median is already
+faster for CuTe (`~0.0487 ms`) than Triton (`~0.0573 ms`), and the low-level
+auto-amax path is also faster for CuTe (`~0.0425 ms` versus Triton `~0.0495
+ms`). This reinforces that the remaining full-benchmark NVFP4 static misses are
+near-threshold/noisy and mostly not main-kernel limited. Further NV static
+performance work should use focused alternating medians or CUDA timeline
+breakdowns rather than single full-matrix row flips as the acceptance signal.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
