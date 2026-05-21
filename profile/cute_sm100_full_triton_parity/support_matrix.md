@@ -1,12 +1,19 @@
 # CuTe sm100 vs Triton support matrix
 
-Generated from current `can_quantize` predicates. This is a gap report, not a
-completion claim.
+Generated from current `can_quantize` predicates and the executable support
+audit. Predicate-only Triton rows that do not compile/run on sm100 are called
+out separately; the current CuTe sm100 backend has no missing Triton-runnable
+rows in this audit.
 
 - torch.cuda.is_available: `True`
 - device: `NVIDIA B200` capability `(10, 0)`
 - cute_sm100 available: `True`
 - triton available: `True`
+- executable audit shape: `(128, 256)`
+- Triton predicate/runnable rows: `423` / `405`
+- CuTe predicate/runnable rows: `411` / `411`
+- CuTe missing Triton-runnable rows: `0`
+- CuTe predicate failures: `0`
 
 ## Test workload dtype/rule coverage
 
@@ -25,7 +32,7 @@ completion claim.
 | `mxfp6_e2m3` | static_4, static_6 | 2 | 2 | - |
 | `mxfp6_e3m2` | static_4, static_6 | 2 | 2 | - |
 | `nvfp4` | abs_max, mae, mse, static_4, static_6 | 5 | 5 | - |
-| `nvfp4_bs8` | abs_max, mae, mse, static_4, static_6 | 2 runnable / 5 predicate-only | 5 | Triton predicate exposes adaptive rules, but they fail kernel compilation on sm100 |
+| `nvfp4_bs8` | abs_max, mae, mse, static_4, static_6 | 2 runnable / 5 predicate-only | 5 | No missing Triton-runnable rows; Triton predicate exposes adaptive rules, but they fail kernel compilation on sm100 |
 | `nvfp3` | static_6 | 1 | 1 | - |
 | `nvfp3_bs8` | static_6 | 1 | 1 | - |
 | `nvfp6_e2m3` | static_6 | 1 | 1 | - |
