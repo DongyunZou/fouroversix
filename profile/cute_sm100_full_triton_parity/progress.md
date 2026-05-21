@@ -3843,6 +3843,20 @@ no unsupported skips (`24 passed`), the full `cute_sm100` selection passes
 (`478 passed, 8 skipped`), and the support-gap enumerator is down to `15` rows,
 all of them true stochastic NVFP4 pseudo variants.
 
+Retested whether the final true stochastic NVFP4 pseudo variants can be claimed
+through the generic CuTe quantize-plus-dequantize fallback. Temporarily removing
+the `can_quantize` block exposed all five scale rules
+(`abs_max/mae/mse/static_4/static_6`) to the existing pseudo error gate on the
+seed-0 `128x256` slice. All five failed because CuTe's dequantized input-error
+metrics were slightly worse than Triton's: representative MSE deltas were about
+`+2.88e-4` for `abs_max`, `+1.36e-4` for `mse`, `+3.01e-4` for `static_4`, and
+`+1.55e-4` for `static_6`, with `mae` failing the abs-mean gate by about
+`+3.16e-4`. The temporary support change was reverted, so true stochastic NVFP4
+pseudo remains intentionally unclaimed. This is an accuracy/error-distribution
+gap, not evidence that Triton's profiled pseudo kernels are faster: the retained
+NCU profiles above still show CuTe's fused pseudo kernels are materially faster
+than Triton's pseudo launches where the semantics are claimed.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
