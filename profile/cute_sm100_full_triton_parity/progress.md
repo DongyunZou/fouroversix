@@ -3362,6 +3362,16 @@ rules out a simple "CuTe 2D kernel body is slower" explanation; enqueue spacing
 and fixed framework overhead are significant. Reports are under
 `profile/cute_sm100_full_triton_parity/ncu/nvfp4_2d_mse1024_*`.
 
+Measured direct CuTe backend calls against the public `quantize()` frontend on
+representative remaining near-threshold rows. Direct backend dispatch was about
+`2.6 us` faster for `1024x1024 nvfp4 mse block_scale_2d=True`, about `1.1 us`
+faster for `128x256 if3 abs_max pseudo_quantize=True`, and about `1.9 us`
+faster for `1024x1024 nvfp4 abs_max`. This confirms a small but meaningful
+Python/frontend component in the short-kernel rows. A prior fast-dispatch cache
+experiment did not improve the full benchmark, so no production frontend change
+was retained here; the useful direction is likely reducing kernel count or
+offering a more explicit low-overhead path rather than another generic cache.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
