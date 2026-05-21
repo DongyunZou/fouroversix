@@ -4036,6 +4036,18 @@ about `0.43` waves/SM and `17.4-17.9 us` kernel duration. The old
 all-rows-1.2x count is `466/476` in this run because pseudo rows are not held
 to the 1.2x target and continue to show more timing noise.
 
+Profiled the current near-threshold NVFP4 2D static row,
+`4096x4096 nvfp4 static_4 block_scale_2d=True`, with NCU. Triton launches
+four kernels per call and spends about `178.1 us` of GPU kernel time across
+three profiled calls (`~59.4 us/call`), including a `24.4-24.8 us`
+`quantization_kernel`. CuTe launches reduce plus `Sm100NVFP4StaticQuantize2D`
+and spends about `106.5 us` across three calls (`~35.5 us/call`), with the
+CuTe main kernel at `17.0-17.5 us`. This row's narrow end-to-end benchmark
+margin is therefore not a Triton kernel-body advantage. 128-thread and
+64-thread NVFP4 2D CTA retunes were tested and rejected because full-matrix
+benchmark runs made the lowest NVFP4 2D rows worse; the retained kernel keeps
+the 256-thread CTA mapping.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
