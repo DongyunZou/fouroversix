@@ -4085,6 +4085,14 @@ change and refreshed benchmark. It passes with `488 passed, 10 skipped`, and
 the repo-local `profile`, `src`, and `tests` trees are clean of `__pycache__`
 directories after the run.
 
+Re-ran the executable support audit after the latest performance and frontend
+changes. The audit remains clean for CuTe coverage: Triton has `423` predicate
+claims and `405` actually runnable rows, while CuTe has `411` predicate claims
+and `411` runnable rows. CuTe has `0` missing runnable Triton rows and `0`
+predicate failures. The `18` Triton predicate failures remain the known cases
+where Triton's predicate claims support but the actual sm100 kernel does not
+compile/run.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
