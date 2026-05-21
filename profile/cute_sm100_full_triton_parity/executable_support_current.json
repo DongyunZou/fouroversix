@@ -1,0 +1,158 @@
+{
+  "shape": [
+    128,
+    256
+  ],
+  "triton_predicate_count": 423,
+  "triton_runnable_count": 405,
+  "cute_predicate_count": 411,
+  "cute_runnable_count": 411,
+  "triton_predicate_failures": [
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "abs_max",
+      "round_style": "nearest",
+      "features": {},
+      "error": "CompilationError: at 122:28:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "abs_max",
+      "round_style": "stochastic",
+      "features": {},
+      "error": "CompilationError: at 122:28:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "abs_max",
+      "round_style": "stochastic_unbiased",
+      "features": {},
+      "error": "CompilationError: at 122:28:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "abs_max",
+      "round_style": "nearest",
+      "features": {
+        "block_scale_2d": true
+      },
+      "error": "CompilationError: at 98:35:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "abs_max",
+      "round_style": "stochastic",
+      "features": {
+        "block_scale_2d": true
+      },
+      "error": "CompilationError: at 98:35:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "abs_max",
+      "round_style": "stochastic_unbiased",
+      "features": {
+        "block_scale_2d": true
+      },
+      "error": "CompilationError: at 98:35:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "mae",
+      "round_style": "nearest",
+      "features": {},
+      "error": "CompilationError: at 122:28:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "mae",
+      "round_style": "stochastic",
+      "features": {},
+      "error": "CompilationError: at 122:28:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "mae",
+      "round_style": "stochastic_unbiased",
+      "features": {},
+      "error": "CompilationError: at 122:28:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "mae",
+      "round_style": "nearest",
+      "features": {
+        "block_scale_2d": true
+      },
+      "error": "CompilationError: at 98:35:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "mae",
+      "round_style": "stochastic",
+      "features": {
+        "block_scale_2d": true
+      },
+      "error": "CompilationError: at 98:35:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "mae",
+      "round_style": "stochastic_unbiased",
+      "features": {
+        "block_scale_2d": true
+      },
+      "error": "CompilationError: at 98:35:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "mse",
+      "round_style": "nearest",
+      "features": {},
+      "error": "CompilationError: at 122:28:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "mse",
+      "round_style": "stochastic",
+      "features": {},
+      "error": "CompilationError: at 122:28:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "mse",
+      "round_style": "stochastic_unbiased",
+      "features": {},
+      "error": "CompilationError: at 122:28:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "mse",
+      "round_style": "nearest",
+      "features": {
+        "block_scale_2d": true
+      },
+      "error": "CompilationError: at 98:35:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "mse",
+      "round_style": "stochastic",
+      "features": {
+        "block_scale_2d": true
+      },
+      "error": "CompilationError: at 98:35:"
+    },
+    {
+      "dtype": "nvfp4_bs8",
+      "scale_rule": "mse",
+      "round_style": "stochastic_unbiased",
+      "features": {
+        "block_scale_2d": true
+      },
+      "error": "CompilationError: at 98:35:"
+    }
+  ],
+  "cute_missing_runnable": [],
+  "cute_predicate_failures": []
+}

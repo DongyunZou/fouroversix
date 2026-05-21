@@ -3951,6 +3951,26 @@ selection now reports `488 passed, 10 skipped`; the refreshed benchmark remains
 `>=1.2x`, `138/138` pseudo rows strictly faster than Triton, and `472/476`
 total rows meeting the old all-rows-1.2x policy.
 
+Added `audit_executable_support.py` so the support audit now distinguishes
+backend predicates from kernels that actually compile and run. The current
+snapshot is written to `executable_support_current.json` and reports
+`triton_predicate=423`, `triton_runnable=405`, `cute_predicate=411`,
+`cute_runnable=411`, `cute_missing_runnable=0`, and `cute_predicate_failures=0`.
+The remaining Triton predicate failures are the 18 `nvfp4_bs8` adaptive
+non-pseudo/2D variants that hit Triton's compile-time broadcast-shape error.
+
+Profiled the current weakest non-pseudo class,
+`1024x1024 nvfp4 abs_max`, with NCU. Triton launches four kernels per call:
+abs helper (`~4.3 us`), reduce (`~9.8-10.1 us`), copy helper (`~4.3 us`), and
+`quantization_kernel` (`~32.0-32.3 us`). CuTe launches reduce (`~9.6-9.9 us`)
+plus `Sm100NVFP4AdaptiveQuantize` (`~6.4-6.6 us`). The captured GPU kernel
+duration sum is about `151.75 us` for Triton versus `48.62 us` for CuTe across
+three calls. Therefore the narrow end-to-end benchmark margin on the NVFP4
+adaptive rows is not Triton's kernel body doing better; it is fixed frontend,
+launch, and reduction overhead compressing the end-to-end ratio. Details are
+recorded in
+`profile/cute_sm100_full_triton_parity/ncu/nvfp4_absmax1024_base_profile.md`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
