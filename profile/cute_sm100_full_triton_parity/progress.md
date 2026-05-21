@@ -3415,6 +3415,16 @@ but the full benchmark regressed from the retained `390/476` snapshot to
 `355/476`, so the code and benchmark JSON were restored. Stream wrapper caching
 is not a retained fix.
 
+Tested whether missing stochastic-unbiased feature claims for 1D
+`nvfp6_e2m3` and IF6 were just backend gating omissions. For `nvfp6_e2m3`, the
+existing kernel already accepts the stochastic-unbiased adjustment factor, but
+claiming it failed the Triton-error gate (`triton_dist=26.0165`,
+`cute_dist=26.5390`). For IF6, passing `round_style.adjustment_factor` into the
+adaptive IF6 kernel and claiming stochastic-unbiased failed badly across both
+E2M3 and E3M2 (`cute_dist` around `64-65` vs Triton around `20-22`). The code
+and tests were restored. These gaps need true stochastic-unbiased IF6/NVFP6
+kernel semantics, not just can-quantize gating changes.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
