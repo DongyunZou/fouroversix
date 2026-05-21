@@ -4058,6 +4058,17 @@ the retained code leaves the dispatch order unchanged. The remaining end-to-end
 compression is mostly QuantizedTensor wrapping and fixed Python/call-stack
 overhead around short GPU kernels, not a simple branch-order issue.
 
+Measured the provided-`x_amax` variant for the same near-threshold short
+paths. Removing the amax reduction makes both backends much shorter, and the
+public frontend speedup drops to about `1.04x-1.14x` on representative
+NVFP4 2D and IF3 transpose rows. Low-level timing on
+`4096x4096 nvfp4 static_4 block_scale_2d=True` with a provided `x_amax` shows
+Triton at about `34.7 us` and CuTe at about `34.1 us`; the CuTe kernel body is
+only slightly faster in that mode. Therefore the current all-workload
+`>=1.2x` target remains scoped to the default auto-amax benchmark matrix. A
+provided-amax 1.2x target would require a deeper NVFP4 2D kernel redesign, not
+frontend dispatch or launch-parameter tuning.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
