@@ -3759,6 +3759,16 @@ stochastic-unbiased no worse than Triton. The targeted NVINT6 stochastic slice
 passes (`5 passed`), and the full `cute_sm100` selection passes
 (`461 passed, 7 skipped`).
 
+Re-tested whether true stochastic NVFP4 pseudo could be claimed without writing
+a new pseudo kernel, by directly calling the existing fused CuTe pseudo path
+with `round_style=stochastic` for `abs_max/mae/mse/static_4/static_6`. A single
+seed initially suggested `mae`, `mse`, and `static_4` might be close enough, but
+a 5-seed check across `128x256` and `1024x1024` showed failures in all three
+candidate rules under the current MSE/MAE/max-error gate. The existing fused
+pseudo path therefore remains correctly limited to nearest-style semantics; true
+stochastic NVFP4 pseudo would require a dedicated stochastic pseudo design and
+is intentionally not pursued further under the relaxed pseudo target.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
