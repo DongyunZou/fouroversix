@@ -2454,12 +2454,18 @@ def _process_nvfp4_adaptive_block_bfloat(
     scale_rule_id: cutlass.Constexpr[int],
     stochastic_rounding: cutlass.Constexpr[bool],
     seed_base: Uint32,
+    scale_block_size: cutlass.Constexpr[int] = NVFP4_SCALE_BLOCK_SIZE,
 ) -> tuple[Uint8, cutlass.Uint64]:
     ptr0 = get_ptr_as_int64(row_tensor, elem_base)
-    ptr1 = get_ptr_as_int64(row_tensor, elem_base + Int32(8))
 
     h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
-    h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
+    h4 = Uint32(0)
+    h5 = Uint32(0)
+    h6 = Uint32(0)
+    h7 = Uint32(0)
+    if cutlass.const_expr(scale_block_size != 8):
+        ptr1 = get_ptr_as_int64(row_tensor, elem_base + Int32(8))
+        h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
 
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
@@ -2498,6 +2504,23 @@ def _process_nvfp4_adaptive_block_bfloat(
             selection_scale_6,
             dequant_scale_6,
             seed_base,
+            scale_rule_id,
+        )
+    elif cutlass.const_expr(scale_block_size == 8):
+        packed64_6 = cutlass.Uint64(
+            bfloat2x4_to_e2m1x8_packed(h0, h1, h2, h3, output_scale_6),
+        )
+        error_6 = _nvfp4_block_error_bfloat(
+            h0,
+            h1,
+            h2,
+            h3,
+            h4,
+            h5,
+            h6,
+            h7,
+            selection_scale_6,
+            dequant_scale_6,
             scale_rule_id,
         )
     else:
@@ -2560,6 +2583,23 @@ def _process_nvfp4_adaptive_block_bfloat(
             selection_scale_4,
             dequant_scale_4,
             seed_base,
+            scale_rule_id,
+        )
+    elif cutlass.const_expr(scale_block_size == 8):
+        packed64_4 = cutlass.Uint64(
+            bfloat2x4_to_e2m1x8_packed(h0, h1, h2, h3, output_scale_4),
+        )
+        error_4 = _nvfp4_block_error_bfloat(
+            h0,
+            h1,
+            h2,
+            h3,
+            h4,
+            h5,
+            h6,
+            h7,
+            selection_scale_4,
+            dequant_scale_4,
             scale_rule_id,
         )
     else:
@@ -4083,11 +4123,13 @@ class Sm100NVFP4AdaptiveQuantize:
         k: int,
         scale_rule_id: int,
         stochastic_rounding: bool = False,
+        scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
     ):
         self.k = k
         self.scale_rule_id = scale_rule_id
         self.stochastic_rounding = stochastic_rounding
-        self.scale_blocks_per_row = k // NVFP4_SCALE_BLOCK_SIZE
+        self.scale_block_size = scale_block_size
+        self.scale_blocks_per_row = k // scale_block_size
 
     @cute.jit
     def __call__(
@@ -4131,7 +4173,7 @@ class Sm100NVFP4AdaptiveQuantize:
         while sf_idx < total_scale_blocks:
             row_idx = sf_idx // self.scale_blocks_per_row
             col_idx = sf_idx % self.scale_blocks_per_row
-            elem_base = col_idx * NVFP4_SCALE_BLOCK_SIZE
+            elem_base = col_idx * self.scale_block_size
 
             scale_fp8, packed64 = _process_nvfp4_adaptive_block_bfloat(
                 x[row_idx, None],
@@ -4140,12 +4182,16 @@ class Sm100NVFP4AdaptiveQuantize:
                 self.scale_rule_id,
                 self.stochastic_rounding,
                 Uint32(row_idx * self.k + elem_base),
+                self.scale_block_size,
             )
 
             scales[sf_idx] = scale_fp8
-            output_offset = col_idx * (NVFP4_SCALE_BLOCK_SIZE // 2)
+            output_offset = col_idx * (self.scale_block_size // 2)
             output_ptr = get_ptr_as_int64(values[row_idx, None], output_offset)
-            st_global_u64(output_ptr, packed64)
+            if cutlass.const_expr(self.scale_block_size == 8):
+                st_global_u32(output_ptr, Uint32(packed64 & cutlass.Uint64(0xFFFFFFFF)))
+            else:
+                st_global_u64(output_ptr, packed64)
 
             sf_idx = sf_idx + stride
 
@@ -11123,6 +11169,7 @@ def _compile_adaptive_quantize(
     k: int,
     scale_rule_id: int,
     stochastic_rounding: bool = False,
+    scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
 ):
     sym_m = cute.sym_int()
     sym_scale_blocks = cute.sym_int()
@@ -11151,7 +11198,12 @@ def _compile_adaptive_quantize(
     )
     stream_fake = cute.runtime.make_fake_stream()
 
-    kernel = Sm100NVFP4AdaptiveQuantize(k, scale_rule_id, stochastic_rounding)
+    kernel = Sm100NVFP4AdaptiveQuantize(
+        k,
+        scale_rule_id,
+        stochastic_rounding,
+        scale_block_size,
+    )
     compiled = cute.compile(
         kernel,
         x_fake,
@@ -15047,27 +15099,39 @@ def quantize_nvfp4_adaptive(
     *,
     scale_rule_id: int,
     stochastic_rounding: bool = False,
+    scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
     x_amax: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if scale_rule_id not in {SCALE_RULE_ABS_MAX, SCALE_RULE_MAE, SCALE_RULE_MSE}:
         msg = f"unsupported adaptive four-over-six scale rule id {scale_rule_id}"
         raise ValueError(msg)
+    if scale_block_size not in {8, NVFP4_SCALE_BLOCK_SIZE}:
+        msg = f"scale block size must be 8 or {NVFP4_SCALE_BLOCK_SIZE}, got {scale_block_size}"
+        raise ValueError(msg)
 
     m, k = _validate_quantize_input(x, 6)
+    if k % scale_block_size != 0:
+        msg = f"columns must be divisible by {scale_block_size}, got {k}"
+        raise ValueError(msg)
     x = x.contiguous()
 
     values = torch.empty((m, k // 2), dtype=torch.uint8, device=x.device)
     scale_factors = torch.empty(
-        (m, k // NVFP4_SCALE_BLOCK_SIZE),
+        (m, k // scale_block_size),
         dtype=torch.uint8,
         device=x.device,
     )
     amax = _resolve_amax(x, x_amax)
 
-    total_scale_blocks = m * (k // NVFP4_SCALE_BLOCK_SIZE)
+    total_scale_blocks = m * (k // scale_block_size)
     num_blocks = _launch_grid(total_scale_blocks, x.device)
 
-    kernel = _compile_adaptive_quantize(k, scale_rule_id, stochastic_rounding)
+    kernel = _compile_adaptive_quantize(
+        k,
+        scale_rule_id,
+        stochastic_rounding,
+        scale_block_size,
+    )
     kernel(
         x,
         values,

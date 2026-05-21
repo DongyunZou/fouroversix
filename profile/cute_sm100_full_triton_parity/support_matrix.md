@@ -25,7 +25,7 @@ completion claim.
 | `mxfp6_e2m3` | static_4, static_6 | 2 | 2 | - |
 | `mxfp6_e3m2` | static_4, static_6 | 2 | 2 | - |
 | `nvfp4` | abs_max, mae, mse, static_4, static_6 | 5 | 5 | - |
-| `nvfp4_bs8` | static_4, static_6 | 2 | 2 | - |
+| `nvfp4_bs8` | abs_max, mae, mse, static_4, static_6 | 2 runnable / 5 predicate-only | 5 | Triton predicate exposes adaptive rules, but they fail kernel compilation on sm100 |
 | `nvfp3` | static_6 | 1 | 1 | - |
 | `nvfp3_bs8` | static_6 | 1 | 1 | - |
 | `nvfp6_e2m3` | static_6 | 1 | 1 | - |
@@ -36,11 +36,13 @@ completion claim.
 | `nvint4_bs8` | static_6 | 1 | 1 | - |
 | `nvint6` | static_6 | 1 | 1 | - |
 
-Note: the benchmark/test workload matrix intentionally restricts
-`nvfp4_bs8` to `static_4/static_6`. A broader audit over
-`DataType.supported_scale_rules` exposes Triton-supported `nvfp4_bs8`
-adaptive rules (`abs_max`, `mae`, `mse`) that CuTe sm100 does not currently
-claim.
+Note: the benchmark/test workload matrix intentionally restricts Triton
+`nvfp4_bs8` rows to the runnable `static_4/static_6` rules. A broader audit
+over `DataType.supported_scale_rules` exposes Triton predicate support for
+`nvfp4_bs8` adaptive rules (`abs_max`, `mae`, `mse`), but those Triton kernels
+currently fail compilation on sm100 with a `tl.where` broadcast-shape error.
+CuTe sm100 now claims the adaptive nearest 1D variants and matches the PyTorch
+reference exactly.
 
 ## Feature flags
 

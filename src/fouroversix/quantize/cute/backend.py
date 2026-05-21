@@ -445,9 +445,23 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 )
                 or (
                     config.dtype == DataType.nvfp4_bs8
-                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and config.scale_rule
+                    in {
+                        ScaleRule.abs_max,
+                        ScaleRule.mae,
+                        ScaleRule.mse,
+                        ScaleRule.static_4,
+                        ScaleRule.static_6,
+                    }
                     and not config.pseudo_quantize
-                    and config.round_style.is_stochastic
+                    and (
+                        config.round_style == RoundStyle.nearest
+                        or (
+                            config.scale_rule
+                            in {ScaleRule.static_4, ScaleRule.static_6}
+                            and config.round_style.is_stochastic
+                        )
+                    )
                 )
                 or (
                     config.dtype == DataType.if4
@@ -584,8 +598,20 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 )
                 or (
                     config.dtype == DataType.nvfp4_bs8
-                    and config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}
+                    and config.scale_rule
+                    in {
+                        ScaleRule.abs_max,
+                        ScaleRule.mae,
+                        ScaleRule.mse,
+                        ScaleRule.static_4,
+                        ScaleRule.static_6,
+                    }
                     and not config.pseudo_quantize
+                    and (
+                        config.round_style == RoundStyle.nearest
+                        or config.scale_rule
+                        in {ScaleRule.static_4, ScaleRule.static_6}
+                    )
                 )
                 or (
                     config.dtype in {
@@ -1836,14 +1862,19 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             and not config.rht
             and not config.block_scale_2d
             and not config.pseudo_quantize
-            and config.dtype == DataType.nvfp4
+            and config.dtype in {DataType.nvfp4, DataType.nvfp4_bs8}
             and config.scale_rule in _ADAPTIVE_SCALE_RULES
+            and (
+                config.dtype == DataType.nvfp4
+                or config.round_style == RoundStyle.nearest
+            )
         ):
             quantize_nvfp4_adaptive = _adaptive_nvfp4_quantizer()
             values, scale_factors_u8, amax = quantize_nvfp4_adaptive(
                 x,
                 scale_rule_id=config.scale_rule.cuda_id,
                 stochastic_rounding=config.round_style == RoundStyle.stochastic,
+                scale_block_size=config.dtype.block_size,
                 x_amax=config.kwargs.get("x_amax"),
             )
             return _make_quantized_tensor(

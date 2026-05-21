@@ -3122,8 +3122,8 @@ def test_cute_sm100_nvfp4_bs8_static_matches_triton(
 
     torch.manual_seed(0)
     x = torch.randn(*input_shape, dtype=torch.bfloat16, device="cuda")
-    config_triton = QuantizationConfig(
-        backend=QuantizeBackend.triton,
+    config_pytorch = QuantizationConfig(
+        backend=QuantizeBackend.pytorch,
         dtype=DataType.nvfp4_bs8,
         scale_rule=scale_rule,
     )
@@ -3133,10 +3133,10 @@ def test_cute_sm100_nvfp4_bs8_static_matches_triton(
         scale_rule=scale_rule,
     )
 
-    quantized_triton = quantize(x, config_triton)
+    quantized_pytorch = quantize(x, config_pytorch)
     quantized_cute = quantize(x, config_cute)
-    triton_scales = _scale_factors_as_matrix(
-        quantized_triton,
+    pytorch_scales = _scale_factors_as_matrix(
+        quantized_pytorch,
         x.shape,
         DataType.nvfp4_bs8,
     )
@@ -3146,7 +3146,7 @@ def test_cute_sm100_nvfp4_bs8_static_matches_triton(
         DataType.nvfp4_bs8,
     )
     dequantized_triton = dequantize(
-        quantized_triton,
+        quantized_pytorch,
         dtype=torch.float32,
         backend=QuantizeBackend.pytorch,
         intermediate_dtype=torch.float32,
@@ -3159,8 +3159,8 @@ def test_cute_sm100_nvfp4_bs8_static_matches_triton(
     )
     diff = dequantized_cute - dequantized_triton
 
-    assert torch.equal(quantized_cute.values, quantized_triton.values)
-    assert torch.equal(cute_scales, triton_scales)
+    assert torch.equal(quantized_cute.values, quantized_pytorch.values)
+    assert torch.equal(cute_scales, pytorch_scales)
     assert (diff * diff).mean().item() == 0
 
 
@@ -3386,6 +3386,56 @@ def test_cute_sm100_nvfp4_bs8_block_scale_2d_stochastic_unbiased_matches_triton_
     assert cute_dist <= (triton_dist + CUTE_DEQUANT_METRIC_TOLERANCE)
 
 
+@pytest.mark.parametrize("scale_rule", [ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse])
+def test_cute_sm100_nvfp4_bs8_adaptive_nearest_matches_pytorch(
+    scale_rule: ScaleRule,
+) -> None:
+    _require_cuda_for_cute_sm100_accuracy()
+
+    torch.manual_seed(0)
+    x = torch.randn(128, 256, dtype=torch.bfloat16, device="cuda")
+    config_pytorch = QuantizationConfig(
+        backend=QuantizeBackend.pytorch,
+        dtype=DataType.nvfp4_bs8,
+        scale_rule=scale_rule,
+    )
+    config_cute = QuantizationConfig(
+        backend=QuantizeBackend.cute_sm100,
+        dtype=DataType.nvfp4_bs8,
+        scale_rule=scale_rule,
+    )
+
+    quantized_pytorch = quantize(x, config_pytorch)
+    quantized_cute = quantize(x, config_cute)
+    pytorch_scales = _scale_factors_as_matrix(
+        quantized_pytorch,
+        x.shape,
+        DataType.nvfp4_bs8,
+    )
+    cute_scales = _scale_factors_as_matrix(
+        quantized_cute,
+        x.shape,
+        DataType.nvfp4_bs8,
+    )
+    dequantized_pytorch = dequantize(
+        quantized_pytorch,
+        dtype=torch.float32,
+        backend=QuantizeBackend.pytorch,
+        intermediate_dtype=torch.float32,
+    )
+    dequantized_cute = dequantize(
+        quantized_cute,
+        dtype=torch.float32,
+        backend=QuantizeBackend.cute_sm100,
+        intermediate_dtype=torch.float32,
+    )
+    diff = dequantized_cute - dequantized_pytorch
+
+    assert torch.equal(quantized_cute.values, quantized_pytorch.values)
+    assert torch.equal(cute_scales, pytorch_scales)
+    assert (diff * diff).mean().item() == 0
+
+
 @pytest.mark.parametrize(
     "scale_rule",
     [
@@ -3412,6 +3462,10 @@ def test_cute_sm100_nvfp4_bs8_nonstatic_or_stochastic_is_not_claimed(
         RoundStyle.stochastic_unbiased,
     }:
         pytest.skip("Covered by static NVFP4_BS8 accuracy tests")
+    if scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse} and (
+        round_style == RoundStyle.nearest
+    ):
+        pytest.skip("Covered by adaptive NVFP4_BS8 nearest accuracy tests")
 
     x = torch.empty(128, 256, dtype=torch.bfloat16, device="cuda")
     config = QuantizationConfig(

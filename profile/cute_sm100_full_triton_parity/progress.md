@@ -3920,6 +3920,21 @@ and reduce kernels, while CuTe spends about `6.1-6.4 us` in the fused
 all-rows-1.2x target are therefore fixed-overhead/pseudo-policy rows, not cases
 where Triton's kernel body is better.
 
+Investigated the broader `DataType.supported_scale_rules` gap for
+`nvfp4_bs8` adaptive nearest (`abs_max`, `mae`, `mse`). The earlier support
+audit was too broad because it treated Triton's predicate support as runnable
+support: attempting to execute Triton for those three rules on sm100 fails
+during Triton compilation with a `tl.where` broadcast-shape error
+(`Cannot make_shape_compatible: incompatible dimensions at index 3: 2 and 4`).
+CuTe sm100 now supports the corresponding 1D nearest adaptive path by
+parameterizing the existing NVFP4 adaptive kernel for 8-element scale blocks.
+The targeted CuTe-vs-PyTorch reference test passes (`3 passed`) and is
+bit-exact for values, scales, and dequantized output. The full `cute_sm100`
+test selection still passes after this change (`482 passed, 10 skipped`), and
+the refreshed benchmark remains at `476/476` rows meeting the required target:
+`338/338` non-pseudo rows meet `1.2x`, `138/138` pseudo rows are strictly
+faster than Triton, and `465/476` total rows meet the old all-rows-1.2x policy.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
@@ -3931,12 +3946,13 @@ where Triton's kernel body is better.
   fused low-error pseudo surrogate. A true stochastic pseudo implementation was
   tested and remains lower quality than Triton on the strict pseudo error gate,
   so the retained pseudo route is deliberately not the true stochastic kernel.
-- A broader audit over `DataType.supported_scale_rules` still exposes
-  NVFP4_BS8 adaptive rule combinations (`abs_max`, `mae`, `mse`) outside the
-  current benchmark matrix. The current matrix intentionally covers
-  NVFP4_BS8 `static_4/static_6`; do not interpret the `476/476` benchmark
-  result as a claim that those wider adaptive NVFP4_BS8 combinations are
-  implemented.
+- A broader audit over `DataType.supported_scale_rules` exposes NVFP4_BS8
+  adaptive rule combinations (`abs_max`, `mae`, `mse`) outside the benchmark
+  matrix. Triton's predicate claims those rows but the actual Triton kernel
+  does not compile on sm100; CuTe now implements the 1D nearest variants and
+  gates them against the PyTorch reference. Stochastic, stochastic-unbiased,
+  transpose, pseudo, and 2D NVFP4_BS8 adaptive variants remain outside the
+  current benchmark matrix.
 - `block_scale_2d=True` is currently implemented for `nvfp4`,
   `nvfp4_bs8 static_4/static_6`,
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
