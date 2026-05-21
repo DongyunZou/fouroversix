@@ -3203,6 +3203,14 @@ dropped to `293/476`. The change was reverted. This suggests the remaining
 small-shape event-time gap is mostly CUDA launch/enqueue spacing around the
 kernel calls, not the Python backend support check alone.
 
+Tested a standalone one-warp CuTe BF16 amax kernel for small matrices as a
+possible replacement for the torch AbsMax reduce in fixed-overhead-limited
+pseudo rows. The kernel produced the correct 128x256 amax, but its focused
+CUDA-event median was about `33.6 us`, far slower than
+`torch.linalg.vector_norm(..., ord=inf, dtype=float32)` at about `6.2 us`. The
+experiment was reverted; a useful small-shape amax replacement would need a
+more parallel multi-CTA reduction or fusion strategy, not a single-warp scan.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
