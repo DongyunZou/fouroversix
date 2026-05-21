@@ -325,6 +325,17 @@ def _pseudo_quantizers():
     )
 
 
+@functools.lru_cache
+def _adaptive_if_pseudo_quantizers():
+    from fouroversix.kernels.cute_sm100 import ops
+
+    return (
+        ops.pseudo_quantize_if3_adaptive,
+        ops.pseudo_quantize_if4_adaptive,
+        ops.rht_transform,
+    )
+
+
 class CuteSm100QuantizeBackend(QuantizeBackendBase):
     """CuTe-DSL quantization backend for B200/GB200 (sm_100)."""
 
@@ -849,6 +860,34 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
         if config.dtype not in _PSEUDO_SUPPORTED_DTYPES:
             return super().pseudo_quantize(x, config)
 
+        if config.dtype in _PSEUDO_IF3_DTYPES | _PSEUDO_IF4_DTYPES:
+            (
+                pseudo_quantize_if3_adaptive,
+                pseudo_quantize_if4_adaptive,
+                rht_transform,
+            ) = _adaptive_if_pseudo_quantizers()
+            x_quantize = x.T.contiguous() if config.transpose else x
+            if config.rht:
+                x_quantize = rht_transform(x_quantize)
+            x_amax = None if config.rht else config.kwargs.get("x_amax")
+            if config.scale_rule not in _ADAPTIVE_SCALE_RULES:
+                return super().pseudo_quantize(x, config)
+            if config.dtype in _PSEUDO_IF3_DTYPES:
+                out = pseudo_quantize_if3_adaptive(
+                    x_quantize,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    scale_block_size=config.dtype.block_size,
+                    x_amax=x_amax,
+                )
+            else:
+                out = pseudo_quantize_if4_adaptive(
+                    x_quantize,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    scale_block_size=config.dtype.block_size,
+                    x_amax=x_amax,
+                )
+            return out.T.contiguous() if config.transpose else out
+
         pseudo_quantizers = _pseudo_quantizers()
         (
             pseudo_quantize_if3_adaptive,
@@ -872,27 +911,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             x_quantize = rht_transform(x_quantize)
         x_amax = None if config.rht else config.kwargs.get("x_amax")
 
-        if config.dtype in _PSEUDO_IF3_DTYPES:
-            if config.scale_rule in _ADAPTIVE_SCALE_RULES:
-                out = pseudo_quantize_if3_adaptive(
-                    x_quantize,
-                    scale_rule_id=config.scale_rule.cuda_id,
-                    scale_block_size=config.dtype.block_size,
-                    x_amax=x_amax,
-                )
-            else:
-                return super().pseudo_quantize(x, config)
-        elif config.dtype in _PSEUDO_IF4_DTYPES:
-            if config.scale_rule in _ADAPTIVE_SCALE_RULES:
-                out = pseudo_quantize_if4_adaptive(
-                    x_quantize,
-                    scale_rule_id=config.scale_rule.cuda_id,
-                    scale_block_size=config.dtype.block_size,
-                    x_amax=x_amax,
-                )
-            else:
-                return super().pseudo_quantize(x, config)
-        elif config.dtype in _PSEUDO_MXFP3_DTYPES:
+        if config.dtype in _PSEUDO_MXFP3_DTYPES:
             if config.scale_rule in _STATIC_SCALE_RULES:
                 out = pseudo_quantize_mxfp3_static(
                     x_quantize,
