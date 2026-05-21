@@ -336,6 +336,18 @@ def _adaptive_if_pseudo_quantizers():
     )
 
 
+@functools.lru_cache
+def _static_nv_pseudo_quantizers():
+    from fouroversix.kernels.cute_sm100 import ops
+
+    return (
+        ops.pseudo_quantize_nvfp3_static,
+        ops.pseudo_quantize_nvfp4_static,
+        ops.pseudo_quantize_nvint3_static,
+        ops.pseudo_quantize_nvint4_static,
+    )
+
+
 class CuteSm100QuantizeBackend(QuantizeBackendBase):
     """CuTe-DSL quantization backend for B200/GB200 (sm_100)."""
 
@@ -885,8 +897,64 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     scale_rule_id=config.scale_rule.cuda_id,
                     scale_block_size=config.dtype.block_size,
                     x_amax=x_amax,
-                )
+            )
             return out.T.contiguous() if config.transpose else out
+
+        if (
+            not config.transpose
+            and not config.rht
+            and config.scale_rule in _STATIC_SCALE_RULES
+            and (
+                config.dtype in _PSEUDO_NVFP3_DTYPES
+                or config.dtype in _PSEUDO_NVINT3_DTYPES
+                or config.dtype in _PSEUDO_NVINT4_DTYPES
+                or config.dtype in _FAST_STATIC_NVFP4_DTYPES
+            )
+        ):
+            (
+                pseudo_quantize_nvfp3_static,
+                pseudo_quantize_nvfp4_static,
+                pseudo_quantize_nvint3_static,
+                pseudo_quantize_nvint4_static,
+            ) = _static_nv_pseudo_quantizers()
+            x_amax = config.kwargs.get("x_amax")
+            if config.dtype in _PSEUDO_NVFP3_DTYPES:
+                if config.scale_rule == ScaleRule.static_6:
+                    return pseudo_quantize_nvfp3_static(
+                        x,
+                        scale_block_size=config.dtype.block_size,
+                        x_amax=x_amax,
+                    )
+                return super().pseudo_quantize(x, config)
+            if config.dtype in _PSEUDO_NVINT3_DTYPES:
+                if config.scale_rule == ScaleRule.static_6:
+                    return pseudo_quantize_nvint3_static(
+                        x,
+                        scale_block_size=config.dtype.block_size,
+                        x_amax=x_amax,
+                    )
+                return super().pseudo_quantize(x, config)
+            if config.dtype in _PSEUDO_NVINT4_DTYPES:
+                if config.scale_rule == ScaleRule.static_6:
+                    return pseudo_quantize_nvint4_static(
+                        x,
+                        scale_block_size=config.dtype.block_size,
+                        x_amax=x_amax,
+                    )
+                return super().pseudo_quantize(x, config)
+            if config.scale_rule == ScaleRule.static_6:
+                return pseudo_quantize_nvfp4_static(
+                    x,
+                    max_quantized_value=6,
+                    scale_block_size=config.dtype.block_size,
+                    x_amax=x_amax,
+                )
+            return pseudo_quantize_nvfp4_static(
+                x,
+                max_quantized_value=4,
+                scale_block_size=config.dtype.block_size,
+                x_amax=x_amax,
+            )
 
         pseudo_quantizers = _pseudo_quantizers()
         (

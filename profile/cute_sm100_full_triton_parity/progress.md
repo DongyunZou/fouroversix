@@ -3495,6 +3495,15 @@ benchmark improved from the retained `467/476` snapshot to `468/476`; the
 remaining misses are all pseudo rows (`8` pseudo misses, `0` ordinary,
 `0` block_scale_2d).
 
+Added a narrow cached static-NV pseudo helper for non-transpose/non-RHT rows
+only, covering NVFP3/NVFP4/NVINT3/NVINT4 static pseudo dispatch without
+touching transpose paths. This retains the same fused kernels but avoids full
+pseudo wrapper unpacking for the remaining small static-NV pseudo rows. The
+focused pseudo slice passed (`72 passed`), and the full `cute_sm100` test slice
+passed (`449 passed, 7 skipped`). The full capability benchmark improved from
+the retained `468/476` snapshot to `470/476`; the remaining misses are all
+pseudo rows (`6` pseudo misses, `0` ordinary, `0` block_scale_2d).
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3509,5 +3518,5 @@ remaining misses are all pseudo rows (`8` pseudo misses, `0` ordinary,
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `468/476`
+  latest median capability-driven benchmark snapshot reports `470/476`
   workloads meeting 1.2x.
