@@ -3438,6 +3438,15 @@ The remaining misses are now mostly pseudo paths: `55` pseudo, `5` ordinary,
 and `5` block_scale_2d. The full `cute_sm100` test slice passed (`449 passed,
 7 skipped`).
 
+Hoisted repeated pseudo-quantize dispatch set literals into module-level
+frozensets. This reduces Python dispatch overhead in the short pseudo paths
+without changing any kernel logic. The full capability benchmark improved from
+the retained `411/476` snapshot to `453/476` workloads meeting `1.2x`. The
+remaining misses are now `17` pseudo, `4` block_scale_2d, and `2` ordinary
+rows; many of the non-IF3 misses are now just below threshold at
+`1.18x-1.20x`. The full `cute_sm100` test slice passed again (`449 passed,
+7 skipped`).
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3452,5 +3461,5 @@ and `5` block_scale_2d. The full `cute_sm100` test slice passed (`449 passed,
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `411/476`
+  latest median capability-driven benchmark snapshot reports `453/476`
   workloads meeting 1.2x.

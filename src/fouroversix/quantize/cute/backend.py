@@ -53,6 +53,40 @@ _STATIC_NVINT_DTYPES = frozenset(
         DataType.nvint6,
     },
 )
+_PSEUDO_IF3_DTYPES = frozenset({DataType.if3, DataType.if3_bs8})
+_PSEUDO_IF4_DTYPES = frozenset({DataType.if4, DataType.if4_bs8})
+_PSEUDO_MXFP3_DTYPES = frozenset({DataType.mxfp3, DataType.mxfp3_bs8})
+_PSEUDO_MXFP4_DTYPES = frozenset({DataType.mxfp4, DataType.mxfp4_bs8})
+_PSEUDO_NVFP3_DTYPES = frozenset({DataType.nvfp3, DataType.nvfp3_bs8})
+_PSEUDO_NVINT3_DTYPES = frozenset({DataType.nvint3, DataType.nvint3_bs8})
+_PSEUDO_NVINT4_DTYPES = frozenset({DataType.nvint4, DataType.nvint4_bs8})
+_PSEUDO_SUPPORTED_DTYPES = frozenset(
+    {
+        DataType.if3,
+        DataType.if3_bs8,
+        DataType.if4,
+        DataType.if4_bs8,
+        DataType.if6_e2m3,
+        DataType.if6_e3m2,
+        DataType.nvfp4,
+        DataType.nvfp4_bs8,
+        DataType.nvfp3,
+        DataType.nvfp3_bs8,
+        DataType.mxfp3,
+        DataType.mxfp3_bs8,
+        DataType.mxfp4,
+        DataType.mxfp4_bs8,
+        DataType.mxfp6_e2m3,
+        DataType.mxfp6_e3m2,
+        DataType.nvint3,
+        DataType.nvint3_bs8,
+        DataType.nvint4,
+        DataType.nvint4_bs8,
+        DataType.nvint6,
+        DataType.nvfp6_e2m3,
+        DataType.nvfp6_e3m2,
+    },
+)
 
 
 def _make_quantized_tensor(
@@ -797,33 +831,10 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
         if config.round_style != RoundStyle.nearest or config.block_scale_2d:
             return super().pseudo_quantize(x, config)
 
-        if config.dtype not in {
-            DataType.if3,
-            DataType.if3_bs8,
-            DataType.if4,
-            DataType.if4_bs8,
-            DataType.if6_e2m3,
-            DataType.if6_e3m2,
-            DataType.nvfp4,
-            DataType.nvfp4_bs8,
-            DataType.nvfp3,
-            DataType.nvfp3_bs8,
-            DataType.mxfp3,
-            DataType.mxfp3_bs8,
-            DataType.mxfp4,
-            DataType.mxfp4_bs8,
-            DataType.mxfp6_e2m3,
-            DataType.mxfp6_e3m2,
-            DataType.nvint3,
-            DataType.nvint3_bs8,
-            DataType.nvint4,
-            DataType.nvint4_bs8,
-            DataType.nvint6,
-            DataType.nvfp6_e2m3,
-            DataType.nvfp6_e3m2,
-        }:
+        if config.dtype not in _PSEUDO_SUPPORTED_DTYPES:
             return super().pseudo_quantize(x, config)
 
+        pseudo_quantizers = _pseudo_quantizers()
         (
             pseudo_quantize_if3_adaptive,
             pseudo_quantize_if4_adaptive,
@@ -839,22 +850,22 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             pseudo_quantize_nvint4_static,
             pseudo_quantize_nvint6_static,
             rht_transform,
-        ) = _pseudo_quantizers()
+        ) = pseudo_quantizers
 
         x_quantize = x.T.contiguous() if config.transpose else x
         if config.rht:
             x_quantize = rht_transform(x_quantize)
         x_amax = None if config.rht else config.kwargs.get("x_amax")
 
-        if config.dtype in {DataType.mxfp3, DataType.mxfp3_bs8}:
-            if config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}:
+        if config.dtype in _PSEUDO_MXFP3_DTYPES:
+            if config.scale_rule in _STATIC_SCALE_RULES:
                 out = pseudo_quantize_mxfp3_static(
                     x_quantize,
                     scale_block_size=config.dtype.block_size,
                 )
             else:
                 return super().pseudo_quantize(x, config)
-        elif config.dtype in {DataType.nvfp3, DataType.nvfp3_bs8}:
+        elif config.dtype in _PSEUDO_NVFP3_DTYPES:
             if config.scale_rule == ScaleRule.static_6:
                 out = pseudo_quantize_nvfp3_static(
                     x_quantize,
@@ -883,7 +894,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 )
             else:
                 return super().pseudo_quantize(x, config)
-        elif config.dtype in {DataType.nvint3, DataType.nvint3_bs8}:
+        elif config.dtype in _PSEUDO_NVINT3_DTYPES:
             if config.scale_rule == ScaleRule.static_6:
                 out = pseudo_quantize_nvint3_static(
                     x_quantize,
@@ -900,7 +911,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 )
             else:
                 return super().pseudo_quantize(x, config)
-        elif config.dtype in {DataType.nvint4, DataType.nvint4_bs8}:
+        elif config.dtype in _PSEUDO_NVINT4_DTYPES:
             if config.scale_rule == ScaleRule.static_6:
                 out = pseudo_quantize_nvint4_static(
                     x_quantize,
@@ -910,7 +921,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             else:
                 return super().pseudo_quantize(x, config)
         elif config.dtype == DataType.mxfp6_e2m3:
-            if config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}:
+            if config.scale_rule in _STATIC_SCALE_RULES:
                 out = pseudo_quantize_mxfp6_static(
                     x_quantize,
                     max_quantized_value=7.5,
@@ -919,7 +930,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             else:
                 return super().pseudo_quantize(x, config)
         elif config.dtype == DataType.mxfp6_e3m2:
-            if config.scale_rule in {ScaleRule.static_4, ScaleRule.static_6}:
+            if config.scale_rule in _STATIC_SCALE_RULES:
                 out = pseudo_quantize_mxfp6_static(
                     x_quantize,
                     max_quantized_value=28.0,
@@ -927,7 +938,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 )
             else:
                 return super().pseudo_quantize(x, config)
-        elif config.dtype in {DataType.mxfp4, DataType.mxfp4_bs8}:
+        elif config.dtype in _PSEUDO_MXFP4_DTYPES:
             if config.scale_rule == ScaleRule.static_6:
                 out = pseudo_quantize_mxfp4_static(
                     x_quantize,
@@ -942,8 +953,8 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 )
             else:
                 return super().pseudo_quantize(x, config)
-        elif config.dtype in {DataType.if4, DataType.if4_bs8}:
-            if config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}:
+        elif config.dtype in _PSEUDO_IF4_DTYPES:
+            if config.scale_rule in _ADAPTIVE_SCALE_RULES:
                 out = pseudo_quantize_if4_adaptive(
                     x_quantize,
                     scale_rule_id=config.scale_rule.cuda_id,
@@ -952,8 +963,8 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 )
             else:
                 return super().pseudo_quantize(x, config)
-        elif config.dtype in {DataType.if3, DataType.if3_bs8}:
-            if config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}:
+        elif config.dtype in _PSEUDO_IF3_DTYPES:
+            if config.scale_rule in _ADAPTIVE_SCALE_RULES:
                 out = pseudo_quantize_if3_adaptive(
                     x_quantize,
                     scale_rule_id=config.scale_rule.cuda_id,
@@ -963,7 +974,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             else:
                 return super().pseudo_quantize(x, config)
         elif config.dtype == DataType.if6_e2m3:
-            if config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}:
+            if config.scale_rule in _ADAPTIVE_SCALE_RULES:
                 out = pseudo_quantize_if6_adaptive(
                     x_quantize,
                     scale_rule_id=config.scale_rule.cuda_id,
@@ -976,7 +987,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             else:
                 return super().pseudo_quantize(x, config)
         elif config.dtype == DataType.if6_e3m2:
-            if config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}:
+            if config.scale_rule in _ADAPTIVE_SCALE_RULES:
                 out = pseudo_quantize_if6_adaptive(
                     x_quantize,
                     scale_rule_id=config.scale_rule.cuda_id,
@@ -1002,7 +1013,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 scale_block_size=config.dtype.block_size,
                 x_amax=x_amax,
             )
-        elif config.scale_rule in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}:
+        elif config.scale_rule in _ADAPTIVE_SCALE_RULES:
             out = pseudo_quantize_nvfp4_adaptive(
                 x_quantize,
                 scale_rule_id=config.scale_rule.cuda_id,
