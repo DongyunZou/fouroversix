@@ -3518,6 +3518,16 @@ capability benchmark regressed from the retained `470/476` snapshot to
 `468/476`. The code and benchmark JSON were restored; the retained static-NV
 pseudo helper remains the broader narrow helper added above.
 
+The pseudo-quantize performance target has been relaxed: pseudo kernels only
+need to be faster than Triton, not 1.2x faster. Under the retained
+`470/476` benchmark snapshot, `475/476` total rows are strictly faster than
+Triton. All ordinary quantize, transpose, and block-scale-2d rows meet the
+1.2x target; pseudo has `137/138` rows strictly faster than Triton. The only
+strictly slower row is `4096x4096 if3 abs_max pseudo_quantize=True`
+(`0.983x`). Tested replacing that row with the generic CuTe quantize+dequantize
+fallback, but it was much slower (`~0.658 ms`) than both Triton and the fused
+CuTe pseudo path (`~0.060 ms`), so no fallback routing was retained.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3531,6 +3541,7 @@ pseudo helper remains the broader narrow helper added above.
   `nvfp4_bs8 static_4/static_6`,
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
-- Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `470/476`
-  workloads meeting 1.2x.
+- Performance target is now met for all ordinary quantize, transpose, and
+  block-scale-2d rows in the current supported workload matrix. Pseudo-quantize
+  is no longer required to meet 1.2x, but still has one row below Triton:
+  `4096x4096 if3 abs_max pseudo_quantize=True`.
