@@ -3316,6 +3316,15 @@ However, the full benchmark regressed from the retained `390/476` snapshot to
 `363/476`, so the code and benchmark JSON were restored. This needs a more
 stable 2D-kernel retune or repeated benchmark confirmation before retaining.
 
+Tested retuning the shared NVFP4 base CTA size from 128 to 64 threads. The
+targeted non-2D non-transpose NVFP4 CuTe accuracy slice passed (`57 passed,
+6 skipped`). Focused timings improved some static rows, including
+`128x256 nvfp4 static_4/static_6` and `1024x1024 nvfp4_bs8 static_4/static_6`,
+but adaptive `abs_max/mae/mse` rows remained below target. The full benchmark
+regressed from the retained `390/476` snapshot to `353/476`, so the code and
+benchmark JSON were restored. Simple CTA downsizing is not a useful retained
+fix for the remaining ordinary NVFP4 gap.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
