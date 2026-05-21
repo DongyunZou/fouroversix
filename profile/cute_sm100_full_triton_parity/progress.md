@@ -4104,6 +4104,14 @@ predicate failures. The `18` Triton predicate failures remain the known cases
 where Triton's predicate claims support but the actual sm100 kernel does not
 compile/run.
 
+Regenerated the full default auto-amax benchmark snapshot after the fresh
+validation and executable-support audit. The current benchmark artifact reports
+`476/476` workloads meeting the required target, with `338/338` non-pseudo rows
+at or above `1.2x`, `138/138` pseudo rows strictly faster than Triton, and `0`
+rows below the required target. The old all-rows-1.2x count is `463/476` in
+this run; the rows below that old policy are pseudo rows, which are no longer
+held to the 1.2x target under the agreed scope.
+
 ## Residual scope notes
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
