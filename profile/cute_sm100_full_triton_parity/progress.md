@@ -3194,6 +3194,15 @@ frontend/enqueue idle time and fixed framework overhead around very short GPU
 kernels, not by the CuTe pseudo kernel body. Reports are under
 `profile/cute_sm100_full_triton_parity/ncu/nvint4_pseudo128_*`.
 
+Tested a Python frontend fast-dispatch cache for repeated explicit-backend,
+no-kwargs calls with the same tensor/config signature. Direct backend calls were
+about `1.5 us` faster than the public `quantize()` frontend for the
+representative 128x256 CuTe NVINT4 pseudo row, but the cache only recovered
+about `0.5 us` in focused timing and the full benchmark with the experiment
+dropped to `293/476`. The change was reverted. This suggests the remaining
+small-shape event-time gap is mostly CUDA launch/enqueue spacing around the
+kernel calls, not the Python backend support check alone.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
