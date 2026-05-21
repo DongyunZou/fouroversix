@@ -42,7 +42,9 @@ over `DataType.supported_scale_rules` exposes Triton predicate support for
 `nvfp4_bs8` adaptive rules (`abs_max`, `mae`, `mse`), but those Triton kernels
 currently fail compilation on sm100 with a `tl.where` broadcast-shape error.
 CuTe sm100 now claims the adaptive nearest 1D variants and matches the PyTorch
-reference exactly.
+reference exactly. Triton pseudo-quantize for those adaptive rules is runnable;
+CuTe sm100 now claims the `stochastic` and `stochastic_unbiased` pseudo variants
+through the same fused nearest-style surrogate policy used for NVFP4 pseudo.
 
 ## Feature flags
 

@@ -383,6 +383,22 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
         if not super().can_quantize(x, config):
             return False
 
+        if (
+            config.pseudo_quantize
+            and config.dtype == DataType.nvfp4_bs8
+            and config.scale_rule in _ADAPTIVE_SCALE_RULES
+            and config.round_style
+            in {RoundStyle.stochastic, RoundStyle.stochastic_unbiased}
+            and not config.transpose
+            and not config.rht
+            and not config.block_scale_2d
+        ):
+            return (
+                x.device.type == "cuda"
+                and x.dtype == torch.bfloat16
+                and x.shape[1] % config.dtype.block_size == 0
+            )
+
         if config.pseudo_quantize and (
             config.dtype != DataType.nvfp4
             or config.round_style != RoundStyle.nearest
@@ -925,6 +941,35 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
         x: torch.Tensor,
         config: QuantizationConfig,
     ) -> torch.Tensor:
+        if (
+            config.pseudo_quantize
+            and config.dtype == DataType.nvfp4_bs8
+            and config.scale_rule in _ADAPTIVE_SCALE_RULES
+            and config.round_style
+            in {RoundStyle.stochastic, RoundStyle.stochastic_unbiased}
+            and not config.transpose
+            and not config.rht
+            and not config.block_scale_2d
+        ):
+            (
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                pseudo_quantize_nvfp4_adaptive,
+                *_,
+            ) = _pseudo_quantizers()
+            return pseudo_quantize_nvfp4_adaptive(
+                x,
+                scale_rule_id=config.scale_rule.cuda_id,
+                scale_block_size=config.dtype.block_size,
+                x_amax=config.kwargs.get("x_amax"),
+            )
+
         if (
             config.round_style != RoundStyle.nearest
             and config.dtype != DataType.nvfp4

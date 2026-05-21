@@ -3793,6 +3793,7 @@ def _process_nvfp4_adaptive_pseudo_block_bfloat(
     scale_rule_id: cutlass.Constexpr[int],
     stochastic_rounding: cutlass.Constexpr[bool] = False,
     seed_base: Uint32 = Uint32(0),
+    scale_block_size: cutlass.Constexpr[int] = NVFP4_SCALE_BLOCK_SIZE,
 ) -> tuple[
     cutlass.Uint32,
     cutlass.Uint32,
@@ -3804,10 +3805,15 @@ def _process_nvfp4_adaptive_pseudo_block_bfloat(
     cutlass.Uint32,
 ]:
     ptr0 = get_ptr_as_int64(row_tensor, elem_base)
-    ptr1 = get_ptr_as_int64(row_tensor, elem_base + Int32(8))
 
     h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
-    h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
+    h4 = Uint32(0)
+    h5 = Uint32(0)
+    h6 = Uint32(0)
+    h7 = Uint32(0)
+    if cutlass.const_expr(scale_block_size != 8):
+        ptr1 = get_ptr_as_int64(row_tensor, elem_base + Int32(8))
+        h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
 
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
@@ -9944,11 +9950,18 @@ class Sm100MXFP6StaticPseudoQuantize:
 
 
 class Sm100NVFP4AdaptivePseudoQuantize:
-    def __init__(self, k: int, scale_rule_id: int, stochastic_rounding: bool = False):
+    def __init__(
+        self,
+        k: int,
+        scale_rule_id: int,
+        stochastic_rounding: bool = False,
+        scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+    ):
         self.k = k
         self.scale_rule_id = scale_rule_id
         self.stochastic_rounding = stochastic_rounding
-        self.scale_blocks_per_row = k // NVFP4_SCALE_BLOCK_SIZE
+        self.scale_block_size = scale_block_size
+        self.scale_blocks_per_row = k // scale_block_size
 
     @cute.jit
     def __call__(
@@ -9990,7 +10003,7 @@ class Sm100NVFP4AdaptivePseudoQuantize:
         while sf_idx < total_scale_blocks:
             row_idx = sf_idx // self.scale_blocks_per_row
             col_idx = sf_idx % self.scale_blocks_per_row
-            elem_base = col_idx * NVFP4_SCALE_BLOCK_SIZE
+            elem_base = col_idx * self.scale_block_size
 
             h0, h1, h2, h3, h4, h5, h6, h7 = (
                 _process_nvfp4_adaptive_pseudo_block_bfloat(
@@ -10000,13 +10013,15 @@ class Sm100NVFP4AdaptivePseudoQuantize:
                     self.scale_rule_id,
                     self.stochastic_rounding,
                     Uint32(row_idx * self.k + elem_base),
+                    self.scale_block_size,
                 )
             )
 
             output_ptr0 = get_ptr_as_int64(out[row_idx, None], elem_base)
-            output_ptr1 = get_ptr_as_int64(out[row_idx, None], elem_base + Int32(8))
             st_global_v4_u32(output_ptr0, h0, h1, h2, h3)
-            st_global_v4_u32(output_ptr1, h4, h5, h6, h7)
+            if cutlass.const_expr(self.scale_block_size != 8):
+                output_ptr1 = get_ptr_as_int64(out[row_idx, None], elem_base + Int32(8))
+                st_global_v4_u32(output_ptr1, h4, h5, h6, h7)
 
             sf_idx = sf_idx + stride
 
@@ -13173,6 +13188,7 @@ def _compile_adaptive_pseudo_quantize(
     k: int,
     scale_rule_id: int,
     stochastic_rounding: bool = False,
+    scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
 ):
     sym_m = cute.sym_int()
 
@@ -13195,7 +13211,12 @@ def _compile_adaptive_pseudo_quantize(
     )
     stream_fake = cute.runtime.make_fake_stream()
 
-    kernel = Sm100NVFP4AdaptivePseudoQuantize(k, scale_rule_id, stochastic_rounding)
+    kernel = Sm100NVFP4AdaptivePseudoQuantize(
+        k,
+        scale_rule_id,
+        stochastic_rounding,
+        scale_block_size,
+    )
     compiled = cute.compile(
         kernel,
         x_fake,
@@ -15803,24 +15824,36 @@ def pseudo_quantize_nvfp4_adaptive(
     *,
     scale_rule_id: int,
     stochastic_rounding: bool = False,
+    scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
     x_amax: torch.Tensor | None = None,
 ) -> torch.Tensor:
     if scale_rule_id not in {SCALE_RULE_ABS_MAX, SCALE_RULE_MAE, SCALE_RULE_MSE}:
         msg = f"unsupported adaptive four-over-six scale rule id {scale_rule_id}"
         raise ValueError(msg)
+    if scale_block_size not in {8, NVFP4_SCALE_BLOCK_SIZE}:
+        msg = f"scale block size must be 8 or {NVFP4_SCALE_BLOCK_SIZE}, got {scale_block_size}"
+        raise ValueError(msg)
 
     m, k = _validate_quantize_input(x, 6)
+    if k % scale_block_size != 0:
+        msg = f"columns must be divisible by {scale_block_size}, got {k}"
+        raise ValueError(msg)
     x = x.contiguous()
 
     out = torch.empty_like(x)
     amax = _resolve_amax(x, x_amax)
-    total_scale_blocks = m * (k // NVFP4_SCALE_BLOCK_SIZE)
+    total_scale_blocks = m * (k // scale_block_size)
     num_blocks = _uncapped_launch_grid(
         total_scale_blocks,
         threads_per_block=THREADS_PER_BLOCK,
     )
 
-    kernel = _compile_adaptive_pseudo_quantize(k, scale_rule_id, stochastic_rounding)
+    kernel = _compile_adaptive_pseudo_quantize(
+        k,
+        scale_rule_id,
+        stochastic_rounding,
+        scale_block_size,
+    )
     kernel(
         x,
         out,

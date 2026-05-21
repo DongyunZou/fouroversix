@@ -3436,6 +3436,52 @@ def test_cute_sm100_nvfp4_bs8_adaptive_nearest_matches_pytorch(
     assert (diff * diff).mean().item() == 0
 
 
+@pytest.mark.parametrize("scale_rule", [ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse])
+@pytest.mark.parametrize(
+    "round_style",
+    [RoundStyle.stochastic, RoundStyle.stochastic_unbiased],
+)
+def test_cute_sm100_nvfp4_bs8_adaptive_pseudo_stochastic_matches_triton_error(
+    scale_rule: ScaleRule,
+    round_style: RoundStyle,
+) -> None:
+    _require_cuda_for_cute_sm100_accuracy()
+
+    torch.manual_seed(0)
+    x = torch.randn(128, 256, dtype=torch.bfloat16, device="cuda")
+    config_triton = QuantizationConfig(
+        backend=QuantizeBackend.triton,
+        dtype=DataType.nvfp4_bs8,
+        scale_rule=scale_rule,
+        round_style=round_style,
+        pseudo_quantize=True,
+    )
+    config_cute = QuantizationConfig(
+        backend=QuantizeBackend.cute_sm100,
+        dtype=DataType.nvfp4_bs8,
+        scale_rule=scale_rule,
+        round_style=round_style,
+        pseudo_quantize=True,
+    )
+
+    assert AVAILABLE_BACKENDS[QuantizeBackend.cute_sm100].can_quantize(
+        x,
+        config_cute,
+    )
+    pseudo_triton = quantize(x, config_triton)
+    pseudo_cute = quantize(x, config_cute)
+    triton_input_diff = pseudo_triton.float() - x.float()
+    cute_input_diff = pseudo_cute.float() - x.float()
+
+    assert isinstance(pseudo_cute, torch.Tensor)
+    assert pseudo_cute.shape == x.shape
+    assert pseudo_cute.dtype == x.dtype
+    assert (cute_input_diff * cute_input_diff).mean().item() <= (
+        (triton_input_diff * triton_input_diff).mean().item()
+        + CUTE_DEQUANT_METRIC_TOLERANCE
+    )
+
+
 @pytest.mark.parametrize(
     "scale_rule",
     [
