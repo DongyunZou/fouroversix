@@ -3405,6 +3405,16 @@ from `0.98x` to `0.67x`. Triton benefits more from skipping its amax path, while
 the CuTe public path still pays substantial fixed launch/wrapper overhead. This
 rules out "just provide/reuse amax" as a broad fix for the current benchmark.
 
+Tested caching `cuda.CUstream` wrapper objects in the CuTe ops module instead
+of constructing a fresh wrapper via `cutlass_torch.current_stream()` for every
+kernel launch. A runtime monkeypatch suggested a possible small local benefit,
+but the safe production-style helper, which still reads the active PyTorch
+stream each call to preserve multi-stream semantics, did not reproduce a stable
+focused improvement. The targeted CuTe slice passed (`136 passed, 6 skipped`),
+but the full benchmark regressed from the retained `390/476` snapshot to
+`355/476`, so the code and benchmark JSON were restored. Stream wrapper caching
+is not a retained fix.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
