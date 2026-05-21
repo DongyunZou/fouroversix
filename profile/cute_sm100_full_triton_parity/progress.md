@@ -3447,6 +3447,14 @@ rows; many of the non-IF3 misses are now just below threshold at
 `1.18x-1.20x`. The full `cute_sm100` test slice passed again (`449 passed,
 7 skipped`).
 
+Tested further reducing pseudo dispatch overhead by avoiding full tuple
+unpacking of `_pseudo_quantizers()` and indexing only the selected wrapper in
+each branch. The focused pseudo test slice passed (`72 passed`) and local
+timings had small mixed improvements, but the full capability benchmark
+regressed from the retained `453/476` snapshot to `440/476`. The code and
+benchmark JSON were restored; this additional tuple-indexing rewrite is not a
+stable retained optimization.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
