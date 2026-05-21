@@ -3350,6 +3350,18 @@ passed (`21 passed`). Focused timings did not close the 2D gap: sampled
 `1.15x-1.18x`, and `4096x4096 nvfp4 static_6 block_scale_2d=True` was only
 about `1.13x`. The experiment was reverted without running a full benchmark.
 
+Profiled the representative remaining 2D near-threshold row
+`1024x1024 nvfp4 mse block_scale_2d=True` with Nsight Compute. CuTe launches
+two kernels per iteration: torch AbsMax reduce (`~9-10 us`) and
+`Sm100NVFP4AdaptiveQuantize2D` (`~36-37 us`). Triton launches four kernels:
+torch abs (`~4-5 us`), torch max reduce (`~9 us`), scalar copy/cast (`~4 us`),
+and `quantization_kernel` (`~36 us`). The summed profiled GPU kernel durations
+are therefore better for CuTe (`~45-47 us/iter`) than Triton (`~53-54 us/iter`),
+even though the retained CUDA-event benchmark row remains near threshold. This
+rules out a simple "CuTe 2D kernel body is slower" explanation; enqueue spacing
+and fixed framework overhead are significant. Reports are under
+`profile/cute_sm100_full_triton_parity/ncu/nvfp4_2d_mse1024_*`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
