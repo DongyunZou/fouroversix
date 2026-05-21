@@ -3586,6 +3586,15 @@ failed on `1024x1024`: Triton dequantized L2 distance was `21.59`, while CuTe
 was `22.72` (`+5.24%`). The temporary support-gating change was restored, so
 NVINT6 stochastic-unbiased remains intentionally unclaimed.
 
+Also re-tested 1D IF6 `stochastic_unbiased` with the backend explicitly passing
+`round_style.adjustment_factor` into the existing adaptive IF6 kernel. Opening
+the support predicate made the six IF6 dtype/rule combinations runnable, but
+all failed the Triton-error gate badly on `1024x1024`: Triton distances were
+about `20.52-21.72`, while CuTe distances were about `64.53-64.95`. The
+temporary gating and argument-passing changes were restored. IF6
+stochastic-unbiased still requires a different quantization implementation,
+not just support plumbing or scale adjustment.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
