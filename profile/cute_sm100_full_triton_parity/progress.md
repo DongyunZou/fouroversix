@@ -3342,6 +3342,14 @@ the retained `390/476` snapshot to `343/476`, so the code and benchmark JSON
 were restored. Like the other small-shape pseudo misses, this is not stable
 enough as a simple CTA retune.
 
+Tested a dedicated 128-thread CTA size for NVFP4/NVFP4_BS8 2D kernels
+(`static_2d`, `bs8_static_2d`, and adaptive `abs_max/mae/mse` 2D), with wrapper
+launch-grid sizing adjusted to match. The targeted NVFP4 2D CuTe accuracy slice
+passed (`21 passed`). Focused timings did not close the 2D gap: sampled
+128x256, 1024x1024, and 4096x4096 NVFP4/NVFP4_BS8 2D rows mostly stayed around
+`1.15x-1.18x`, and `4096x4096 nvfp4 static_6 block_scale_2d=True` was only
+about `1.13x`. The experiment was reverted without running a full benchmark.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
