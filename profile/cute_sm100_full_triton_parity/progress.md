@@ -3789,6 +3789,19 @@ missing Triton-supported rows, down from `41`; the removed rows are exactly the
 IF4_BS8 2D stochastic/stochastic-unbiased combinations across the two tested
 shapes.
 
+Profiled the current retained pseudo rows that are faster than Triton but still
+below the old `1.2x` threshold. For `1024x1024 mxfp4 static_6
+pseudo_quantize=True`, NCU shows Triton's main `pseudo_quantization_kernel`
+takes about `12.3-12.7 us` plus a `3.0-3.4 us` fill helper, while CuTe's
+`Sm100MXFP4StaticPseudoQuantize` takes about `4.7-5.1 us`. For the small
+`128x128 if4_bs8 abs_max pseudo_quantize=True` row, Triton's pseudo kernel
+takes about `26.5-27.3 us` plus helper/reduction launches, while CuTe's pseudo
+kernel takes about `4.6-4.8 us` with one comparable reduction launch. These
+NCU results show the below-1.2x pseudo rows are not cases where Triton's main
+kernel is better; the remaining event-level gap is fixed overhead and
+short-kernel underutilization. Detailed reports are recorded in
+`profile/cute_sm100_full_triton_parity/ncu/pseudo_remaining_gap_profile.md`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
