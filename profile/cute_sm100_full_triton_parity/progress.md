@@ -3181,6 +3181,19 @@ rows were already well above target. The experiment was reverted; the remaining
 NVINT pseudo misses are fixed-overhead limited rather than helped by smaller
 CTAs.
 
+Profiled the representative `128x256 nvint4 static_6 pseudo_quantize=True`
+small-shape gap with Nsight Compute. CuTe launches only two kernels per profiled
+iteration, a torch AbsMax reduce (`~12.2-12.5 us`) and
+`Sm100NVINT4StaticPseudoQuantize` (`~4.6-5.3 us`). Triton launches four kernels:
+torch abs (`~3.7-4.0 us`), torch max reduce (`~12.5-12.8 us`), scalar copy/cast
+(`~4.2-4.4 us`), and `pseudo_quantization_kernel` (`~20.7-21.7 us`). The summed
+GPU kernel durations are therefore much better for CuTe (`~17.3 us/iter` versus
+`~41.7 us/iter`), even though the CUDA-event benchmark row is only around
+`1.1x`. This confirms the small NVINT pseudo misses are dominated by
+frontend/enqueue idle time and fixed framework overhead around very short GPU
+kernels, not by the CuTe pseudo kernel body. Reports are under
+`profile/cute_sm100_full_triton_parity/ncu/nvint4_pseudo128_*`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
