@@ -3686,6 +3686,16 @@ stochastic pseudo: on `128x256`, `mae` and `mse` pass the input-error gate, but
 The hard `stochastic` pseudo block remains correct until a real stochastic
 pseudo implementation exists.
 
+Tested aligning CuTe IF6 E3M2 candidate-selection constants with the BF16
+dequantization constant (`0.9033203125` instead of `0.9032258065`). On the
+unsupported stochastic-unbiased probe this reduced candidate-indicator
+mismatches from `3319` to `37` and improved the distance from `23.50` to
+`22.72`, but it regressed supported IF6 E3M2 nearest/stochastic Triton-matching
+tests (`values_equal` fell to about `0.96` on `abs_max`, and the IF6 slice had
+`6` failures). The code was restored; the current supported IF6 slice passes
+again (`44 passed`). This indicates the stochastic-unbiased path needs a
+separate semantic treatment rather than changing the shared IF6 E3M2 constant.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
