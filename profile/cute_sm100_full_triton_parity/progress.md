@@ -7,6 +7,12 @@ snapshot has `476/476` rows meeting the required target. A provided-`x_amax`
 matrix is documented separately below and is not part of this completion
 claim.
 
+Historical entries below are chronological notes from intermediate
+experiments. They are intentionally kept as history, so older sections may
+mention obsolete below-target counts, missing rows, or incomplete status.
+Current status is the completion summary above plus the latest benchmark and
+support artifacts.
+
 ## Current added slice
 
 - Added fused CuTe sm100 NVFP4 pseudo-quantize kernels for static and adaptive

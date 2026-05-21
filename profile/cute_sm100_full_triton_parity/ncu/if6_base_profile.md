@@ -1,5 +1,9 @@
 # IF6 base profile notes
 
+Note: this is a historical NCU note from an earlier below-target snapshot. The
+current default auto-amax benchmark no longer has IF6 base below Triton; see
+`benchmark_current.json` and `progress.md` for current status.
+
 This is a profiling note for the 4096x4096 `if6_e3m2 + abs_max` base
 quantize workload. The full benchmark snapshot shows IF6 base below Triton,
 but kernel-level profiling shows the main CuTe quantization kernel is not the
