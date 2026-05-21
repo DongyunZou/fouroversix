@@ -7658,8 +7658,9 @@ class Sm100NVINT6StaticTransposeQuantize:
 
 
 class Sm100NVINT6StaticQuantize2D:
-    def __init__(self, k: int):
+    def __init__(self, k: int, adjustment_factor: float = 1.0):
         self.k = k
+        self.adjustment_factor = adjustment_factor
         self.scale_blocks_per_row = k // NVFP4_SCALE_BLOCK_SIZE
 
     @cute.jit
@@ -7698,7 +7699,7 @@ class Sm100NVINT6StaticQuantize2D:
         stride = grid_dim_x * THREADS_PER_BLOCK
         global_scale = _compute_global_scale(
             amax_tensor,
-            31.0 * E4M3_STATIC_MAX,
+            31.0 * E4M3_STATIC_MAX * float(self.adjustment_factor),
         )
 
         while tile_idx < total_scale_tiles:
@@ -12595,7 +12596,10 @@ def _compile_nvint6_static_transpose_quantize(
 
 
 @functools.cache
-def _compile_nvint6_static_quantize_2d(k: int):
+def _compile_nvint6_static_quantize_2d(
+    k: int,
+    adjustment_factor: float = 1.0,
+):
     sym_m = cute.sym_int()
     sym_scale_blocks = cute.sym_int()
 
@@ -12623,7 +12627,7 @@ def _compile_nvint6_static_quantize_2d(k: int):
     )
     stream_fake = cute.runtime.make_fake_stream()
 
-    kernel = Sm100NVINT6StaticQuantize2D(k)
+    kernel = Sm100NVINT6StaticQuantize2D(k, adjustment_factor)
     compiled = cute.compile(
         kernel,
         x_fake,
@@ -14282,6 +14286,7 @@ def quantize_nvint6_static_transpose(
 def quantize_nvint6_static_2d(
     x: torch.Tensor,
     *,
+    adjustment_factor: float = 1.0,
     x_amax: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     m, k = _validate_quantize_input(x, 6)
@@ -14302,7 +14307,7 @@ def quantize_nvint6_static_2d(
     )
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
-    kernel = _compile_nvint6_static_quantize_2d(k)
+    kernel = _compile_nvint6_static_quantize_2d(k, adjustment_factor)
     kernel(
         x,
         values,

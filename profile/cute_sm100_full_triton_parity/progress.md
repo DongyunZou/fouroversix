@@ -3629,6 +3629,14 @@ and NVINT3_BS8 `257.12` vs `274.76`. The targeted 2D FP3/INT3 stochastic and
 stochastic-unbiased tests passed (`8 passed`), and the full `cute_sm100` slice
 passed (`458 passed, 7 skipped`).
 
+Extended the static 2D NVINT6 kernel to accept `round_style.adjustment_factor`
+and opened `block_scale_2d=True` NVINT6 stochastic-unbiased while keeping 1D
+NVINT6 stochastic-unbiased unclaimed. The split matches the measured behavior:
+1D remains worse than Triton (`22.72` vs `21.59`), while 2D is better with the
+adjusted scale (`29.49` vs Triton `31.09`). The targeted NVINT6 stochastic
+tests passed (`4 passed`), and the full `cute_sm100` slice passed
+(`459 passed, 7 skipped`).
+
 The full `cute_sm100` test slice passed after the 2D stochastic support change
 (`454 passed, 7 skipped`). A refreshed full benchmark reports `439/476`
 workloads meeting 1.2x and `476/476` strictly faster than Triton. The lower
@@ -3641,15 +3649,14 @@ longer required to meet 1.2x.
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
   1D static NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8 stochastic-unbiased is now
-  claimed. Remaining non-nearest gaps include NVINT6 stochastic-unbiased and
-  remaining non-claimed 2D stochastic-unbiased variants such as NVINT6.
+  claimed. Remaining non-nearest gaps include 1D NVINT6 stochastic-unbiased.
 - Feature flags still missing: IF6 stochastic-unbiased and 1D NVFP6 E2M3
   stochastic-unbiased. True stochastic NVFP4 pseudo is also intentionally not
   claimed after failing the current Triton-error gate.
 - `block_scale_2d=True` is currently implemented for `nvfp4`,
   `nvfp4_bs8 static_4/static_6`,
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
-  `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related NVINT6 stochastic-unbiased variants.
+  `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths.
 - Performance target is now met for all ordinary quantize, transpose, and
   block-scale-2d rows in the current supported workload matrix. Pseudo-quantize
   is no longer required to meet 1.2x; all pseudo rows are strictly faster than

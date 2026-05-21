@@ -524,7 +524,13 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     config.dtype == DataType.nvint6
                     and config.scale_rule == ScaleRule.static_6
                     and not config.pseudo_quantize
-                    and config.round_style == RoundStyle.stochastic
+                    and (
+                        config.round_style == RoundStyle.stochastic
+                        or (
+                            config.block_scale_2d
+                            and config.round_style == RoundStyle.stochastic_unbiased
+                        )
+                    )
                 )
                 or (
                     config.dtype in {DataType.nvfp6_e2m3, DataType.nvfp6_e3m2}
@@ -670,8 +676,15 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                         )
                         or (
                             config.dtype == DataType.nvint6
-                            and config.round_style
-                            in {RoundStyle.nearest, RoundStyle.stochastic}
+                            and (
+                                config.round_style
+                                in {RoundStyle.nearest, RoundStyle.stochastic}
+                                or (
+                                    config.block_scale_2d
+                                    and config.round_style
+                                    == RoundStyle.stochastic_unbiased
+                                )
+                            )
                         )
                         or config.round_style == RoundStyle.nearest
                     )
@@ -1785,6 +1798,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             else:
                 values, scale_factors_u8, amax = quantize_nvint6_static_2d(
                     x,
+                    adjustment_factor=config.round_style.adjustment_factor,
                     x_amax=x_amax,
                 )
             return _make_quantized_tensor(
