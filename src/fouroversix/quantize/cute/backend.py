@@ -456,7 +456,6 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     config.dtype == DataType.if4_bs8
                     and config.scale_rule
                     in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
-                    and not config.block_scale_2d
                     and not config.pseudo_quantize
                     and config.round_style.is_stochastic
                 )

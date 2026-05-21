@@ -3779,6 +3779,16 @@ stochastic slice passed with that unsupported row skipped
 (`20 passed, 1 skipped`), and the full `cute_sm100` selection passed
 (`465 passed, 8 skipped`).
 
+Opened IF4_BS8 `block_scale_2d=True` for stochastic and stochastic-unbiased
+rounding. The existing 8x8 IF4_BS8 2D kernel already beats Triton's
+dequantized input error for all three adaptive scale rules; the missing support
+was only a predicate gate. The targeted IF4/IF4_BS8 2D stochastic slice passed
+(`12 passed`), and the full `cute_sm100` selection passed
+(`474 passed, 8 skipped`). The current support-gap enumerator now reports `29`
+missing Triton-supported rows, down from `41`; the removed rows are exactly the
+IF4_BS8 2D stochastic/stochastic-unbiased combinations across the two tested
+shapes.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
@@ -3787,7 +3797,8 @@ stochastic slice passed with that unsupported row skipped
   stochastic-unbiased paths are now claimed.
 - Feature flags still missing: true stochastic NVFP4 pseudo is intentionally not
   claimed after failing the current Triton-error gate; IF3_BS8 `mae`
-  stochastic-unbiased remains unclaimed after rare candidate mismatches.
+  stochastic-unbiased and IF3/IF3_BS8 `block_scale_2d=True`
+  stochastic-unbiased remain unclaimed after rare candidate mismatches.
 - `block_scale_2d=True` is currently implemented for `nvfp4`,
   `nvfp4_bs8 static_4/static_6`,
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,

@@ -1968,9 +1968,16 @@ def test_cute_sm100_if3_stochastic_matches_triton_error(
     assert cute_dist <= triton_dist + CUTE_DEQUANT_METRIC_TOLERANCE
 
 
+@pytest.mark.parametrize("dtype", [DataType.if4, DataType.if4_bs8])
+@pytest.mark.parametrize(
+    "round_style",
+    [RoundStyle.stochastic, RoundStyle.stochastic_unbiased],
+)
 @pytest.mark.parametrize("scale_rule", [ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse])
 def test_cute_sm100_if4_block_scale_2d_stochastic_matches_triton_error(
+    dtype: DataType,
     scale_rule: ScaleRule,
+    round_style: RoundStyle,
 ) -> None:
     _require_cuda_for_cute_sm100_accuracy()
 
@@ -1978,16 +1985,16 @@ def test_cute_sm100_if4_block_scale_2d_stochastic_matches_triton_error(
     x = torch.randn(128, 256, dtype=torch.bfloat16, device="cuda")
     config_triton = QuantizationConfig(
         backend=QuantizeBackend.triton,
-        dtype=DataType.if4,
+        dtype=dtype,
         scale_rule=scale_rule,
-        round_style=RoundStyle.stochastic,
+        round_style=round_style,
         block_scale_2d=True,
     )
     config_cute = QuantizationConfig(
         backend=QuantizeBackend.cute_sm100,
-        dtype=DataType.if4,
+        dtype=dtype,
         scale_rule=scale_rule,
-        round_style=RoundStyle.stochastic,
+        round_style=round_style,
         block_scale_2d=True,
     )
 
