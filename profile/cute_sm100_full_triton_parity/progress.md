@@ -3857,6 +3857,20 @@ gap, not evidence that Triton's profiled pseudo kernels are faster: the retained
 NCU profiles above still show CuTe's fused pseudo kernels are materially faster
 than Triton's pseudo launches where the semantics are claimed.
 
+Profiled the currently slowest supported row, `128x256 if4 mae
+pseudo_quantize=True`, with NCU using `--profile-from-start off` so only the
+three timed calls after warmup are captured. Triton launches four kernels per
+call: a vectorized helper (`~3.9-4.0 us`), reduce (`~12.2-12.4 us`), unrolled
+helper (`~3.9-4.3 us`), and `pseudo_quantization_kernel`
+(`~30.9-31.5 us`, grid 4, block 128). CuTe launches reduce
+(`~12.2-12.5 us`) plus `Sm100IF4AdaptivePseudoQuantize`
+(`~5.1-5.3 us`, grid 16, block 128). Across the captured calls, kernel-duration
+sum is about `154.46 us` for Triton versus `52.67 us` for CuTe. NCU marks both
+paths as tiny-grid underutilized (`0.00-0.01` waves/SM), so this row's remaining
+headroom is fixed launch/reduction overhead, not a better Triton main kernel.
+Details are recorded in
+`profile/cute_sm100_full_triton_parity/ncu/if4_mae128_pseudo_profile.md`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
