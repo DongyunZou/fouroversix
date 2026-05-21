@@ -3254,6 +3254,18 @@ from the retained `319/476` snapshot to `342/476` workloads meeting 1.2x, so
 this change was retained. Remaining misses are now `134/476`, led by pseudo
 rows (`70`) and near-threshold NVFP4/IF/NV static rows.
 
+Removed the launch-grid cap from all pseudo-quantize wrappers, using a full
+`ceil(total_scale_blocks / threads_per_block)` grid while keeping each kernel's
+retained CTA size (`128` threads for most pseudo kernels, `256` for adaptive
+NVFP4 and IF3). The full pseudo accuracy slice passed (`72 passed`). Focused
+timings showed the expected fixed-overhead improvement for small and medium
+pseudo rows: representative IF4, NVFP4, and NVINT4 128x256 rows moved to about
+`1.19x-1.20x`, and 1024x1024 NVFP4 pseudo moved above `1.2x`. The 4096x4096
+IF3 pseudo row remains a kernel-body issue and still misses target, but the
+full benchmark improved from `342/476` to `355/476` workloads meeting 1.2x, so
+this change was retained. Remaining misses are now `121/476`; pseudo misses
+dropped from `70` to `39`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3268,5 +3280,5 @@ rows (`70`) and near-threshold NVFP4/IF/NV static rows.
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `342/476`
+  latest median capability-driven benchmark snapshot reports `355/476`
   workloads meeting 1.2x.
