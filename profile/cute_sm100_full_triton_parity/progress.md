@@ -3308,6 +3308,14 @@ moved to about `1.30x-1.35x`. The full median benchmark improved from
 `366/476` to `390/476` workloads meeting 1.2x, so this change was retained.
 Remaining misses are now `86/476`; transpose misses dropped from `21` to `2`.
 
+Tested removing the launch-grid cap from the MXFP6 2D wrapper, using a full
+`ceil(total_scale_tiles / STATIC_2D_THREADS_PER_BLOCK)` grid. The targeted
+MXFP6 2D CuTe accuracy slice passed (`12 passed`), and focused timings moved
+the three sampled MXFP6 2D near-threshold rows to about `1.32x-1.33x`.
+However, the full benchmark regressed from the retained `390/476` snapshot to
+`363/476`, so the code and benchmark JSON were restored. This needs a more
+stable 2D-kernel retune or repeated benchmark confirmation before retaining.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
