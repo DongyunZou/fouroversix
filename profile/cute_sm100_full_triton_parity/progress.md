@@ -3222,6 +3222,17 @@ reverted; the remaining IF3 pseudo body gap is not closed by removing the
 candidate-error comparison alone and likely needs a different tiled/cooperative
 mapping or cheaper BF16 dequant write path.
 
+Compared the Triton and CuTe IF3 pseudo work decomposition after the shortcut
+experiment. Triton uses `BLOCK_SIZE_M=128`, `BLOCK_SIZE_N=4*block_size=64`, and
+`TILE_SIZE_M=block_size=16`, so the 4096x4096 IF3 pseudo row launches a
+`32 x 64 = 2048` program grid with 128-thread CTAs. The current CuTe kernel
+caps the launch at `SM * BLOCKS_PER_SM` CTAs (`1184` on the profiled GPU) and
+uses one thread to process a full 16-element row scale block, looping over the
+remaining work. This explains the Nsight profile shape: fewer CuTe CTAs, higher
+SM utilization, more registers per thread, and worse elapsed time. The next
+real IF3 pseudo attempt should therefore be a cooperative row-block kernel
+rather than another scalar-thread shortcut or launch retune.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
