@@ -1,0 +1,100 @@
+{
+  "model_name": "HuggingFaceTB/SmolLM2-135M",
+  "dtype": "nvfp4",
+  "scale_rule": "mse",
+  "generated_at_unix": 1779356002,
+  "weights": [
+    {
+      "shape": [
+        192,
+        576
+      ],
+      "count": 60,
+      "triton_mean_ms": 0.08102816089987755,
+      "cute_sm100_mean_ms": 0.07433504022657872,
+      "speedup": 1.0900399145934099
+    },
+    {
+      "shape": [
+        576,
+        576
+      ],
+      "count": 60,
+      "triton_mean_ms": 0.08193152017891407,
+      "cute_sm100_mean_ms": 0.07469984017312527,
+      "speedup": 1.096809845764443
+    },
+    {
+      "shape": [
+        576,
+        1536
+      ],
+      "count": 30,
+      "triton_mean_ms": 0.08217471964657307,
+      "cute_sm100_mean_ms": 0.0779372801631689,
+      "speedup": 1.0543698660581007
+    },
+    {
+      "shape": [
+        1536,
+        576
+      ],
+      "count": 60,
+      "triton_mean_ms": 0.08096896015107631,
+      "cute_sm100_mean_ms": 0.0498556799069047,
+      "speedup": 1.6240669127824414
+    },
+    {
+      "shape": [
+        49152,
+        576
+      ],
+      "count": 1,
+      "triton_mean_ms": 0.18724191978573798,
+      "cute_sm100_mean_ms": 0.07516863994300366,
+      "speedup": 2.4909579304310077
+    }
+  ],
+  "activations": [
+    {
+      "shape": [
+        1,
+        576
+      ],
+      "count": 1268,
+      "triton_mean_ms": 0.08061152033507824,
+      "cute_sm100_mean_ms": 0.07080415979027749,
+      "speedup": 1.1385139033335079
+    },
+    {
+      "shape": [
+        1,
+        1536
+      ],
+      "count": 210,
+      "triton_mean_ms": 0.08048511981964111,
+      "cute_sm100_mean_ms": 0.0754406401515007,
+      "speedup": 1.066866872524014
+    },
+    {
+      "shape": [
+        6,
+        576
+      ],
+      "count": 180,
+      "triton_mean_ms": 0.08072319962084293,
+      "cute_sm100_mean_ms": 0.07102239988744259,
+      "speedup": 1.1365878898597388
+    },
+    {
+      "shape": [
+        6,
+        1536
+      ],
+      "count": 30,
+      "triton_mean_ms": 0.08019776053726674,
+      "cute_sm100_mean_ms": 0.07142751976847649,
+      "speedup": 1.1227851785588792
+    }
+  ]
+}
