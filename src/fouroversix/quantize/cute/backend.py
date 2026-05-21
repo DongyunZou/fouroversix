@@ -550,7 +550,8 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     in {ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse}
                     and not config.block_scale_2d
                     and not config.pseudo_quantize
-                    and config.round_style == RoundStyle.stochastic
+                    and config.round_style
+                    in {RoundStyle.stochastic, RoundStyle.stochastic_unbiased}
                 )
             )
             and (
@@ -1879,6 +1880,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                         else 1.1071428571
                     ),
                     use_e3m2=config.dtype == DataType.if6_e3m2,
+                    adjustment_factor=config.round_style.adjustment_factor,
                     x_amax=x_amax,
                 )
 
@@ -2259,6 +2261,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 int_expansion_factor=0.241943359375,
                 int_expansion_factor_rcp=4.1333333333,
                 use_e3m2=False,
+                adjustment_factor=config.round_style.adjustment_factor,
                 x_amax=x_amax,
             )
             scale_dtype = torch.float8_e4m3fn
@@ -2288,6 +2291,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 int_expansion_factor=0.9032258065,
                 int_expansion_factor_rcp=1.1071428571,
                 use_e3m2=True,
+                adjustment_factor=config.round_style.adjustment_factor,
                 x_amax=x_amax,
             )
             scale_dtype = torch.float8_e4m3fn

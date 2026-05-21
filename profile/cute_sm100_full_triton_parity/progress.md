@@ -3733,12 +3733,29 @@ no misses under the current supported workload matrix. Under the relaxed pseudo
 target, these rows are acceptable because every pseudo row remains strictly
 faster than Triton.
 
+Fixed the 1D IF6 stochastic-unbiased gap with the same split-scale semantics
+used for NVFP6: stored E4M3 scale bytes are computed without the
+stochastic-unbiased adjustment, while FP6/INT6 value quantization and candidate
+error/dequantization use the adjusted global scale. This matches Triton's
+behavior where the unbiased scale factor cancels out of the stored scale but
+remains in the values. On a direct `1024x1024` probe, IF6 E3M2
+`abs_max/mae/mse` now matches Triton exactly (`100%` equal values and scales),
+and IF6 E2M3 reaches `>=99.93%` scale/candidate equality with dequantized L2
+distance no worse than Triton. The targeted IF6 stochastic test slice now
+passes with stochastic and stochastic-unbiased rows (`14 passed`), and the full
+`cute_sm100` selection passes (`460 passed, 7 skipped`).
+
+The refreshed full benchmark now reports `466/476` workloads meeting 1.2x and
+`476/476` strictly faster than Triton. The remaining `10` rows below 1.2x are
+all `pseudo_quantize=True`; there are still no ordinary/base, transpose, or
+block-scale-2d 1.2x misses under the current supported workload matrix.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
   1D static NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8 stochastic-unbiased is now
   claimed. Remaining non-nearest gaps include 1D NVINT6 stochastic-unbiased.
-- Feature flags still missing: IF6 stochastic-unbiased. True stochastic NVFP4 pseudo is also intentionally not
+- Feature flags still missing: true stochastic NVFP4 pseudo is intentionally not
   claimed after failing the current Triton-error gate.
 - `block_scale_2d=True` is currently implemented for `nvfp4`,
   `nvfp4_bs8 static_4/static_6`,
@@ -3747,5 +3764,5 @@ faster than Triton.
 - Performance target is now met for all ordinary quantize, transpose, and
   block-scale-2d rows in the current supported workload matrix. Pseudo-quantize
   is no longer required to meet 1.2x; all pseudo rows are strictly faster than
-  Triton in the refreshed benchmark. The current benchmark has `20` pseudo
+  Triton in the refreshed benchmark. The current benchmark has `10` pseudo
   rows below 1.2x, all still above Triton.

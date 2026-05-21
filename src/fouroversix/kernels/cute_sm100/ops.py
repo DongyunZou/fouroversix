@@ -3453,7 +3453,8 @@ def _process_if3_adaptive_pseudo_block_bfloat(
 def _process_if6_adaptive_block_bfloat(
     row_tensor: cute.Tensor,
     elem_base: Int32,
-    global_scale: Float32,
+    scale_global_scale: Float32,
+    quant_global_scale: Float32,
     scale_rule_id: cutlass.Constexpr[int],
     max_quantized_value: cutlass.Constexpr[float],
     int_expansion_factor: cutlass.Constexpr[float],
@@ -3469,17 +3470,17 @@ def _process_if6_adaptive_block_bfloat(
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    scale_float = global_scale * (
+    scale_float = scale_global_scale * (
         block_max * rcp_approx_ftz(Float32(float(max_quantized_value)))
     )
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
-    output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
+    output_scale = nvfp4_compute_output_scale(scale_fp8_u32, quant_global_scale)
     selection_scale = nvfp4_compute_quant_scale_exact(
         scale_fp8_u32,
-        global_scale,
+        quant_global_scale,
     )
-    dequant_scale = nvfp4_compute_dequant_scale(scale_fp8_u32, global_scale)
+    dequant_scale = nvfp4_compute_dequant_scale(scale_fp8_u32, quant_global_scale)
 
     if cutlass.const_expr(use_e3m2):
         packed_fp_0, packed_fp_1 = bfloat2x8_to_e3m2x16_packed(
@@ -5193,7 +5194,11 @@ class Sm100IF6AdaptiveQuantize:
 
         sf_idx = bidx * THREADS_PER_BLOCK + tidx
         stride = grid_dim_x * THREADS_PER_BLOCK
-        global_scale = _compute_global_scale(
+        scale_global_scale = _compute_global_scale(
+            amax_tensor,
+            float(self.max_quantized_value) * E4M3_STATIC_MAX,
+        )
+        quant_global_scale = _compute_global_scale(
             amax_tensor,
             float(self.max_quantized_value)
             * E4M3_STATIC_MAX
@@ -5208,7 +5213,8 @@ class Sm100IF6AdaptiveQuantize:
             scale_fp8, packed64_0, packed64_1 = _process_if6_adaptive_block_bfloat(
                 x[row_idx, None],
                 elem_base,
-                global_scale,
+                scale_global_scale,
+                quant_global_scale,
                 self.scale_rule_id,
                 self.max_quantized_value,
                 self.int_expansion_factor,

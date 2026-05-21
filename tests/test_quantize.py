@@ -1647,7 +1647,10 @@ def test_cute_sm100_if4_bs8_unsupported_modes_are_not_claimed(
     )
 
 
-@pytest.mark.parametrize("round_style", [RoundStyle.stochastic, RoundStyle.stochastic_unbiased])
+@pytest.mark.parametrize(
+    "round_style",
+    [RoundStyle.stochastic, RoundStyle.stochastic_unbiased],
+)
 @pytest.mark.parametrize("scale_rule", [ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse])
 def test_cute_sm100_if4_bs8_stochastic_matches_triton_error(
     scale_rule: ScaleRule,
@@ -2413,9 +2416,11 @@ def test_cute_sm100_if4_stochastic_unbiased_matches_triton_error(
         (DataType.if6_e3m2, ScaleRule.mse),
     ],
 )
+@pytest.mark.parametrize("round_style", [RoundStyle.stochastic, RoundStyle.stochastic_unbiased])
 def test_cute_sm100_if6_stochastic_matches_triton_error(
     dtype: DataType,
     scale_rule: ScaleRule,
+    round_style: RoundStyle,
 ) -> None:
     _require_cuda_for_cute_sm100_accuracy()
 
@@ -2424,13 +2429,13 @@ def test_cute_sm100_if6_stochastic_matches_triton_error(
     config_triton = QuantizationConfig(
         backend=QuantizeBackend.triton,
         dtype=dtype,
-        round_style=RoundStyle.stochastic,
+        round_style=round_style,
         scale_rule=scale_rule,
     )
     config_cute = QuantizationConfig(
         backend=QuantizeBackend.cute_sm100,
         dtype=dtype,
-        round_style=RoundStyle.stochastic,
+        round_style=round_style,
         scale_rule=scale_rule,
     )
 
@@ -2460,7 +2465,7 @@ def test_cute_sm100_if6_stochastic_matches_triton_error(
     print(
         f"{dtype=} {scale_rule=} values_equal={values_equal_ratio:.6f} "
         f"scales_equal={scales_equal_ratio:.6f} "
-        f"triton_dist={triton_dist} cute_dist={cute_dist}",
+        f"{round_style=} triton_dist={triton_dist} cute_dist={cute_dist}",
     )
 
     equal_ratio_floor = CUTE_VALUE_EQUAL_RATIO_FLOOR
@@ -2489,23 +2494,18 @@ def test_cute_sm100_if6_e2m3_absmax_stochastic_is_claimed() -> None:
     )
 
 
-@pytest.mark.parametrize("dtype", [DataType.if6_e2m3, DataType.if6_e3m2])
-@pytest.mark.parametrize("scale_rule", [ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse])
-def test_cute_sm100_if6_stochastic_unbiased_is_not_claimed(
-    dtype: DataType,
-    scale_rule: ScaleRule,
-) -> None:
+def test_cute_sm100_if6_stochastic_unbiased_is_claimed() -> None:
     _require_cuda_for_cute_sm100_accuracy()
 
     x = torch.empty(128, 256, dtype=torch.bfloat16, device="cuda")
     config = QuantizationConfig(
         backend=QuantizeBackend.cute_sm100,
-        dtype=dtype,
-        scale_rule=scale_rule,
+        dtype=DataType.if6_e2m3,
+        scale_rule=ScaleRule.abs_max,
         round_style=RoundStyle.stochastic_unbiased,
     )
 
-    assert not AVAILABLE_BACKENDS[QuantizeBackend.cute_sm100].can_quantize(
+    assert AVAILABLE_BACKENDS[QuantizeBackend.cute_sm100].can_quantize(
         x,
         config,
     )
