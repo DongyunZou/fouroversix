@@ -3657,6 +3657,26 @@ therefore fixed frontend/launch overhead around a small pseudo workload, not a
 Triton kernel-throughput advantage. Reports are under
 `profile/cute_sm100_full_triton_parity/ncu/if4_mse1024_pseudo_*`.
 
+Re-checked the remaining 1D NVFP6 E2M3 stochastic-unbiased gap by directly
+calling the CuTe static kernel with multiple adjustment factors and
+`max_quantized_value` candidates. The best tested point remained the correct
+E2M3 max value `7.5` with adjustment around `0.944`, but its dequantized L2
+distance was still `26.28` versus Triton's `26.02`; the standard `16/17`
+adjustment gives `26.54`. Other max values (`7.0`, `7.25`, `7.75`, `8.0`)
+were much worse. This rules out a simple scale constant tweak for claiming 1D
+NVFP6 E2M3 stochastic-unbiased.
+
+Re-tested IF6 stochastic-unbiased with direct kernel calls. The fast IF6 path's
+default `adjustment_factor=1.0` explains the previously huge error (`~64-65`),
+but passing the unbiased `16/17` factor only reduces CuTe to `22.49` for
+IF6 E2M3 and `23.50` for IF6 E3M2, still worse than Triton (`21.15` and
+`21.59`). A factor sweep found no better claimable point. Comparing raw outputs
+shows the remaining difference is candidate selection: IF6 E2M3 has `4422`
+scale-block indicator mismatches and IF6 E3M2 has `3319` versus Triton on the
+same `1024x1024 abs_max` input. IF6 stochastic-unbiased therefore needs the
+candidate error/scale rounding semantics matched, not just support gating or a
+single adjustment constant.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
