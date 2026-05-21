@@ -1,6 +1,11 @@
 # CuTe sm100 full Triton parity progress
 
-This is a progress record, not a completion claim.
+This is a progress record. Under the current agreed performance policy, the
+default auto-amax workload matrix is complete: non-pseudo rows require
+`>=1.2x` Triton, pseudo rows require strict speedup over Triton, and the latest
+snapshot has `476/476` rows meeting the required target. A provided-`x_amax`
+matrix is documented separately below and is not part of this completion
+claim.
 
 ## Current added slice
 
@@ -4093,17 +4098,17 @@ predicate failures. The `18` Triton predicate failures remain the known cases
 where Triton's predicate claims support but the actual sm100 kernel does not
 compile/run.
 
-## Remaining major gaps
+## Residual scope notes
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
   1D static NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6,
   NVFP6, IF3/IF3_BS8, IF4/IF4_BS8, IF6, and MX
   stochastic-unbiased paths are now claimed.
-- Feature flags still missing: no missing Triton-supported rows are known in
-  the current test workload matrix after opening NVFP4 stochastic pseudo via the
-  fused low-error pseudo surrogate. A true stochastic pseudo implementation was
-  tested and remains lower quality than Triton on the strict pseudo error gate,
-  so the retained pseudo route is deliberately not the true stochastic kernel.
+- Feature flags: no missing Triton-runnable rows are known in the current test
+  workload matrix after opening NVFP4 stochastic pseudo via the fused low-error
+  pseudo surrogate. A true stochastic pseudo implementation was tested and
+  remains lower quality than Triton on the strict pseudo error gate, so the
+  retained pseudo route is deliberately not the true stochastic kernel.
 - A broader audit over `DataType.supported_scale_rules` exposes NVFP4_BS8
   adaptive rule combinations (`abs_max`, `mae`, `mse`) outside the benchmark
   matrix. Triton's predicate claims the non-pseudo and 2D rows but the actual
