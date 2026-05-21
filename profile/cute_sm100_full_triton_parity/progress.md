@@ -3996,6 +3996,22 @@ kernel now launches grid `4096`, block `256`, with about `6.92` waves/SM and
 `476/476` rows meeting the required target and `472/476` rows meeting the old
 all-rows-1.2x policy; the IF3 test slice passes (`61 passed`).
 
+Profiled the thinnest non-pseudo row, `128x256 nvfp4 mae`, with NCU. Triton
+launches four kernels per call (`abs`, reduce, copy helper, and
+`quantization_kernel`) with about `52.8 us` of GPU kernel time per call across
+the five profiled iterations; CuTe launches reduce plus
+`Sm100NVFP4AdaptiveQuantize` with about `18.6 us` per call. The narrow
+end-to-end benchmark margin is therefore fixed frontend/launch overhead, not a
+Triton kernel-body advantage. NCU also exposed that the CuTe quant kernel was
+using grid `8` for the `128x256` case because the launch-grid calculation used
+`256` threads while the kernel itself uses `128` threads. Retuning the launch
+grid calculation to the actual `128`-thread CTA size increases that grid to
+`16` and drops the CuTe quant kernel from about `6.05-6.59 us` to
+`4.80-5.09 us`. The refreshed full benchmark reports `476/476` rows meeting
+the required target, with `338/338` non-pseudo rows at `>=1.2x`,
+`138/138` pseudo rows strictly faster than Triton, and `474/476` total rows
+meeting the old all-rows-1.2x policy.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and

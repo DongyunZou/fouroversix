@@ -13,16 +13,20 @@ def main() -> None:
     parser.add_argument("--dtype", default="mxfp4")
     parser.add_argument("--scale-rule", default="static_6")
     parser.add_argument("--shape", type=int, default=4096)
+    parser.add_argument("--rows", type=int)
+    parser.add_argument("--cols", type=int)
     parser.add_argument("--iters", type=int, default=3)
     parser.add_argument("--transpose", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--pseudo-quantize", action="store_true")
     parser.add_argument("--block-scale-2d", action="store_true")
     args = parser.parse_args()
+    rows = args.shape if args.rows is None else args.rows
+    cols = args.shape if args.cols is None else args.cols
 
     torch.manual_seed(0)
     x = torch.randn(
-        args.shape,
-        args.shape,
+        rows,
+        cols,
         dtype=torch.bfloat16,
         device="cuda",
     )
