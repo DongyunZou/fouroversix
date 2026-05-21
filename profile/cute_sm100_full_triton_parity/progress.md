@@ -3372,6 +3372,29 @@ experiment did not improve the full benchmark, so no production frontend change
 was retained here; the useful direction is likely reducing kernel count or
 offering a more explicit low-overhead path rather than another generic cache.
 
+Tested an explicit-backend frontend dispatch cache for no-kwargs configs that
+caches the backend class after first `can_quantize` validation and directly
+calls `quantize`/`pseudo_quantize`. The targeted CuTe slice passed
+(`136 passed, 6 skipped`). Focused timing reduced public-frontend overhead
+modestly: `1024x1024 nvfp4 mse block_scale_2d=True` frontend/direct delta
+moved from about `2.6 us` to about `1.4 us`, IF3 pseudo remained about
+`1.0 us`, and NVFP4 ordinary was about `1.4 us`. The full benchmark regressed
+from the retained `390/476` snapshot to `352/476`, so the code and benchmark
+JSON were restored. This reinforces that generic frontend caching is not a
+stable retained fix; remaining rows need kernel-count/fusion work or a more
+explicit low-overhead API.
+
+Profiled the representative ordinary near-threshold row
+`1024x1024 nvfp4 abs_max`. CuTe launches torch AbsMax reduce (`~9.25-9.47 us`)
+plus `Sm100NVFP4AdaptiveQuantize` (`~5.95-6.02 us`) for about `15.2 us` of GPU
+kernel time per iteration. Triton launches torch abs (`~4.42-4.45 us`), max
+reduce (`~8.99-9.28 us`), scalar copy/cast (`~4.03-4.06 us`), and
+`quantization_kernel` (`~32.26-32.38 us`) for about `49.7-50.2 us`. The
+retained CUDA-event benchmark row is only `1.125x`, so this ordinary NVFP4
+miss, like the NVFP4 2D miss, is not a slower CuTe kernel-body problem; short
+public `quantize()` rows are dominated by fixed frontend/enqueue spacing.
+Reports are under `profile/cute_sm100_full_triton_parity/ncu/nvfp4_absmax1024_*`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
