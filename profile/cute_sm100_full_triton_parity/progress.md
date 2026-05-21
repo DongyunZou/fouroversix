@@ -3211,6 +3211,17 @@ CUDA-event median was about `33.6 us`, far slower than
 experiment was reverted; a useful small-shape amax replacement would need a
 more parallel multi-CTA reduction or fusion strategy, not a single-warp scan.
 
+Tested an IF3 pseudo `abs_max` shortcut that directly selected the INT3
+candidate and skipped the FP3-vs-INT3 candidate-error comparison inside
+`_process_if3_adaptive_pseudo_block_bfloat`. The targeted IF3 pseudo accuracy
+slice still passed (`6 passed`), but focused alternating timing did not move the
+critical 4096x4096 `if3 abs_max pseudo_quantize=True` row: it remained about
+`0.984x` versus Triton (`triton~0.0597 ms`, `cute~0.0607 ms`). Small and medium
+IF3/IF3_BS8 pseudo rows also stayed around `1.08x-1.13x`. The experiment was
+reverted; the remaining IF3 pseudo body gap is not closed by removing the
+candidate-error comparison alone and likely needs a different tiled/cooperative
+mapping or cheaper BF16 dequant write path.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
