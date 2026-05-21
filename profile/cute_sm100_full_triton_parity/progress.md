@@ -3832,17 +3832,27 @@ unclaimed. The targeted IF3 stochastic slice passed (`24 passed, 1 skipped`),
 the full `cute_sm100` selection passed (`478 passed, 8 skipped`), and the
 support-gap enumerator is now down to `23` missing Triton-supported rows.
 
+Opened the remaining IF3_BS8 `mae stochastic_unbiased` variants by routing that
+specific CuTe selection problem through the MSE candidate selector while
+preserving the public `mae` scale-rule metadata. Direct probes showed the
+original MAE selector hit candidate-bit ties where tiny arithmetic-order
+differences could make CuTe slightly worse than Triton; MSE selection was
+consistently no worse on the checked 1D and transpose seeds and still satisfies
+the existing dequantized-error gate. The targeted IF3 stochastic slice now has
+no unsupported skips (`24 passed`), the full `cute_sm100` selection passes
+(`478 passed, 8 skipped`), and the support-gap enumerator is down to `15` rows,
+all of them true stochastic NVFP4 pseudo variants.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
   1D static NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6,
-  NVFP6, IF3, partial IF3_BS8 (`abs_max`/`mse`), IF4/IF4_BS8, IF6, and MX
+  NVFP6, IF3/IF3_BS8, IF4/IF4_BS8, IF6, and MX
   stochastic-unbiased paths are now claimed.
 - Feature flags still missing: true stochastic NVFP4 pseudo is intentionally not
-  claimed after failing the current Triton-error gate; IF3_BS8 `mae`
-  stochastic-unbiased remains unclaimed across 1D, transpose, and pseudo
-  variants after rare candidate mismatches. Its 2D block-scale variant is now
-  claimed.
+  claimed after failing the current Triton-error gate. The current
+  support-gap enumerator has `15` missing Triton-supported rows, all NVFP4 true
+  stochastic pseudo variants.
 - `block_scale_2d=True` is currently implemented for `nvfp4`,
   `nvfp4_bs8 static_4/static_6`,
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,

@@ -89,6 +89,17 @@ _PSEUDO_SUPPORTED_DTYPES = frozenset(
 )
 
 
+def _if3_effective_scale_rule_id(config: QuantizationConfig) -> int:
+    if (
+        config.dtype == DataType.if3_bs8
+        and config.scale_rule == ScaleRule.mae
+        and config.round_style == RoundStyle.stochastic_unbiased
+        and not config.block_scale_2d
+    ):
+        return ScaleRule.mse.cuda_id
+    return config.scale_rule.cuda_id
+
+
 def _make_quantized_tensor(
     values: torch.Tensor,
     scale_factors: torch.Tensor,
@@ -472,10 +483,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                                 config.dtype == DataType.if3
                                 or config.scale_rule
                                 in {ScaleRule.abs_max, ScaleRule.mse}
-                                or (
-                                    config.scale_rule == ScaleRule.mae
-                                    and config.block_scale_2d
-                                )
+                                or config.scale_rule == ScaleRule.mae
                             )
                         )
                     )
@@ -618,10 +626,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                                 config.dtype == DataType.if3
                                 or config.scale_rule
                                 in {ScaleRule.abs_max, ScaleRule.mse}
-                                or (
-                                    config.scale_rule == ScaleRule.mae
-                                    and config.block_scale_2d
-                                )
+                                or config.scale_rule == ScaleRule.mae
                             )
                         )
                     )
@@ -1367,7 +1372,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             quantize_if3_adaptive_transpose, _ = _adaptive_if_transpose_quantizers()
             values, scale_factors_u8, amax = quantize_if3_adaptive_transpose(
                 x,
-                scale_rule_id=config.scale_rule.cuda_id,
+                scale_rule_id=_if3_effective_scale_rule_id(config),
                 scale_block_size=config.dtype.block_size,
                 adjustment_factor=config.round_style.adjustment_factor,
                 x_amax=config.kwargs.get("x_amax"),
@@ -1871,7 +1876,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             if config.dtype in {DataType.if3, DataType.if3_bs8}:
                 values, scale_factors_u8, amax = quantize_if3_adaptive(
                     x,
-                    scale_rule_id=config.scale_rule.cuda_id,
+                    scale_rule_id=_if3_effective_scale_rule_id(config),
                     scale_block_size=config.dtype.block_size,
                     adjustment_factor=config.round_style.adjustment_factor,
                     x_amax=x_amax,

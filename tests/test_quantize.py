@@ -1877,35 +1877,6 @@ def test_cute_sm100_if6_pseudo_quantize_matches_triton_error(
     )
 
 
-@pytest.mark.parametrize(
-    ("dtype", "scale_rule", "round_style", "block_scale_2d"),
-    [
-        (DataType.if3_bs8, ScaleRule.mae, RoundStyle.stochastic_unbiased, False),
-    ],
-)
-def test_cute_sm100_if3_unsupported_modes_are_not_claimed(
-    dtype: DataType,
-    scale_rule: ScaleRule,
-    round_style: RoundStyle,
-    block_scale_2d: bool,
-) -> None:
-    _require_cuda_for_cute_sm100_accuracy()
-
-    x = torch.empty(128, 256, dtype=torch.bfloat16, device="cuda")
-    config = QuantizationConfig(
-        backend=QuantizeBackend.cute_sm100,
-        dtype=dtype,
-        scale_rule=scale_rule,
-        round_style=round_style,
-        block_scale_2d=block_scale_2d,
-    )
-
-    assert not AVAILABLE_BACKENDS[QuantizeBackend.cute_sm100].can_quantize(
-        x,
-        config,
-    )
-
-
 @pytest.mark.parametrize("dtype", [DataType.if3, DataType.if3_bs8])
 @pytest.mark.parametrize("scale_rule", [ScaleRule.abs_max, ScaleRule.mae, ScaleRule.mse])
 @pytest.mark.parametrize(
@@ -1927,14 +1898,6 @@ def test_cute_sm100_if3_stochastic_matches_triton_error(
 
     torch.manual_seed(0)
     x = torch.randn(128, 256, dtype=torch.bfloat16, device="cuda")
-    if (
-        dtype == DataType.if3_bs8
-        and scale_rule == ScaleRule.mae
-        and round_style == RoundStyle.stochastic_unbiased
-        and not block_scale_2d
-    ):
-        pytest.skip("IF3_BS8 mae 1D stochastic-unbiased remains unsupported")
-
     config_triton = QuantizationConfig(
         backend=QuantizeBackend.triton,
         dtype=dtype,
