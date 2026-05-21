@@ -72,7 +72,7 @@ FEATURES = [
     {"pseudo_quantize": True},
     {"block_scale_2d": True},
 ]
-REPEATS = 5
+REPEATS = 9
 
 
 def time_ms(fn, *, iters: int, warmup: int = 20) -> float:
@@ -130,7 +130,7 @@ def main() -> None:
     cute_backend = AVAILABLE_BACKENDS[QuantizeBackend.cute_sm100]
     for shape in SHAPES:
         x = torch.randn(*shape, dtype=torch.bfloat16, device="cuda")
-        iters = 200 if shape[0] <= 1024 else 50
+        iters = 200 if shape[0] <= 1024 else 100
         for dtype, scale_rules in DTypeScaleRules.items():
             for scale_rule in scale_rules:
                 for feature_kwargs in FEATURES:

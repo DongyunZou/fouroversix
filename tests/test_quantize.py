@@ -1880,9 +1880,8 @@ def test_cute_sm100_if6_pseudo_quantize_matches_triton_error(
 @pytest.mark.parametrize(
     ("dtype", "scale_rule", "round_style", "block_scale_2d"),
     [
-        (DataType.if3, ScaleRule.mse, RoundStyle.stochastic_unbiased, True),
-        (DataType.if3_bs8, ScaleRule.mse, RoundStyle.stochastic_unbiased, True),
         (DataType.if3_bs8, ScaleRule.mae, RoundStyle.stochastic_unbiased, False),
+        (DataType.if3_bs8, ScaleRule.mae, RoundStyle.stochastic_unbiased, True),
     ],
 )
 def test_cute_sm100_if3_unsupported_modes_are_not_claimed(
@@ -1916,6 +1915,7 @@ def test_cute_sm100_if3_unsupported_modes_are_not_claimed(
         (RoundStyle.stochastic, False),
         (RoundStyle.stochastic, True),
         (RoundStyle.stochastic_unbiased, False),
+        (RoundStyle.stochastic_unbiased, True),
     ],
 )
 def test_cute_sm100_if3_stochastic_matches_triton_error(

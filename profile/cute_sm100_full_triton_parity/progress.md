@@ -3802,6 +3802,25 @@ kernel is better; the remaining event-level gap is fixed overhead and
 short-kernel underutilization. Detailed reports are recorded in
 `profile/cute_sm100_full_triton_parity/ncu/pseudo_remaining_gap_profile.md`.
 
+Opened IF3/IF3_BS8 `block_scale_2d=True` stochastic-unbiased support for the
+safe subset by applying the same split-scale semantics used for the 1D IF3
+unbiased path. Stored E4M3 scale bytes are computed from the unadjusted global
+scale, while FP3/INT3 value quantization and candidate error/dequantization use
+the stochastic-unbiased adjustment factor. IF3 now claims `abs_max/mae/mse` 2D
+unbiased; IF3_BS8 claims `abs_max` and `mse` 2D unbiased. IF3_BS8 `mae`
+stochastic-unbiased remains unsupported across 1D, 2D, transpose, and pseudo
+because of the previously observed rare candidate mismatches. The targeted IF3
+stochastic slice passed (`24 passed, 2 skipped`), and the full `cute_sm100`
+selection passed (`478 passed, 9 skipped`).
+
+The full benchmark harness now uses `9` alternating-order repeats and `100`
+iterations for 4096x4096 rows to avoid short-kernel sample pollution observed
+on NVFP6 block-scale-2d rows. The refreshed benchmark reports `476/476`
+workloads meeting `1.2x` and `476/476` strictly faster than Triton. A separate
+support-gap enumerator now reports `26` missing Triton-supported rows in the
+broader round-style matrix: IF3_BS8 `mae` stochastic-unbiased variants and true
+stochastic NVFP4 pseudo variants.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
@@ -3810,14 +3829,14 @@ short-kernel underutilization. Detailed reports are recorded in
   stochastic-unbiased paths are now claimed.
 - Feature flags still missing: true stochastic NVFP4 pseudo is intentionally not
   claimed after failing the current Triton-error gate; IF3_BS8 `mae`
-  stochastic-unbiased and IF3/IF3_BS8 `block_scale_2d=True`
-  stochastic-unbiased remain unclaimed after rare candidate mismatches.
+  stochastic-unbiased remains unclaimed across 1D, 2D, transpose, and pseudo
+  variants after rare candidate mismatches.
 - `block_scale_2d=True` is currently implemented for `nvfp4`,
   `nvfp4_bs8 static_4/static_6`,
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths.
-- Performance target is now met for all ordinary quantize, transpose, and
-  block-scale-2d rows in the current supported workload matrix. Pseudo-quantize
-  is no longer required to meet 1.2x; all pseudo rows are strictly faster than
-  Triton in the refreshed benchmark. The current benchmark has `10` pseudo
-  rows below 1.2x, all still above Triton.
+- Performance target is now met for every row in the current default-rounding
+  supported workload matrix: the refreshed benchmark has `476/476` workloads at
+  or above `1.2x`, and all rows are strictly faster than Triton. The harness now
+  uses `9` alternating-order repeats and `100` iterations for 4096x4096 rows to
+  reduce measurement noise.

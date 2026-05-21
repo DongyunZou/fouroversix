@@ -4812,9 +4812,10 @@ class Sm100IF3AdaptiveTransposeQuantize:
 
 
 class Sm100IF3AdaptiveQuantize2D:
-    def __init__(self, k: int, scale_rule_id: int):
+    def __init__(self, k: int, scale_rule_id: int, adjustment_factor: float = 1.0):
         self.k = k
         self.scale_rule_id = scale_rule_id
+        self.adjustment_factor = adjustment_factor
         self.scale_blocks_per_row = k // NVFP4_SCALE_BLOCK_SIZE
 
     @cute.jit
@@ -4853,9 +4854,13 @@ class Sm100IF3AdaptiveQuantize2D:
         group_idx = tidx // Int32(IF3_2D_GROUP_SIZE)
         tile_idx = bidx * IF3_2D_GROUPS_PER_BLOCK + group_idx
         stride = grid_dim_x * IF3_2D_GROUPS_PER_BLOCK
-        global_scale = _compute_global_scale(
+        scale_global_scale = _compute_global_scale(
             amax_tensor,
             E2M0_MAX * E4M3_STATIC_MAX,
+        )
+        quant_global_scale = _compute_global_scale(
+            amax_tensor,
+            E2M0_MAX * E4M3_STATIC_MAX * float(self.adjustment_factor),
         )
 
         while tile_idx < total_scale_tiles:
@@ -4874,13 +4879,19 @@ class Sm100IF3AdaptiveQuantize2D:
                 row_max,
                 threads_in_group=IF3_2D_GROUP_SIZE,
             )
-            scale_float = global_scale * (
+            scale_float = scale_global_scale * (
                 block_max * rcp_approx_ftz(Float32(E2M0_MAX))
             )
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
-            output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
-            dequant_scale = nvfp4_compute_dequant_scale(scale_fp8_u32, global_scale)
+            output_scale = nvfp4_compute_output_scale(
+                scale_fp8_u32,
+                quant_global_scale,
+            )
+            dequant_scale = nvfp4_compute_dequant_scale(
+                scale_fp8_u32,
+                quant_global_scale,
+            )
             output_scale_int = output_scale * Float32(IF3_INT_EXPANSION_FACTOR_RCP)
 
             fp0, fp1, fp2, fp3 = bfloat2x8_to_e2m0x16_values(
@@ -4985,9 +4996,10 @@ class Sm100IF3AdaptiveQuantize2D:
 
 
 class Sm100IF3BS8AdaptiveQuantize2D:
-    def __init__(self, k: int, scale_rule_id: int):
+    def __init__(self, k: int, scale_rule_id: int, adjustment_factor: float = 1.0):
         self.k = k
         self.scale_rule_id = scale_rule_id
+        self.adjustment_factor = adjustment_factor
         self.scale_blocks_per_row = k // 8
 
     @cute.jit
@@ -5024,9 +5036,13 @@ class Sm100IF3BS8AdaptiveQuantize2D:
 
         tile_idx = bidx * THREADS_PER_BLOCK + tidx
         stride = grid_dim_x * THREADS_PER_BLOCK
-        global_scale = _compute_global_scale(
+        scale_global_scale = _compute_global_scale(
             amax_tensor,
             E2M0_MAX * E4M3_STATIC_MAX,
+        )
+        quant_global_scale = _compute_global_scale(
+            amax_tensor,
+            E2M0_MAX * E4M3_STATIC_MAX * float(self.adjustment_factor),
         )
 
         while tile_idx < total_scale_tiles:
@@ -5054,13 +5070,19 @@ class Sm100IF3BS8AdaptiveQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            scale_float = global_scale * (
+            scale_float = scale_global_scale * (
                 block_max * rcp_approx_ftz(Float32(E2M0_MAX))
             )
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
-            output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
-            dequant_scale = nvfp4_compute_dequant_scale(scale_fp8_u32, global_scale)
+            output_scale = nvfp4_compute_output_scale(
+                scale_fp8_u32,
+                quant_global_scale,
+            )
+            dequant_scale = nvfp4_compute_dequant_scale(
+                scale_fp8_u32,
+                quant_global_scale,
+            )
             output_scale_int = output_scale * Float32(IF3_INT_EXPANSION_FACTOR_RCP)
 
             error_fp = Float32(0.0)
@@ -11308,7 +11330,11 @@ def _compile_if4_adaptive_transpose_quantize(
 
 
 @functools.cache
-def _compile_if3_adaptive_quantize_2d(k: int, scale_rule_id: int):
+def _compile_if3_adaptive_quantize_2d(
+    k: int,
+    scale_rule_id: int,
+    adjustment_factor: float = 1.0,
+):
     sym_m = cute.sym_int()
     sym_scale_blocks = cute.sym_int()
 
@@ -11336,7 +11362,7 @@ def _compile_if3_adaptive_quantize_2d(k: int, scale_rule_id: int):
     )
     stream_fake = cute.runtime.make_fake_stream()
 
-    kernel = Sm100IF3AdaptiveQuantize2D(k, scale_rule_id)
+    kernel = Sm100IF3AdaptiveQuantize2D(k, scale_rule_id, adjustment_factor)
     compiled = cute.compile(
         kernel,
         x_fake,
@@ -11351,7 +11377,11 @@ def _compile_if3_adaptive_quantize_2d(k: int, scale_rule_id: int):
 
 
 @functools.cache
-def _compile_if3_bs8_adaptive_quantize_2d(k: int, scale_rule_id: int):
+def _compile_if3_bs8_adaptive_quantize_2d(
+    k: int,
+    scale_rule_id: int,
+    adjustment_factor: float = 1.0,
+):
     sym_m = cute.sym_int()
     sym_scale_blocks = cute.sym_int()
 
@@ -11379,7 +11409,7 @@ def _compile_if3_bs8_adaptive_quantize_2d(k: int, scale_rule_id: int):
     )
     stream_fake = cute.runtime.make_fake_stream()
 
-    kernel = Sm100IF3BS8AdaptiveQuantize2D(k, scale_rule_id)
+    kernel = Sm100IF3BS8AdaptiveQuantize2D(k, scale_rule_id, adjustment_factor)
     compiled = cute.compile(
         kernel,
         x_fake,
@@ -15235,6 +15265,7 @@ def quantize_if3_adaptive_2d(
     x: torch.Tensor,
     *,
     scale_rule_id: int,
+    adjustment_factor: float = 1.0,
     x_amax: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if scale_rule_id not in {SCALE_RULE_ABS_MAX, SCALE_RULE_MAE, SCALE_RULE_MSE}:
@@ -15263,7 +15294,11 @@ def quantize_if3_adaptive_2d(
         threads_per_block=IF3_2D_GROUPS_PER_BLOCK,
     )
 
-    kernel = _compile_if3_adaptive_quantize_2d(k, scale_rule_id)
+    kernel = _compile_if3_adaptive_quantize_2d(
+        k,
+        scale_rule_id,
+        adjustment_factor,
+    )
     kernel(
         x,
         values,
@@ -15280,6 +15315,7 @@ def quantize_if3_bs8_adaptive_2d(
     x: torch.Tensor,
     *,
     scale_rule_id: int,
+    adjustment_factor: float = 1.0,
     x_amax: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if scale_rule_id not in {SCALE_RULE_ABS_MAX, SCALE_RULE_MAE, SCALE_RULE_MSE}:
@@ -15302,7 +15338,11 @@ def quantize_if3_bs8_adaptive_2d(
     total_scale_tiles = (m // 8) * (k // 8)
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
-    kernel = _compile_if3_bs8_adaptive_quantize_2d(k, scale_rule_id)
+    kernel = _compile_if3_bs8_adaptive_quantize_2d(
+        k,
+        scale_rule_id,
+        adjustment_factor,
+    )
     kernel(
         x,
         values,

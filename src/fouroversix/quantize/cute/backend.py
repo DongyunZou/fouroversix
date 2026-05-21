@@ -468,7 +468,6 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                         config.round_style == RoundStyle.stochastic
                         or (
                             config.round_style == RoundStyle.stochastic_unbiased
-                            and not config.block_scale_2d
                             and (
                                 config.dtype == DataType.if3
                                 or config.scale_rule
@@ -611,7 +610,6 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                         )
                         or (
                             config.round_style == RoundStyle.stochastic_unbiased
-                            and not config.block_scale_2d
                             and (
                                 config.dtype == DataType.if3
                                 or config.scale_rule
@@ -1593,12 +1591,14 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 values, scale_factors_u8, amax = quantize_if3_adaptive_2d(
                     x,
                     scale_rule_id=config.scale_rule.cuda_id,
+                    adjustment_factor=config.round_style.adjustment_factor,
                     x_amax=x_amax,
                 )
             elif config.dtype == DataType.if3_bs8:
                 values, scale_factors_u8, amax = quantize_if3_bs8_adaptive_2d(
                     x,
                     scale_rule_id=config.scale_rule.cuda_id,
+                    adjustment_factor=config.round_style.adjustment_factor,
                     x_amax=x_amax,
                 )
             elif config.dtype == DataType.if4:
@@ -2165,6 +2165,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             values, scale_factors_u8, amax = quantize_if3_adaptive_2d(
                 x_quantize,
                 scale_rule_id=config.scale_rule.cuda_id,
+                adjustment_factor=config.round_style.adjustment_factor,
                 x_amax=x_amax,
             )
             scale_dtype = torch.float8_e4m3fn
@@ -2176,6 +2177,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             values, scale_factors_u8, amax = quantize_if3_bs8_adaptive_2d(
                 x_quantize,
                 scale_rule_id=config.scale_rule.cuda_id,
+                adjustment_factor=config.round_style.adjustment_factor,
                 x_amax=x_amax,
             )
             scale_dtype = torch.float8_e4m3fn
