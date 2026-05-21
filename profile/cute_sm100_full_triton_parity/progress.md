@@ -3455,6 +3455,23 @@ regressed from the retained `453/476` snapshot to `440/476`. The code and
 benchmark JSON were restored; this additional tuple-indexing rewrite is not a
 stable retained optimization.
 
+Tested moving the ordinary non-transpose/non-2D NVFP4 adaptive quantize branch
+earlier in `CuteSm100QuantizeBackend.quantize`, immediately after the static
+NV fast path, to reduce Python branch scanning for the remaining small ordinary
+misses. The focused NVFP4 non-pseudo slice passed (`61 passed, 6 skipped`), but
+the full capability benchmark regressed from the retained `453/476` snapshot to
+`433/476`. The code and benchmark JSON were restored; this branch-ordering
+change is not a stable retained optimization.
+
+Added an internal CuTe `_make_quantized_tensor` fast constructor for already
+Blackwell-aligned outputs. The generic `QuantizedTensor` constructor path is
+preserved for non-aligned shapes, while aligned CuTe kernels set the metadata
+fields directly after the helper has verified the output shape alignment. The
+full `cute_sm100` test slice passed (`449 passed, 7 skipped`). The full
+capability benchmark improved from the retained `453/476` snapshot to
+`454/476`; the remaining misses in this run are all pseudo-quantize rows
+(`22` pseudo misses, `0` ordinary, `0` block_scale_2d).
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3469,5 +3486,5 @@ stable retained optimization.
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `453/476`
+  latest median capability-driven benchmark snapshot reports `454/476`
   workloads meeting 1.2x.

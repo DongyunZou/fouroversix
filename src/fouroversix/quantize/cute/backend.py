@@ -107,6 +107,21 @@ def _make_quantized_tensor(
         if original_shape[0] % 128 == 0 and original_shape[1] % cols_div == 0
         else None
     )
+    if padded_shape is not None:
+        tensor = QuantizedTensor.__new__(QuantizedTensor)
+        tensor.values = values
+        tensor.scale_factors = scale_factors
+        tensor.amax = amax
+        tensor.dtype = dtype
+        tensor.original_shape = original_shape
+        tensor.scale_rule = scale_rule
+        tensor.round_style = round_style
+        tensor.padded_shape = padded_shape
+        tensor.scale_factors_are_in_blackwell_layout = (
+            scale_factors_are_in_blackwell_layout
+        )
+        return tensor
+
     return QuantizedTensor(
         values,
         scale_factors,
