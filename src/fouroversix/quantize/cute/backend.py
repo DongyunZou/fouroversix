@@ -433,9 +433,14 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 or (
                     config.dtype in {DataType.nvfp3, DataType.nvfp3_bs8}
                     and config.scale_rule == ScaleRule.static_6
-                    and not config.block_scale_2d
                     and not config.pseudo_quantize
-                    and config.round_style.is_stochastic
+                    and (
+                        config.round_style == RoundStyle.stochastic
+                        or (
+                            not config.block_scale_2d
+                            and config.round_style == RoundStyle.stochastic_unbiased
+                        )
+                    )
                 )
                 or (
                     config.dtype == DataType.nvfp4_bs8
@@ -512,14 +517,18 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 or (
                     config.dtype in {DataType.nvint3, DataType.nvint3_bs8}
                     and config.scale_rule == ScaleRule.static_6
-                    and not config.block_scale_2d
                     and not config.pseudo_quantize
-                    and config.round_style.is_stochastic
+                    and (
+                        config.round_style == RoundStyle.stochastic
+                        or (
+                            not config.block_scale_2d
+                            and config.round_style == RoundStyle.stochastic_unbiased
+                        )
+                    )
                 )
                 or (
                     config.dtype == DataType.nvint6
                     and config.scale_rule == ScaleRule.static_6
-                    and not config.block_scale_2d
                     and not config.pseudo_quantize
                     and config.round_style == RoundStyle.stochastic
                 )

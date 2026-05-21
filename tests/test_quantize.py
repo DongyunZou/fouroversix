@@ -3576,6 +3576,51 @@ def test_cute_sm100_nvfp3_stochastic_unbiased_matches_triton_error(
     assert cute_dist <= (triton_dist + CUTE_DEQUANT_METRIC_TOLERANCE)
 
 
+@pytest.mark.parametrize("dtype", [DataType.nvfp3, DataType.nvfp3_bs8])
+def test_cute_sm100_nvfp3_block_scale_2d_stochastic_matches_triton_error(
+    dtype: DataType,
+) -> None:
+    _require_cuda_for_cute_sm100_accuracy()
+
+    torch.manual_seed(0)
+    x = torch.randn(1024, 1024, dtype=torch.bfloat16, device="cuda")
+    config_triton = QuantizationConfig(
+        backend=QuantizeBackend.triton,
+        dtype=dtype,
+        scale_rule=ScaleRule.static_6,
+        round_style=RoundStyle.stochastic,
+        block_scale_2d=True,
+    )
+    config_cute = QuantizationConfig(
+        backend=QuantizeBackend.cute_sm100,
+        dtype=dtype,
+        scale_rule=ScaleRule.static_6,
+        round_style=RoundStyle.stochastic,
+        block_scale_2d=True,
+    )
+
+    dequantized_triton = dequantize(
+        quantize(x, config_triton),
+        dtype=torch.float32,
+        backend=QuantizeBackend.cute_sm100,
+        intermediate_dtype=torch.float32,
+    )
+    dequantized_cute = dequantize(
+        quantize(x, config_cute),
+        dtype=torch.float32,
+        backend=QuantizeBackend.cute_sm100,
+        intermediate_dtype=torch.float32,
+    )
+    triton_dist = torch.dist(dequantized_triton, x.float())
+    cute_dist = torch.dist(dequantized_cute, x.float())
+
+    print(
+        f"{dtype=} block_scale_2d=True round_style={RoundStyle.stochastic} "
+        f"{triton_dist=} {cute_dist=}",
+    )
+    assert cute_dist <= (triton_dist + CUTE_DEQUANT_METRIC_TOLERANCE)
+
+
 @pytest.mark.parametrize("dtype", [DataType.nvint3, DataType.nvint3_bs8])
 def test_cute_sm100_nvint3_block_scale_2d_static_matches_triton(
     dtype: DataType,
@@ -3873,6 +3918,51 @@ def test_cute_sm100_nvint3_stochastic_unbiased_matches_triton_error(
     assert cute_dist <= (triton_dist + CUTE_DEQUANT_METRIC_TOLERANCE)
 
 
+@pytest.mark.parametrize("dtype", [DataType.nvint3, DataType.nvint3_bs8])
+def test_cute_sm100_nvint3_block_scale_2d_stochastic_matches_triton_error(
+    dtype: DataType,
+) -> None:
+    _require_cuda_for_cute_sm100_accuracy()
+
+    torch.manual_seed(0)
+    x = torch.randn(1024, 1024, dtype=torch.bfloat16, device="cuda")
+    config_triton = QuantizationConfig(
+        backend=QuantizeBackend.triton,
+        dtype=dtype,
+        scale_rule=ScaleRule.static_6,
+        round_style=RoundStyle.stochastic,
+        block_scale_2d=True,
+    )
+    config_cute = QuantizationConfig(
+        backend=QuantizeBackend.cute_sm100,
+        dtype=dtype,
+        scale_rule=ScaleRule.static_6,
+        round_style=RoundStyle.stochastic,
+        block_scale_2d=True,
+    )
+
+    dequantized_triton = dequantize(
+        quantize(x, config_triton),
+        dtype=torch.float32,
+        backend=QuantizeBackend.cute_sm100,
+        intermediate_dtype=torch.float32,
+    )
+    dequantized_cute = dequantize(
+        quantize(x, config_cute),
+        dtype=torch.float32,
+        backend=QuantizeBackend.cute_sm100,
+        intermediate_dtype=torch.float32,
+    )
+    triton_dist = torch.dist(dequantized_triton, x.float())
+    cute_dist = torch.dist(dequantized_cute, x.float())
+
+    print(
+        f"{dtype=} block_scale_2d=True round_style={RoundStyle.stochastic} "
+        f"{triton_dist=} {cute_dist=}",
+    )
+    assert cute_dist <= (triton_dist + CUTE_DEQUANT_METRIC_TOLERANCE)
+
+
 @pytest.mark.parametrize("input_shape", [(128, 256), (1024, 1024)])
 def test_cute_sm100_nvint6_static_matches_triton(
     input_shape: tuple[int, int],
@@ -4036,6 +4126,45 @@ def test_cute_sm100_nvint6_stochastic_matches_triton_error() -> None:
     cute_dist = torch.dist(dequantized_cute, x.float())
 
     print(f"round_style={RoundStyle.stochastic} {triton_dist=} {cute_dist=}")
+    assert cute_dist <= triton_dist + CUTE_DEQUANT_METRIC_TOLERANCE
+
+
+def test_cute_sm100_nvint6_block_scale_2d_stochastic_matches_triton_error() -> None:
+    _require_cuda_for_cute_sm100_accuracy()
+
+    torch.manual_seed(0)
+    x = torch.randn(1024, 1024, dtype=torch.bfloat16, device="cuda")
+    config_triton = QuantizationConfig(
+        backend=QuantizeBackend.triton,
+        dtype=DataType.nvint6,
+        scale_rule=ScaleRule.static_6,
+        round_style=RoundStyle.stochastic,
+        block_scale_2d=True,
+    )
+    config_cute = QuantizationConfig(
+        backend=QuantizeBackend.cute_sm100,
+        dtype=DataType.nvint6,
+        scale_rule=ScaleRule.static_6,
+        round_style=RoundStyle.stochastic,
+        block_scale_2d=True,
+    )
+
+    dequantized_triton = dequantize(
+        quantize(x, config_triton),
+        dtype=torch.float32,
+        backend=QuantizeBackend.cute_sm100,
+        intermediate_dtype=torch.float32,
+    )
+    dequantized_cute = dequantize(
+        quantize(x, config_cute),
+        dtype=torch.float32,
+        backend=QuantizeBackend.cute_sm100,
+        intermediate_dtype=torch.float32,
+    )
+    triton_dist = torch.dist(dequantized_triton, x.float())
+    cute_dist = torch.dist(dequantized_cute, x.float())
+
+    print(f"block_scale_2d=True round_style={RoundStyle.stochastic} {triton_dist=} {cute_dist=}")
     assert cute_dist <= triton_dist + CUTE_DEQUANT_METRIC_TOLERANCE
 
 

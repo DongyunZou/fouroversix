@@ -3612,19 +3612,35 @@ CuTe quantize+dequantize fallback. The path was not stable enough to claim:
 `static_4` had a worse max error on `1024x1024`. The temporary support change
 was restored, so true stochastic NVFP4 pseudo remains intentionally unclaimed.
 
+Enabled `block_scale_2d=True` stochastic support for static NVFP3/NVFP3_BS8,
+NVINT3/NVINT3_BS8, and NVINT6. The existing 2D kernels already match Triton for
+`round_style=stochastic`; the support predicates were opened only for
+stochastic, while 2D stochastic-unbiased remains unclaimed after the same
+temporary test showed CuTe worse than Triton by about `1.9%-3.1%` on the FP3
+and INT3 rows. The targeted 2D stochastic and remaining unsupported checks
+passed (`10 passed`).
+
+The full `cute_sm100` test slice passed after the 2D stochastic support change
+(`454 passed, 7 skipped`). A refreshed full benchmark reports `439/476`
+workloads meeting 1.2x and `476/476` strictly faster than Triton. The lower
+1.2x count is isolated to pseudo rows under launch-noise-sensitive small shapes:
+ordinary/base `138/138`, transpose `80/80`, and block_scale_2d `120/120` still
+meet 1.2x, while pseudo is `138/138` strictly faster than Triton and is no
+longer required to meet 1.2x.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
   1D static NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8 stochastic-unbiased is now
   claimed. Remaining non-nearest gaps include NVINT6 stochastic-unbiased and
-  related non-claimed 2D variants.
+  related non-claimed 2D stochastic-unbiased variants.
 - Feature flags still missing: IF6 stochastic-unbiased and 1D NVFP6 E2M3
   stochastic-unbiased. True stochastic NVFP4 pseudo is also intentionally not
   claimed after failing the current Triton-error gate.
 - `block_scale_2d=True` is currently implemented for `nvfp4`,
   `nvfp4_bs8 static_4/static_6`,
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
-  `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
+  `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related stochastic-unbiased variants.
 - Performance target is now met for all ordinary quantize, transpose, and
   block-scale-2d rows in the current supported workload matrix. Pseudo-quantize
   is no longer required to meet 1.2x; all pseudo rows are strictly faster than
