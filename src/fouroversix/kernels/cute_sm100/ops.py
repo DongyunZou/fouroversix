@@ -332,6 +332,8 @@ def _process_nvfp4_static_pseudo_block_bfloat(
     global_scale: Float32,
     max_quantized_value: cutlass.Constexpr[int],
     scale_block_size: cutlass.Constexpr[int] = NVFP4_SCALE_BLOCK_SIZE,
+    stochastic_rounding: cutlass.Constexpr[bool] = False,
+    seed_base: Uint32 = Uint32(0),
 ) -> tuple[
     cutlass.Uint32,
     cutlass.Uint32,
@@ -363,6 +365,54 @@ def _process_nvfp4_static_pseudo_block_bfloat(
     dequant_scale = Float32(0.0)
     if global_scale != Float32(0.0):
         dequant_scale = nvfp4_compute_dequant_scale(scale_fp8_u32, global_scale)
+
+    if cutlass.const_expr(stochastic_rounding):
+        s0, s1 = bfloat2_to_float2_scaled(h0, output_scale)
+        s2, s3 = bfloat2_to_float2_scaled(h1, output_scale)
+        s4, s5 = bfloat2_to_float2_scaled(h2, output_scale)
+        s6, s7 = bfloat2_to_float2_scaled(h3, output_scale)
+        s8, s9 = bfloat2_to_float2_scaled(h4, output_scale)
+        s10, s11 = bfloat2_to_float2_scaled(h5, output_scale)
+        s12, s13 = bfloat2_to_float2_scaled(h6, output_scale)
+        s14, s15 = bfloat2_to_float2_scaled(h7, output_scale)
+
+        q0 = stochastic_round_e2m1_value(s0, seed_base + Uint32(0))
+        q1 = stochastic_round_e2m1_value(s1, seed_base + Uint32(1))
+        q2 = stochastic_round_e2m1_value(s2, seed_base + Uint32(2))
+        q3 = stochastic_round_e2m1_value(s3, seed_base + Uint32(3))
+        q4 = stochastic_round_e2m1_value(s4, seed_base + Uint32(4))
+        q5 = stochastic_round_e2m1_value(s5, seed_base + Uint32(5))
+        q6 = stochastic_round_e2m1_value(s6, seed_base + Uint32(6))
+        q7 = stochastic_round_e2m1_value(s7, seed_base + Uint32(7))
+        q8 = stochastic_round_e2m1_value(s8, seed_base + Uint32(8))
+        q9 = stochastic_round_e2m1_value(s9, seed_base + Uint32(9))
+        q10 = stochastic_round_e2m1_value(s10, seed_base + Uint32(10))
+        q11 = stochastic_round_e2m1_value(s11, seed_base + Uint32(11))
+        q12 = stochastic_round_e2m1_value(s12, seed_base + Uint32(12))
+        q13 = stochastic_round_e2m1_value(s13, seed_base + Uint32(13))
+        q14 = stochastic_round_e2m1_value(s14, seed_base + Uint32(14))
+        q15 = stochastic_round_e2m1_value(s15, seed_base + Uint32(15))
+
+        z = cutlass.Uint32(0)
+        out4 = z
+        out5 = z
+        out6 = z
+        out7 = z
+        if cutlass.const_expr(scale_block_size != 8):
+            out4 = float2_to_bfloat2(q8 * dequant_scale, q9 * dequant_scale)
+            out5 = float2_to_bfloat2(q10 * dequant_scale, q11 * dequant_scale)
+            out6 = float2_to_bfloat2(q12 * dequant_scale, q13 * dequant_scale)
+            out7 = float2_to_bfloat2(q14 * dequant_scale, q15 * dequant_scale)
+        return (
+            float2_to_bfloat2(q0 * dequant_scale, q1 * dequant_scale),
+            float2_to_bfloat2(q2 * dequant_scale, q3 * dequant_scale),
+            float2_to_bfloat2(q4 * dequant_scale, q5 * dequant_scale),
+            float2_to_bfloat2(q6 * dequant_scale, q7 * dequant_scale),
+            out4,
+            out5,
+            out6,
+            out7,
+        )
 
     return (
         bfloat2_nvfp4_dequant_bfloat2(h0, output_scale, dequant_scale),
@@ -3701,6 +3751,8 @@ def _process_nvfp4_adaptive_pseudo_block_bfloat(
     elem_base: Int32,
     global_scale: Float32,
     scale_rule_id: cutlass.Constexpr[int],
+    stochastic_rounding: cutlass.Constexpr[bool] = False,
+    seed_base: Uint32 = Uint32(0),
 ) -> tuple[
     cutlass.Uint32,
     cutlass.Uint32,
@@ -3730,19 +3782,35 @@ def _process_nvfp4_adaptive_pseudo_block_bfloat(
     dequant_scale_6 = Float32(0.0)
     if global_scale != Float32(0.0):
         dequant_scale_6 = nvfp4_compute_dequant_scale(scale_fp8_u32_6, global_scale)
-    error_6 = _nvfp4_block_error_bfloat(
-        h0,
-        h1,
-        h2,
-        h3,
-        h4,
-        h5,
-        h6,
-        h7,
-        selection_scale_6,
-        dequant_scale_6,
-        scale_rule_id,
-    )
+    if cutlass.const_expr(stochastic_rounding):
+        error_6 = _nvfp4_stochastic_block_error_bfloat(
+            h0,
+            h1,
+            h2,
+            h3,
+            h4,
+            h5,
+            h6,
+            h7,
+            selection_scale_6,
+            dequant_scale_6,
+            seed_base,
+            scale_rule_id,
+        )
+    else:
+        error_6 = _nvfp4_block_error_bfloat(
+            h0,
+            h1,
+            h2,
+            h3,
+            h4,
+            h5,
+            h6,
+            h7,
+            selection_scale_6,
+            dequant_scale_6,
+            scale_rule_id,
+        )
 
     scale_float_4 = global_scale * (block_max * rcp_approx_ftz(Float32(4.0)))
     scale_fp8_u32_4 = cvt_f32_to_e4m3(scale_float_4)
@@ -3754,25 +3822,79 @@ def _process_nvfp4_adaptive_pseudo_block_bfloat(
     dequant_scale_4 = Float32(0.0)
     if global_scale != Float32(0.0):
         dequant_scale_4 = nvfp4_compute_dequant_scale(scale_fp8_u32_4, global_scale)
-    error_4 = _nvfp4_block_error_bfloat(
-        h0,
-        h1,
-        h2,
-        h3,
-        h4,
-        h5,
-        h6,
-        h7,
-        selection_scale_4,
-        dequant_scale_4,
-        scale_rule_id,
-    )
+    if cutlass.const_expr(stochastic_rounding):
+        error_4 = _nvfp4_stochastic_block_error_bfloat(
+            h0,
+            h1,
+            h2,
+            h3,
+            h4,
+            h5,
+            h6,
+            h7,
+            selection_scale_4,
+            dequant_scale_4,
+            seed_base,
+            scale_rule_id,
+        )
+    else:
+        error_4 = _nvfp4_block_error_bfloat(
+            h0,
+            h1,
+            h2,
+            h3,
+            h4,
+            h5,
+            h6,
+            h7,
+            selection_scale_4,
+            dequant_scale_4,
+            scale_rule_id,
+        )
 
     output_scale = output_scale_6
     dequant_scale = dequant_scale_6
     if error_4 < error_6:
         output_scale = output_scale_4
         dequant_scale = dequant_scale_4
+
+    if cutlass.const_expr(stochastic_rounding):
+        s0, s1 = bfloat2_to_float2_scaled(h0, output_scale)
+        s2, s3 = bfloat2_to_float2_scaled(h1, output_scale)
+        s4, s5 = bfloat2_to_float2_scaled(h2, output_scale)
+        s6, s7 = bfloat2_to_float2_scaled(h3, output_scale)
+        s8, s9 = bfloat2_to_float2_scaled(h4, output_scale)
+        s10, s11 = bfloat2_to_float2_scaled(h5, output_scale)
+        s12, s13 = bfloat2_to_float2_scaled(h6, output_scale)
+        s14, s15 = bfloat2_to_float2_scaled(h7, output_scale)
+
+        q0 = stochastic_round_e2m1_value(s0, seed_base + Uint32(0))
+        q1 = stochastic_round_e2m1_value(s1, seed_base + Uint32(1))
+        q2 = stochastic_round_e2m1_value(s2, seed_base + Uint32(2))
+        q3 = stochastic_round_e2m1_value(s3, seed_base + Uint32(3))
+        q4 = stochastic_round_e2m1_value(s4, seed_base + Uint32(4))
+        q5 = stochastic_round_e2m1_value(s5, seed_base + Uint32(5))
+        q6 = stochastic_round_e2m1_value(s6, seed_base + Uint32(6))
+        q7 = stochastic_round_e2m1_value(s7, seed_base + Uint32(7))
+        q8 = stochastic_round_e2m1_value(s8, seed_base + Uint32(8))
+        q9 = stochastic_round_e2m1_value(s9, seed_base + Uint32(9))
+        q10 = stochastic_round_e2m1_value(s10, seed_base + Uint32(10))
+        q11 = stochastic_round_e2m1_value(s11, seed_base + Uint32(11))
+        q12 = stochastic_round_e2m1_value(s12, seed_base + Uint32(12))
+        q13 = stochastic_round_e2m1_value(s13, seed_base + Uint32(13))
+        q14 = stochastic_round_e2m1_value(s14, seed_base + Uint32(14))
+        q15 = stochastic_round_e2m1_value(s15, seed_base + Uint32(15))
+
+        return (
+            float2_to_bfloat2(q0 * dequant_scale, q1 * dequant_scale),
+            float2_to_bfloat2(q2 * dequant_scale, q3 * dequant_scale),
+            float2_to_bfloat2(q4 * dequant_scale, q5 * dequant_scale),
+            float2_to_bfloat2(q6 * dequant_scale, q7 * dequant_scale),
+            float2_to_bfloat2(q8 * dequant_scale, q9 * dequant_scale),
+            float2_to_bfloat2(q10 * dequant_scale, q11 * dequant_scale),
+            float2_to_bfloat2(q12 * dequant_scale, q13 * dequant_scale),
+            float2_to_bfloat2(q14 * dequant_scale, q15 * dequant_scale),
+        )
 
     return (
         bfloat2_nvfp4_dequant_bfloat2(h0, output_scale, dequant_scale),
@@ -9089,10 +9211,12 @@ class Sm100NVFP4StaticPseudoQuantize:
         k: int,
         max_quantized_value: int,
         scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+        stochastic_rounding: bool = False,
     ):
         self.k = k
         self.max_quantized_value = max_quantized_value
         self.scale_block_size = scale_block_size
+        self.stochastic_rounding = stochastic_rounding
         self.scale_blocks_per_row = k // scale_block_size
 
     @cute.jit
@@ -9144,6 +9268,8 @@ class Sm100NVFP4StaticPseudoQuantize:
                     global_scale,
                     self.max_quantized_value,
                     self.scale_block_size,
+                    self.stochastic_rounding,
+                    Uint32(row_idx * self.k + elem_base),
                 )
             )
 
@@ -9772,9 +9898,10 @@ class Sm100MXFP6StaticPseudoQuantize:
 
 
 class Sm100NVFP4AdaptivePseudoQuantize:
-    def __init__(self, k: int, scale_rule_id: int):
+    def __init__(self, k: int, scale_rule_id: int, stochastic_rounding: bool = False):
         self.k = k
         self.scale_rule_id = scale_rule_id
+        self.stochastic_rounding = stochastic_rounding
         self.scale_blocks_per_row = k // NVFP4_SCALE_BLOCK_SIZE
 
     @cute.jit
@@ -9825,6 +9952,8 @@ class Sm100NVFP4AdaptivePseudoQuantize:
                     elem_base,
                     global_scale,
                     self.scale_rule_id,
+                    self.stochastic_rounding,
+                    Uint32(row_idx * self.k + elem_base),
                 )
             )
 
@@ -10662,6 +10791,7 @@ def _compile_static_pseudo_quantize(
     k: int,
     max_quantized_value: int,
     scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+    stochastic_rounding: bool = False,
 ):
     sym_m = cute.sym_int()
 
@@ -10684,7 +10814,12 @@ def _compile_static_pseudo_quantize(
     )
     stream_fake = cute.runtime.make_fake_stream()
 
-    kernel = Sm100NVFP4StaticPseudoQuantize(k, max_quantized_value, scale_block_size)
+    kernel = Sm100NVFP4StaticPseudoQuantize(
+        k,
+        max_quantized_value,
+        scale_block_size,
+        stochastic_rounding,
+    )
     compiled = cute.compile(
         kernel,
         x_fake,
@@ -12982,7 +13117,11 @@ def _compile_nvfp6_static_quantize_2d(
 
 
 @functools.cache
-def _compile_adaptive_pseudo_quantize(k: int, scale_rule_id: int):
+def _compile_adaptive_pseudo_quantize(
+    k: int,
+    scale_rule_id: int,
+    stochastic_rounding: bool = False,
+):
     sym_m = cute.sym_int()
 
     x_fake = cute.runtime.make_fake_compact_tensor(
@@ -13004,7 +13143,7 @@ def _compile_adaptive_pseudo_quantize(k: int, scale_rule_id: int):
     )
     stream_fake = cute.runtime.make_fake_stream()
 
-    kernel = Sm100NVFP4AdaptivePseudoQuantize(k, scale_rule_id)
+    kernel = Sm100NVFP4AdaptivePseudoQuantize(k, scale_rule_id, stochastic_rounding)
     compiled = cute.compile(
         kernel,
         x_fake,
@@ -13519,6 +13658,7 @@ def pseudo_quantize_nvfp4_static(
     *,
     max_quantized_value: int,
     scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+    stochastic_rounding: bool = False,
     x_amax: torch.Tensor | None = None,
 ) -> torch.Tensor:
     m, k = _validate_quantize_input(x, max_quantized_value)
@@ -13538,7 +13678,12 @@ def pseudo_quantize_nvfp4_static(
         threads_per_block=PSEUDO_THREADS_PER_BLOCK,
     )
 
-    kernel = _compile_static_pseudo_quantize(k, max_quantized_value, scale_block_size)
+    kernel = _compile_static_pseudo_quantize(
+        k,
+        max_quantized_value,
+        scale_block_size,
+        stochastic_rounding,
+    )
     kernel(
         x,
         out,
@@ -15589,6 +15734,7 @@ def pseudo_quantize_nvfp4_adaptive(
     x: torch.Tensor,
     *,
     scale_rule_id: int,
+    stochastic_rounding: bool = False,
     x_amax: torch.Tensor | None = None,
 ) -> torch.Tensor:
     if scale_rule_id not in {SCALE_RULE_ABS_MAX, SCALE_RULE_MAE, SCALE_RULE_MSE}:
@@ -15606,7 +15752,7 @@ def pseudo_quantize_nvfp4_adaptive(
         threads_per_block=THREADS_PER_BLOCK,
     )
 
-    kernel = _compile_adaptive_pseudo_quantize(k, scale_rule_id)
+    kernel = _compile_adaptive_pseudo_quantize(k, scale_rule_id, stochastic_rounding)
     kernel(
         x,
         out,

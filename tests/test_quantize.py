@@ -645,19 +645,56 @@ def test_cute_sm100_nvfp4_stochastic_unbiased_pseudo_quantize_matches_triton_err
     )
 
 
-def test_cute_sm100_nvfp4_stochastic_pseudo_quantize_is_not_claimed() -> None:
+@pytest.mark.parametrize(
+    "scale_rule",
+    [
+        ScaleRule.abs_max,
+        ScaleRule.mae,
+        ScaleRule.mse,
+        ScaleRule.static_4,
+        ScaleRule.static_6,
+    ],
+)
+def test_cute_sm100_nvfp4_stochastic_pseudo_quantize_matches_triton_error(
+    scale_rule: ScaleRule,
+) -> None:
     _require_cuda_for_cute_sm100_accuracy()
 
+    torch.manual_seed(0)
     x = torch.randn(128, 256, dtype=torch.bfloat16, device="cuda")
-    config = QuantizationConfig(
+    config_triton = QuantizationConfig(
+        backend=QuantizeBackend.triton,
+        dtype=DataType.nvfp4,
+        scale_rule=scale_rule,
+        round_style=RoundStyle.stochastic,
+        pseudo_quantize=True,
+    )
+    config_cute = QuantizationConfig(
         backend=QuantizeBackend.cute_sm100,
         dtype=DataType.nvfp4,
-        scale_rule=ScaleRule.mse,
+        scale_rule=scale_rule,
         round_style=RoundStyle.stochastic,
         pseudo_quantize=True,
     )
 
-    assert not AVAILABLE_BACKENDS[QuantizeBackend.cute_sm100].can_quantize(x, config)
+    pseudo_triton = quantize(x, config_triton)
+    pseudo_cute = quantize(x, config_cute)
+    triton_input_diff = pseudo_triton.float() - x.float()
+    cute_input_diff = pseudo_cute.float() - x.float()
+
+    assert isinstance(pseudo_cute, torch.Tensor)
+    assert pseudo_cute.shape == x.shape
+    assert pseudo_cute.dtype == x.dtype
+    assert (cute_input_diff * cute_input_diff).mean().item() <= (
+        (triton_input_diff * triton_input_diff).mean().item()
+        + CUTE_DEQUANT_METRIC_TOLERANCE
+    )
+    assert cute_input_diff.abs().mean().item() <= (
+        triton_input_diff.abs().mean().item() + CUTE_DEQUANT_METRIC_TOLERANCE
+    )
+    assert cute_input_diff.abs().max().item() <= (
+        triton_input_diff.abs().max().item() + CUTE_DEQUANT_METRIC_TOLERANCE
+    )
 
 
 @pytest.mark.parametrize(

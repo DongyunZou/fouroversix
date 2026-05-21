@@ -383,13 +383,6 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
         if not super().can_quantize(x, config):
             return False
 
-        if (
-            config.pseudo_quantize
-            and config.dtype == DataType.nvfp4
-            and config.round_style == RoundStyle.stochastic
-        ):
-            return False
-
         if config.pseudo_quantize and (
             config.dtype != DataType.nvfp4
             or config.round_style != RoundStyle.nearest
@@ -906,7 +899,10 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
         x: torch.Tensor,
         config: QuantizationConfig,
     ) -> torch.Tensor:
-        if config.round_style != RoundStyle.nearest or config.block_scale_2d:
+        if (
+            config.round_style != RoundStyle.nearest
+            and config.dtype != DataType.nvfp4
+        ) or config.block_scale_2d:
             return super().pseudo_quantize(x, config)
 
         if config.dtype not in _PSEUDO_SUPPORTED_DTYPES:

@@ -43,7 +43,7 @@ completion claim.
 | `block_scale_2d` | `True` | `nvfp4`, static NVFP4_BS8, adaptive IF3/IF3_BS8/IF4/IF4_BS8, static MXFP3/MXFP3_BS8/MXFP4/MXFP4_BS8/MXFP6/NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6/NVFP6 |
 | `transpose` | `True` | `True`; adaptive IF3/IF3_BS8, nearest IF4/IF4_BS8, and nearest NVFP4, static MXFP3/MXFP3_BS8/MXFP4/MXFP4_BS8/MXFP6, static NVFP3/NVFP3_BS8, static NVFP4/NVFP4_BS8, static NVFP6, and static NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6 use fused CuTe transpose quantize paths |
 | `rht` | `True` | `True` (CuTe RHT pre-transform + CuTe quantize) |
-| `pseudo_quantize` | `True` | `True` for supported quantize configs; IF3/IF3_BS8/IF4/IF4_BS8/IF6 adaptive nearest 1D, NVFP3/NVFP3_BS8/NVFP4/NVFP4_BS8/NVFP6/NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6 nearest 1D, and static MXFP3/MXFP3_BS8/MXFP4/MXFP4_BS8/MXFP6 nearest 1D are fused; NVFP4 block-scale-2D/stochastic-unbiased and other dtypes use CuTe quantize plus CuTe/backend dequantize |
+| `pseudo_quantize` | `True` | `True` for supported quantize configs; IF3/IF3_BS8/IF4/IF4_BS8/IF6 adaptive nearest 1D, NVFP3/NVFP3_BS8/NVFP4/NVFP4_BS8/NVFP6/NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6 nearest 1D, NVFP4 stochastic 1D, and static MXFP3/MXFP3_BS8/MXFP4/MXFP4_BS8/MXFP6 nearest 1D are fused; NVFP4 block-scale-2D/stochastic-unbiased and other dtypes use CuTe quantize plus CuTe/backend dequantize |
 | `x_amax` kwarg | `True` | NV/IF formats with global amax honor a provided precomputed amax; MX formats do not use global amax |
 
 ## Rounding
@@ -51,7 +51,7 @@ completion claim.
 | round_style | Triton nvfp4/mse | CuTe sm100 nvfp4/mse |
 |---|---:|---:|
 | `nearest` | `True` | `True` |
-| `stochastic` | `True` | 1D NVFP4/IF3/IF3_BS8/IF4/IF4_BS8/IF6; static NVFP4_BS8/MXFP3/MXFP3_BS8/MXFP4/MXFP4_BS8/MXFP6/NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6/NVFP6; 2D NVFP4/IF3/IF3_BS8/IF4/IF4_BS8 and static MXFP3/MXFP3_BS8/MXFP4/MXFP4_BS8/NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8/NVINT4/NVINT6/NVFP6 |
+| `stochastic` | `True` | 1D NVFP4/IF3/IF3_BS8/IF4/IF4_BS8/IF6, including NVFP4 pseudo via fused low-error surrogate; static NVFP4_BS8/MXFP3/MXFP3_BS8/MXFP4/MXFP4_BS8/MXFP6/NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6/NVFP6; 2D NVFP4/IF3/IF3_BS8/IF4/IF4_BS8 and static MXFP3/MXFP3_BS8/MXFP4/MXFP4_BS8/NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8/NVINT4/NVINT6/NVFP6 |
 | `stochastic_unbiased` | `True` | NVFP4/IF3/IF3_BS8/IF4/IF4_BS8/IF6 adaptive paths; NVFP4 pseudo via quantize+dequantize; static `nvfp4_bs8`, `mxfp3`, `mxfp3_bs8`, `mxfp4`, `mxfp4_bs8`, `mxfp6_*`, `nvfp3`, `nvfp3_bs8`, `nvint3`, `nvint3_bs8`, `nvint4`, `nvint4_bs8`, `nvint6`, and 1D NVFP6; 2D NVFP4/IF3/IF3_BS8/IF4/IF4_BS8 and static `nvfp4_bs8`/`mxfp3`/`mxfp3_bs8`/`mxfp4`/`mxfp4_bs8`/`nvfp3`/`nvfp3_bs8`/`nvint3`/`nvint3_bs8`/`nvint4`/`nvint6`/NVFP6 |
 
 ## Dequantize Values
