@@ -3325,6 +3325,15 @@ regressed from the retained `390/476` snapshot to `353/476`, so the code and
 benchmark JSON were restored. Simple CTA downsizing is not a useful retained
 fix for the remaining ordinary NVFP4 gap.
 
+Tested retuning only the IF3/IF3_BS8 pseudo CTA from 256 to the shared
+128-thread pseudo CTA size, with matching wrapper launch-grid sizing. The
+targeted IF3 pseudo CuTe accuracy slice passed (`6 passed`). Focused timings
+did not close the remaining pseudo gap: most 128x256 and 1024x1024 IF3/IF3_BS8
+rows stayed around `1.17x-1.20x`, and the 4096x4096 non-BS8 IF3 rows remained
+around `0.99x/1.08x/1.08x` for `abs_max/mae/mse`. The experiment was reverted
+without running a full benchmark; IF3 pseudo still needs a different kernel
+mapping rather than only CTA-size alignment.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
