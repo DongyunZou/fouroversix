@@ -1,11 +1,11 @@
 # CuTe sm100 full Triton parity progress
 
-This is a progress record. Under the current agreed performance policy, the
-default auto-amax workload matrix is complete: non-pseudo rows require
-`>=1.2x` Triton, pseudo rows require strict speedup over Triton, and the latest
-snapshot has `476/476` rows meeting the required target. A provided-`x_amax`
-matrix is documented separately below and is not part of this completion
-claim.
+Current authoritative status is summarized in `CURRENT_STATUS.md`. Under the
+current agreed performance policy, the default auto-amax workload matrix is
+complete: non-pseudo rows require `>=1.2x` Triton, pseudo rows require strict
+speedup over Triton, and the latest snapshot has `476/476` rows meeting the
+required target. A provided-`x_amax` matrix is documented separately below and
+is not part of this completion claim.
 
 Historical entries below are chronological notes from intermediate
 experiments. They are intentionally kept as history, so older sections may
