@@ -3696,6 +3696,13 @@ tests (`values_equal` fell to about `0.96` on `abs_max`, and the IF6 slice had
 again (`44 passed`). This indicates the stochastic-unbiased path needs a
 separate semantic treatment rather than changing the shared IF6 E3M2 constant.
 
+Swept the 1D NVINT6 stochastic-unbiased scale adjustment to verify whether the
+remaining gap is just the global `16/17` factor. It is not: on the same
+`1024x1024 static_6` input, Triton reports `21.59`, while CuTe gives `22.72`
+at `16/17`; nearby factors are worse (`0.94 -> 22.75`, `0.95 -> 23.42`,
+`0.92 -> 33.98`). The existing 1D NVINT6 stochastic-unbiased support block
+therefore remains correct.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
