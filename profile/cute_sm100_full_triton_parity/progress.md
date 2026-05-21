@@ -3605,6 +3605,13 @@ not worse than Triton for all four newly claimed dtypes: NVFP3 `197.25` vs
 Triton `208.82`, NVFP3_BS8 `172.04` vs `185.33`, NVINT3 `203.93` vs `220.25`,
 and NVINT3_BS8 `172.33` vs `188.79`.
 
+Re-tested NVFP4 `pseudo_quantize=True` with `round_style=stochastic` by
+temporarily removing the hard support block and routing through the generic
+CuTe quantize+dequantize fallback. The path was not stable enough to claim:
+`mse` was slightly worse than Triton on both `128x256` and `1024x1024`, and
+`static_4` had a worse max error on `1024x1024`. The temporary support change
+was restored, so true stochastic NVFP4 pseudo remains intentionally unclaimed.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
