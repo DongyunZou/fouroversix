@@ -3395,6 +3395,16 @@ miss, like the NVFP4 2D miss, is not a slower CuTe kernel-body problem; short
 public `quantize()` rows are dominated by fixed frontend/enqueue spacing.
 Reports are under `profile/cute_sm100_full_triton_parity/ncu/nvfp4_absmax1024_*`.
 
+Tested whether passing a precomputed `x_amax` can expose the CuTe kernel-body
+advantage on representative remaining rows. It does not help the current public
+path enough: `1024x1024 nvfp4 abs_max` moved from `1.13x` without `x_amax` to
+`0.90x` with `x_amax`; `1024x1024 nvfp4 mse block_scale_2d=True` moved from
+`1.18x` to `0.94x`; `128x256 nvfp4 mse block_scale_2d=True` moved from
+`1.13x` to `0.93x`; and `4096x4096 if3 abs_max pseudo_quantize=True` moved
+from `0.98x` to `0.67x`. Triton benefits more from skipping its amax path, while
+the CuTe public path still pays substantial fixed launch/wrapper overhead. This
+rules out "just provide/reuse amax" as a broad fix for the current benchmark.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
