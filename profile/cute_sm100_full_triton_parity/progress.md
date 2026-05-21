@@ -3548,6 +3548,14 @@ MSE around `0.058` for IF3 and `0.036` for IF3_BS8. The code was restored.
 This confirms that the remaining row needs a faster implementation of the same
 selection semantics, not a semantic shortcut.
 
+Tested reducing IF3 pseudo launch work by assigning two scale blocks to each
+CuTe thread and halving the launch grid. The focused IF3 pseudo tests passed
+(`6 passed`), but focused timing for
+`4096x4096 if3 abs_max pseudo_quantize=True` was effectively unchanged:
+Triton `~0.0597 ms`, CuTe `~0.0607 ms`, speedup `~0.983x`. The code was
+restored. Simply reducing launched thread count without changing the per-block
+instruction shape does not address the NCU-observed compute pressure.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
