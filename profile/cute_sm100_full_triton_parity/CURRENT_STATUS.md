@@ -20,12 +20,12 @@ Source: `benchmark_current.json`
 
 - Total rows: `476`
 - Rows meeting the required target: `476/476`
-- Rows meeting the old all-rows `>=1.2x` policy: `463/476`
+- Rows meeting the old all-rows `>=1.2x` policy: `476/476`
 - Non-pseudo rows meeting `>=1.2x`: `338/338`
 - Pseudo rows strictly faster than Triton: `138/138`
 - Rows below the required target: `0`
 
-Fresh benchmark regeneration on 2026-05-21:
+Fresh benchmark regeneration with strict pseudo `>1.0x` target on 2026-05-21:
 
 ```text
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python profile/cute_sm100_full_triton_parity/benchmark_current.py

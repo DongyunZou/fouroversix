@@ -165,8 +165,12 @@ def main() -> None:
                         iters=iters,
                     )
                     speedup = triton_ms / cute_ms
-                    required_speedup = (
-                        1.0 if feature_kwargs.get("pseudo_quantize") else 1.2
+                    is_pseudo = feature_kwargs.get("pseudo_quantize", False)
+                    required_speedup = 1.0 if is_pseudo else 1.2
+                    meets_required_target = (
+                        speedup > required_speedup
+                        if is_pseudo
+                        else speedup >= required_speedup
                     )
                     rows.append(
                         {
@@ -181,7 +185,7 @@ def main() -> None:
                             "speedup_vs_triton": speedup,
                             "required_speedup": required_speedup,
                             "meets_1_2x": speedup >= 1.2,
-                            "meets_required_target": speedup >= required_speedup,
+                            "meets_required_target": meets_required_target,
                         },
                     )
 
