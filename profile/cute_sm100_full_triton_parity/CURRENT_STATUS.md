@@ -39,6 +39,13 @@ the actual sm100 Triton kernel does not compile/run in the executable audit.
 
 ## Validation
 
+Fresh verification on 2026-05-21:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/test_quantize.py -q -rxXs -k cute_sm100
+488 passed, 10 skipped, 34631 deselected, 1 warning in 36.55s
+```
+
 Latest recorded full `cute_sm100` quantize test selection:
 
 ```text
@@ -50,4 +57,3 @@ Latest recorded targeted provided-`x_amax` test selection:
 ```text
 11 passed, 35118 deselected, 1 warning
 ```
-
