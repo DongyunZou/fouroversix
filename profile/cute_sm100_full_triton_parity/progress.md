@@ -3645,6 +3645,18 @@ ordinary/base `138/138`, transpose `80/80`, and block_scale_2d `120/120` still
 meet 1.2x, while pseudo is `138/138` strictly faster than Triton and is no
 longer required to meet 1.2x.
 
+Profiled a representative remaining pseudo row below the old 1.2x bar,
+`1024x1024 if4 mse pseudo_quantize=True`, with Nsight Compute to check whether
+Triton has a better kernel body. The profile shows the opposite: Triton launches
+four GPU kernel groups per profiled call, led by `pseudo_quantization_kernel`
+at `31.52 us` median and ATen reduction/elementwise kernels; CuTe launches the
+same reduction plus one fused `Sm100IF4AdaptivePseudoQuantize` kernel at
+`6.05 us` median. Summed profiled GPU time is about `49.19 us/iter` for Triton
+and `15.15 us/iter` for CuTe. The benchmark row's modest `~1.17x` speedup is
+therefore fixed frontend/launch overhead around a small pseudo workload, not a
+Triton kernel-throughput advantage. Reports are under
+`profile/cute_sm100_full_triton_parity/ncu/if4_mse1024_pseudo_*`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
