@@ -3703,6 +3703,16 @@ at `16/17`; nearby factors are worse (`0.94 -> 22.75`, `0.95 -> 23.42`,
 `0.92 -> 33.98`). The existing 1D NVINT6 stochastic-unbiased support block
 therefore remains correct.
 
+Localized the 1D NVFP6 E2M3 stochastic-unbiased mismatch further. For
+`round_style=stochastic`, CuTe and Triton match exactly on `1024x1024`
+(`100%` equal scales and values, identical dequant distance `26.43`). For
+`stochastic_unbiased`, scale equality drops to `62.65%`, value equality to
+`45.25%`, and CuTe remains worse (`26.54` vs Triton `26.02`). Temporarily
+changing the CuTe NVFP6 scale computation from `rcp.approx` to explicit
+division had no effect on either equality or distance, so the gap is not caused
+by reciprocal approximation; the code was restored and the targeted NVFP6
+stochastic slice still passes (`10 passed`).
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
