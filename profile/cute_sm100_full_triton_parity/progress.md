@@ -3245,6 +3245,15 @@ only `305/476` workloads meeting 1.2x, below the retained `319/476` snapshot, so
 the code and benchmark JSON were restored. This is a useful local signal for
 small IF3 pseudo overhead, but not a retained global improvement.
 
+Removed the `SM * BLOCKS_PER_SM` launch-grid cap from the NVFP4/NVFP4_BS8
+static base path while keeping the retained 128-thread CTA. The targeted
+NVFP4 static accuracy slice passed (`28 passed, 6 skipped`). Focused timings for
+`nvfp4/nvfp4_bs8 static_4/static_6` all moved to roughly `1.20x` or better
+across 128x256, 1024x1024, and 4096x4096. The full median benchmark improved
+from the retained `319/476` snapshot to `342/476` workloads meeting 1.2x, so
+this change was retained. Remaining misses are now `134/476`, led by pseudo
+rows (`70`) and near-threshold NVFP4/IF/NV static rows.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3259,5 +3268,5 @@ small IF3 pseudo overhead, but not a retained global improvement.
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `319/476`
+  latest median capability-driven benchmark snapshot reports `342/476`
   workloads meeting 1.2x.
