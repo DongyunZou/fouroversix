@@ -3172,6 +3172,15 @@ was reverted. This rules out Python dtype-branch ordering as a useful path for
 the remaining IF pseudo gap; the persistent 4096x4096 IF3 non-BS8 row still
 needs kernel-body candidate/error reduction.
 
+Tested a 128-thread CTA retune for NVINT3/NVINT3_BS8, NVINT4/NVINT4_BS8, and
+NVINT6 static pseudo kernels, including matching wrapper launch-grid sizing.
+The targeted NVINT pseudo accuracy slice passed (`7 passed`), but focused timing
+did not improve the remaining small/medium rows: representative 128x256 and
+1024x1024 NVINT pseudo rows stayed around `1.11x-1.15x`, while the 4096x4096
+rows were already well above target. The experiment was reverted; the remaining
+NVINT pseudo misses are fixed-overhead limited rather than helped by smaller
+CTAs.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
