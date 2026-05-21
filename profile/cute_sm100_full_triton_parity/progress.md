@@ -4023,6 +4023,19 @@ waves/SM and `22.6-23.1 us` kernel duration. The old all-rows-1.2x count is
 `471/476` in this refreshed run; all non-pseudo rows remain at or above
 `1.2x`.
 
+Retuned NVFP3 and NVFP6 block-scale-2d static launch grids to use their natural
+tile grids instead of the SM-count cap. Focused timings on the affected
+`block_scale_2d=True` rows show the NVFP3/NVFP6 static paths at about
+`1.34x-1.37x` across 128x256, 1024x1024, and 4096x4096. The refreshed full
+benchmark still reports `476/476` rows meeting the required target, with all
+`338/338` non-pseudo rows at `>=1.2x`. NCU on `4096x4096 nvfp3 static_6 2D`
+confirms the CuTe quant kernel now launches grid `4096`, block `256`, with
+about `3.46` waves/SM and `21.8-22.5 us` kernel duration. NCU on
+`4096x4096 nvfp6_e3m2 static_6 2D` confirms grid `2048`, block `32`, with
+about `0.43` waves/SM and `17.4-17.9 us` kernel duration. The old
+all-rows-1.2x count is `466/476` in this run because pseudo rows are not held
+to the 1.2x target and continue to show more timing noise.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and

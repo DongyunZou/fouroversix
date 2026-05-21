@@ -14727,9 +14727,8 @@ def quantize_nvfp3_static_2d(
     total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
         k // NVFP4_SCALE_BLOCK_SIZE
     )
-    num_blocks = _launch_grid(
+    num_blocks = _uncapped_launch_grid(
         total_scale_tiles,
-        x.device,
         threads_per_block=IF3_2D_GROUPS_PER_BLOCK,
     )
 
@@ -15091,9 +15090,8 @@ def quantize_nvfp6_static_2d(
     total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
         k // NVFP4_SCALE_BLOCK_SIZE
     )
-    num_blocks = _launch_grid(
+    num_blocks = _uncapped_launch_grid(
         total_scale_tiles,
-        x.device,
         threads_per_block=STATIC_2D_THREADS_PER_BLOCK,
     )
 
