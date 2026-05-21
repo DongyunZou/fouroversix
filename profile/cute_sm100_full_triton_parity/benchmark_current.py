@@ -180,7 +180,7 @@ def main() -> None:
                             "cute_sm100_samples_ms": cute_samples,
                             "speedup_vs_triton": speedup,
                             "required_speedup": required_speedup,
-                            "meets_1_2x": speedup >= required_speedup,
+                            "meets_1_2x": speedup >= 1.2,
                             "meets_required_target": speedup >= required_speedup,
                         },
                     )
@@ -200,7 +200,7 @@ def main() -> None:
     out_path = Path(__file__).with_name("benchmark_current.json")
     out_path.write_text(json.dumps(output, indent=2) + "\n")
     print(out_path)
-    failures = [row for row in rows if not row["meets_1_2x"]]
+    failures = [row for row in rows if not row["meets_required_target"]]
     print(f"{len(rows) - len(failures)}/{len(rows)} workloads meet required target")
     for row in failures:
         print(

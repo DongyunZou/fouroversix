@@ -9105,7 +9105,7 @@ class Sm100NVFP6StaticQuantize2D:
     ):
         self.kernel(x, values, scales, total_scale_tiles, amax_tensor).launch(
             grid=[num_blocks, 1, 1],
-            block=[THREADS_PER_BLOCK, 1, 1],
+            block=[STATIC_2D_THREADS_PER_BLOCK, 1, 1],
             max_number_threads=[MAX_THREADS_PER_BLOCK, 1, 1],
             min_blocks_per_mp=BLOCKS_PER_SM,
             stream=stream,
@@ -9124,8 +9124,8 @@ class Sm100NVFP6StaticQuantize2D:
         bidx, _, _ = cute.arch.block_idx()
         grid_dim_x, _, _ = cute.arch.grid_dim()
 
-        tile_idx = bidx * THREADS_PER_BLOCK + tidx
-        stride = grid_dim_x * THREADS_PER_BLOCK
+        tile_idx = bidx * STATIC_2D_THREADS_PER_BLOCK + tidx
+        stride = grid_dim_x * STATIC_2D_THREADS_PER_BLOCK
         global_scale = _compute_global_scale(
             amax_tensor,
             float(self.max_quantized_value)
@@ -15018,7 +15018,11 @@ def quantize_nvfp6_static_2d(
     total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
         k // NVFP4_SCALE_BLOCK_SIZE
     )
-    num_blocks = _launch_grid(total_scale_tiles, x.device)
+    num_blocks = _launch_grid(
+        total_scale_tiles,
+        x.device,
+        threads_per_block=STATIC_2D_THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_nvfp6_static_quantize_2d(
         k,

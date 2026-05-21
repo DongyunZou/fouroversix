@@ -36,6 +36,12 @@ completion claim.
 | `nvint4_bs8` | static_6 | 1 | 1 | - |
 | `nvint6` | static_6 | 1 | 1 | - |
 
+Note: the benchmark/test workload matrix intentionally restricts
+`nvfp4_bs8` to `static_4/static_6`. A broader audit over
+`DataType.supported_scale_rules` exposes Triton-supported `nvfp4_bs8`
+adaptive rules (`abs_max`, `mae`, `mse`) that CuTe sm100 does not currently
+claim.
+
 ## Feature flags
 
 | feature | Triton | CuTe sm100 current |

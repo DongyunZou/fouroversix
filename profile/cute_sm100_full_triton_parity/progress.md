@@ -3897,6 +3897,29 @@ than Triton (`138/138`). Under the old all-rows-1.2x policy, `468/476` rows are
 at or above `1.2x`; the remaining eight are pseudo rows now governed by the
 relaxed pseudo target.
 
+Profiled the weakest non-pseudo row from the refreshed benchmark,
+`1024x1024 nvfp6_e3m2 static_6 block_scale_2d=True`, against Triton with NCU.
+Triton launches four kernels per call: abs helper (`~4.2 us`), reduce
+(`~9.2 us`), copy helper (`~4.0 us`), and `quantization_kernel`
+(`~12.4-12.6 us`, grid `8x16`, block `128`). CuTe launches reduce plus
+`Sm100NVFP6StaticQuantize2D`; the previous CuTe 2D quantize launch used block
+`256`, grid `16`, and NCU reported only about `0.01` waves/SM. Retuned only the
+NVFP6 2D launch to the existing 32-thread static-2D CTA shape, raising the
+1024 row to grid `128`. The CuTe quantize kernel moved from roughly
+`13.57-13.63 us` to `12.96-13.18 us`, and the refreshed full benchmark still
+reports `476/476` rows meeting the required target with `338/338` non-pseudo
+rows at `>=1.2x`. NVFP6 2D rows are now `1.242x-1.284x` in the benchmark.
+Details are recorded in
+`profile/cute_sm100_full_triton_parity/ncu/nvfp6_2d_e3m2_1024_profile.md`.
+
+Profiled the weakest pseudo row class as well (`1024x1024 if4 mae
+pseudo_quantize=True`). NCU shows Triton's main pseudo kernel is not faster:
+Triton spends about `31.2-31.6 us` in `pseudo_quantization_kernel` plus helper
+and reduce kernels, while CuTe spends about `6.1-6.4 us` in the fused
+`Sm100IF4AdaptivePseudoQuantize` plus reduce. The benchmark rows below the old
+all-rows-1.2x target are therefore fixed-overhead/pseudo-policy rows, not cases
+where Triton's kernel body is better.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
@@ -3908,6 +3931,12 @@ relaxed pseudo target.
   fused low-error pseudo surrogate. A true stochastic pseudo implementation was
   tested and remains lower quality than Triton on the strict pseudo error gate,
   so the retained pseudo route is deliberately not the true stochastic kernel.
+- A broader audit over `DataType.supported_scale_rules` still exposes
+  NVFP4_BS8 adaptive rule combinations (`abs_max`, `mae`, `mse`) outside the
+  current benchmark matrix. The current matrix intentionally covers
+  NVFP4_BS8 `static_4/static_6`; do not interpret the `476/476` benchmark
+  result as a claim that those wider adaptive NVFP4_BS8 combinations are
+  implemented.
 - `block_scale_2d=True` is currently implemented for `nvfp4`,
   `nvfp4_bs8 static_4/static_6`,
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
