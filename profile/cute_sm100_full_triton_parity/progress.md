@@ -3504,6 +3504,20 @@ passed (`449 passed, 7 skipped`). The full capability benchmark improved from
 the retained `468/476` snapshot to `470/476`; the remaining misses are all
 pseudo rows (`6` pseudo misses, `0` ordinary, `0` block_scale_2d).
 
+Tested a still narrower IF3/IF4 non-transform pseudo helper for
+non-transpose/non-RHT adaptive IF pseudo rows, avoiding the RHT wrapper in the
+hot path. The focused pseudo slice passed (`72 passed`), but the full
+capability benchmark regressed from the retained `470/476` snapshot to
+`457/476`. The code and benchmark JSON were restored; this extra split is not
+a stable retained optimization.
+
+Tested a one-wrapper NVFP4/NVFP4_BS8 static pseudo helper for
+non-transpose/non-RHT static NVFP4 pseudo rows, avoiding the broader static-NV
+helper tuple. The focused pseudo slice passed (`72 passed`), but the full
+capability benchmark regressed from the retained `470/476` snapshot to
+`468/476`. The code and benchmark JSON were restored; the retained static-NV
+pseudo helper remains the broader narrow helper added above.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
