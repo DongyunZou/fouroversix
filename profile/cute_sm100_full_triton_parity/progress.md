@@ -3297,6 +3297,17 @@ retained `366/476` snapshot to `354/476`, so the code and benchmark JSON were
 restored. This path is too noisy to retain without a deeper NVFP4 adaptive
 kernel change.
 
+Removed the launch-grid cap from the transpose wrappers for NVFP4 static,
+NVFP4 adaptive, NVFP3 static, NVFP6 static, MXFP3 static, MXFP4 static, and
+MXFP6 static, using a full `ceil(total_scale_blocks / THREADS_PER_BLOCK)` grid.
+The targeted transpose CuTe accuracy slice passed (`5 passed`). Focused
+timings showed a large improvement on representative transpose misses:
+`1024x1024 nvfp4 static_4/static_6/abs_max` moved to about `1.23x-1.25x`,
+`1024x1024 nvfp3/nvfp6` moved to about `1.21x-1.25x`, and MX transpose rows
+moved to about `1.30x-1.35x`. The full median benchmark improved from
+`366/476` to `390/476` workloads meeting 1.2x, so this change was retained.
+Remaining misses are now `86/476`; transpose misses dropped from `21` to `2`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3311,5 +3322,5 @@ kernel change.
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `366/476`
+  latest median capability-driven benchmark snapshot reports `390/476`
   workloads meeting 1.2x.

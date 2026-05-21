@@ -13198,7 +13198,10 @@ def quantize_nvfp4_static_transpose(
     amax = _resolve_amax(x, x_amax)
 
     total_scale_blocks = k * (m // scale_block_size)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _uncapped_launch_grid(
+        total_scale_blocks,
+        threads_per_block=THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_static_transpose_quantize(
         m,
@@ -13702,7 +13705,10 @@ def quantize_mxfp4_static_transpose(
         device=x.device,
     )
     total_scale_blocks = n * (m // scale_block_size)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _uncapped_launch_grid(
+        total_scale_blocks,
+        threads_per_block=THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_mxfp4_static_transpose_quantize(
         m,
@@ -13772,7 +13778,10 @@ def quantize_mxfp3_static_transpose(
         device=x.device,
     )
     total_scale_blocks = n * (m // scale_block_size)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _uncapped_launch_grid(
+        total_scale_blocks,
+        threads_per_block=THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_mxfp3_static_transpose_quantize(m, n, scale_block_size)
     kernel(
@@ -13881,7 +13890,10 @@ def quantize_mxfp6_static_transpose(
         device=x.device,
     )
     total_scale_blocks = n * (m // MXFP4_SCALE_BLOCK_SIZE)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _uncapped_launch_grid(
+        total_scale_blocks,
+        threads_per_block=THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_mxfp6_static_transpose_quantize(
         m,
@@ -14489,7 +14501,10 @@ def quantize_nvfp3_static_transpose(
     )
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = k * (m // scale_block_size)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _uncapped_launch_grid(
+        total_scale_blocks,
+        threads_per_block=THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_nvfp3_static_transpose_quantize(
         m,
@@ -14643,7 +14658,10 @@ def quantize_nvfp6_static_transpose(
     )
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = k * (m // NVFP4_SCALE_BLOCK_SIZE)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _uncapped_launch_grid(
+        total_scale_blocks,
+        threads_per_block=THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_nvfp6_static_transpose_quantize(
         m,
@@ -14771,7 +14789,10 @@ def quantize_nvfp4_adaptive_transpose(
     amax = _resolve_amax(x, x_amax)
 
     total_scale_blocks = k * (m // NVFP4_SCALE_BLOCK_SIZE)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _uncapped_launch_grid(
+        total_scale_blocks,
+        threads_per_block=THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_adaptive_transpose_quantize(m, k, scale_rule_id)
     kernel(
