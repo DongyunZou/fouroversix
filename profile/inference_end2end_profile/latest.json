@@ -1,0 +1,70 @@
+{
+  "model_name": "HuggingFaceTB/SmolLM2-135M",
+  "prompt": "Four over six quantization accelerates",
+  "max_new_tokens": 32,
+  "warmup": 2,
+  "repeats": 6,
+  "dtype": "nvfp4",
+  "scale_rule": "mse",
+  "generated_at_unix": 1779356930,
+  "cutlass_available": true,
+  "rows": [
+    {
+      "name": "bf16",
+      "linear_replacements": 0,
+      "mean_ms": 210.26336924235025,
+      "median_ms": 210.20257568359375,
+      "min_ms": 209.83856201171875,
+      "max_ms": 210.90623474121094,
+      "tokens_per_second": 152.19008482222452
+    },
+    {
+      "name": "w_triton__a_triton",
+      "weight_backend": "triton",
+      "activation_backend": "triton",
+      "linear_replacements": 210,
+      "mean_ms": 953.7146911621094,
+      "median_ms": 951.7089233398438,
+      "min_ms": 948.3106079101562,
+      "max_ms": 961.63720703125,
+      "tokens_per_second": 33.55301149970515,
+      "speedup_vs_bf16": 0.220467788942354
+    },
+    {
+      "name": "w_triton__a_cute_sm100",
+      "weight_backend": "triton",
+      "activation_backend": "cute_sm100",
+      "linear_replacements": 210,
+      "mean_ms": 1081.9363606770833,
+      "median_ms": 1080.8988037109375,
+      "min_ms": 1078.528076171875,
+      "max_ms": 1088.16455078125,
+      "tokens_per_second": 29.576600956431648,
+      "speedup_vs_bf16": 0.19433986774486994
+    },
+    {
+      "name": "w_cute_sm100__a_triton",
+      "weight_backend": "cute_sm100",
+      "activation_backend": "triton",
+      "linear_replacements": 210,
+      "mean_ms": 950.7606201171875,
+      "median_ms": 950.39990234375,
+      "min_ms": 948.7327270507812,
+      "max_ms": 954.725830078125,
+      "tokens_per_second": 33.65726274617452,
+      "speedup_vs_bf16": 0.2211527957651779
+    },
+    {
+      "name": "w_cute_sm100__a_cute_sm100",
+      "weight_backend": "cute_sm100",
+      "activation_backend": "cute_sm100",
+      "linear_replacements": 210,
+      "mean_ms": 1083.5223795572917,
+      "median_ms": 1083.1516723632812,
+      "min_ms": 1080.527587890625,
+      "max_ms": 1087.493896484375,
+      "tokens_per_second": 29.53330785200269,
+      "speedup_vs_bf16": 0.19405540043230135
+    }
+  ]
+}
