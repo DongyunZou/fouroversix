@@ -26,7 +26,7 @@ def _can_quantize_cached(
     backend = config.backend
     if backend is None:
         return False
-    if config.kwargs:
+    if config.kwargs and set(config.kwargs) != {"x_amax"}:
         return AVAILABLE_BACKENDS[backend].can_quantize(x, config)
 
     key = (
@@ -42,6 +42,7 @@ def _can_quantize_cached(
         config.round_style,
         config.scale_rule,
         config.transpose,
+        tuple(sorted(config.kwargs)),
     )
     if key not in _CAN_QUANTIZE_CACHE:
         _CAN_QUANTIZE_CACHE[key] = AVAILABLE_BACKENDS[backend].can_quantize(

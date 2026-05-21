@@ -4069,6 +4069,17 @@ only slightly faster in that mode. Therefore the current all-workload
 provided-amax 1.2x target would require a deeper NVFP4 2D kernel redesign, not
 frontend dispatch or launch-parameter tuning.
 
+Added a narrow frontend can-quantize cache path for `kwargs={"x_amax": ...}`.
+Most kwargs can affect support predicates and still bypass the cache, but
+`x_amax` only changes runtime data, not backend support. This reduces repeated
+provided-amax frontend overhead on short paths: representative public frontend
+timings moved to about `41.2 us` Triton versus `38.6 us` CuTe on
+`4096x4096 nvfp4 static_4 block_scale_2d=True`, and about `41.4 us` versus
+`38.7 us` on `1024x1024 nvfp4 mae block_scale_2d=True`. The targeted
+`x_amax` CuTe tests pass (`11 passed`). The refreshed default auto-amax full
+benchmark still reports `476/476` rows meeting the required target; in this
+run all `476/476` rows also meet the old all-rows-1.2x policy.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
