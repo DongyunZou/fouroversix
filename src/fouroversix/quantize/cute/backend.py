@@ -526,10 +526,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     and not config.pseudo_quantize
                     and (
                         config.round_style == RoundStyle.stochastic
-                        or (
-                            config.block_scale_2d
-                            and config.round_style == RoundStyle.stochastic_unbiased
-                        )
+                        or config.round_style == RoundStyle.stochastic_unbiased
                     )
                 )
                 or (
@@ -672,12 +669,11 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                             config.dtype == DataType.nvint6
                             and (
                                 config.round_style
-                                in {RoundStyle.nearest, RoundStyle.stochastic}
-                                or (
-                                    config.block_scale_2d
-                                    and config.round_style
-                                    == RoundStyle.stochastic_unbiased
-                                )
+                                in {
+                                    RoundStyle.nearest,
+                                    RoundStyle.stochastic,
+                                    RoundStyle.stochastic_unbiased,
+                                }
                             )
                         )
                         or config.round_style == RoundStyle.nearest

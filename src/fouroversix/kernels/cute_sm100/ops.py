@@ -1321,7 +1321,8 @@ def _process_nvint6_static_block_bfloat_transposed(
     x: cute.Tensor,
     col_idx: Int32,
     elem_base: Int32,
-    global_scale: Float32,
+    scale_global_scale: Float32,
+    quant_global_scale: Float32,
 ) -> tuple[Uint8, cutlass.Uint64, cutlass.Uint64]:
     h0 = _ld_transposed_bfloat2(x, elem_base, elem_base + Int32(1), col_idx)
     h1 = _ld_transposed_bfloat2(x, elem_base + Int32(2), elem_base + Int32(3), col_idx)
@@ -1334,10 +1335,10 @@ def _process_nvint6_static_block_bfloat_transposed(
 
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-    scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(31.0)))
+    scale_float = scale_global_scale * (block_max * rcp_approx_ftz(Float32(31.0)))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
-    output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
+    output_scale = nvfp4_compute_output_scale(scale_fp8_u32, quant_global_scale)
 
     packed64_0, packed64_1 = bfloat2x8_to_int6x16_packed(
         h0,
@@ -7544,7 +7545,11 @@ class Sm100NVINT6StaticQuantize:
 
         sf_idx = bidx * THREADS_PER_BLOCK + tidx
         stride = grid_dim_x * THREADS_PER_BLOCK
-        global_scale = _compute_global_scale(
+        scale_global_scale = _compute_global_scale(
+            amax_tensor,
+            31.0 * E4M3_STATIC_MAX,
+        )
+        quant_global_scale = _compute_global_scale(
             amax_tensor,
             31.0 * E4M3_STATIC_MAX * float(self.adjustment_factor),
         )
@@ -7561,10 +7566,15 @@ class Sm100NVINT6StaticQuantize:
 
             block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(31.0)))
+            scale_float = scale_global_scale * (
+                block_max * rcp_approx_ftz(Float32(31.0))
+            )
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
-            output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
+            output_scale = nvfp4_compute_output_scale(
+                scale_fp8_u32,
+                quant_global_scale,
+            )
 
             packed64_0, packed64_1 = bfloat2x8_to_int6x16_packed(
                 h0,
@@ -7632,7 +7642,11 @@ class Sm100NVINT6StaticTransposeQuantize:
         work_idx = bidx * THREADS_PER_BLOCK + tidx
         stride = grid_dim_x * THREADS_PER_BLOCK
         output_rows = total_scale_blocks // self.scale_blocks_per_row
-        global_scale = _compute_global_scale(
+        scale_global_scale = _compute_global_scale(
+            amax_tensor,
+            31.0 * E4M3_STATIC_MAX,
+        )
+        quant_global_scale = _compute_global_scale(
             amax_tensor,
             31.0 * E4M3_STATIC_MAX * float(self.adjustment_factor),
         )
@@ -7648,7 +7662,8 @@ class Sm100NVINT6StaticTransposeQuantize:
                     x,
                     row_idx,
                     elem_base,
-                    global_scale,
+                    scale_global_scale,
+                    quant_global_scale,
                 )
             )
 

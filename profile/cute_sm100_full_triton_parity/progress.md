@@ -3750,11 +3750,20 @@ The refreshed full benchmark now reports `466/476` workloads meeting 1.2x and
 all `pseudo_quantize=True`; there are still no ordinary/base, transpose, or
 block-scale-2d 1.2x misses under the current supported workload matrix.
 
+Fixed the 1D NVINT6 stochastic-unbiased gap by splitting stored-scale and
+value-quantization global scales in the NVINT6 static kernels. The stored E4M3
+scale byte is now computed from `31.0 * E4M3_STATIC_MAX / amax`, while value
+quantization uses the stochastic-unbiased adjustment factor. This preserves the
+nearest/stochastic path when the adjustment is `1.0`, and makes 1D
+stochastic-unbiased no worse than Triton. The targeted NVINT6 stochastic slice
+passes (`5 passed`), and the full `cute_sm100` selection passes
+(`461 passed, 7 skipped`).
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
-  1D static NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8 stochastic-unbiased is now
-  claimed. Remaining non-nearest gaps include 1D NVINT6 stochastic-unbiased.
+  1D static NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6,
+  NVFP6, IF4/IF4_BS8, IF6, and MX stochastic-unbiased paths are now claimed.
 - Feature flags still missing: true stochastic NVFP4 pseudo is intentionally not
   claimed after failing the current Triton-error gate.
 - `block_scale_2d=True` is currently implemented for `nvfp4`,

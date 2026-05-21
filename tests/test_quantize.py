@@ -4088,7 +4088,13 @@ def test_cute_sm100_nvint6_pseudo_quantize_matches_triton_error() -> None:
     )
 
 
-def test_cute_sm100_nvint6_stochastic_matches_triton_error() -> None:
+@pytest.mark.parametrize(
+    "round_style",
+    [RoundStyle.stochastic, RoundStyle.stochastic_unbiased],
+)
+def test_cute_sm100_nvint6_stochastic_matches_triton_error(
+    round_style: RoundStyle,
+) -> None:
     _require_cuda_for_cute_sm100_accuracy()
 
     torch.manual_seed(0)
@@ -4097,13 +4103,13 @@ def test_cute_sm100_nvint6_stochastic_matches_triton_error() -> None:
         backend=QuantizeBackend.triton,
         dtype=DataType.nvint6,
         scale_rule=ScaleRule.static_6,
-        round_style=RoundStyle.stochastic,
+        round_style=round_style,
     )
     config_cute = QuantizationConfig(
         backend=QuantizeBackend.cute_sm100,
         dtype=DataType.nvint6,
         scale_rule=ScaleRule.static_6,
-        round_style=RoundStyle.stochastic,
+        round_style=round_style,
     )
 
     dequantized_triton = dequantize(
@@ -4121,7 +4127,7 @@ def test_cute_sm100_nvint6_stochastic_matches_triton_error() -> None:
     triton_dist = torch.dist(dequantized_triton, x.float())
     cute_dist = torch.dist(dequantized_cute, x.float())
 
-    print(f"round_style={RoundStyle.stochastic} {triton_dist=} {cute_dist=}")
+    print(f"{round_style=} {triton_dist=} {cute_dist=}")
     assert cute_dist <= triton_dist + CUTE_DEQUANT_METRIC_TOLERANCE
 
 
@@ -4206,7 +4212,7 @@ def test_cute_sm100_nvint6_block_scale_2d_stochastic_unbiased_matches_triton_err
     assert cute_dist <= triton_dist + CUTE_DEQUANT_METRIC_TOLERANCE
 
 
-def test_cute_sm100_nvint6_stochastic_unbiased_is_not_claimed() -> None:
+def test_cute_sm100_nvint6_stochastic_unbiased_is_claimed() -> None:
     _require_cuda_for_cute_sm100_accuracy()
 
     x = torch.empty(128, 256, dtype=torch.bfloat16, device="cuda")
@@ -4217,7 +4223,7 @@ def test_cute_sm100_nvint6_stochastic_unbiased_is_not_claimed() -> None:
         round_style=RoundStyle.stochastic_unbiased,
     )
 
-    assert not AVAILABLE_BACKENDS[QuantizeBackend.cute_sm100].can_quantize(x, config)
+    assert AVAILABLE_BACKENDS[QuantizeBackend.cute_sm100].can_quantize(x, config)
 
 
 @pytest.mark.parametrize("input_shape", [(128, 256), (1024, 1024)])
