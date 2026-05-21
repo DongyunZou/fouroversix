@@ -3578,6 +3578,14 @@ than Triton with `137/138` at 1.2x. The only row below 1.2x is pseudo
 at `1.185x`; this is acceptable under the relaxed pseudo target. The full
 `cute_sm100` test slice passed (`449 passed, 7 skipped`).
 
+Re-tested 1D NVINT6 `stochastic_unbiased` after the IF3 pseudo cleanup to check
+whether it was still only blocked by the support predicate. Temporarily opening
+the existing static NVINT6 path made `can_quantize` true and passed the
+`16/17` adjustment factor into the kernel, but the Triton-error gate still
+failed on `1024x1024`: Triton dequantized L2 distance was `21.59`, while CuTe
+was `22.72` (`+5.24%`). The temporary support-gating change was restored, so
+NVINT6 stochastic-unbiased remains intentionally unclaimed.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
