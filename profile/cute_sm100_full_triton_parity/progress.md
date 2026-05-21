@@ -3677,6 +3677,15 @@ same `1024x1024 abs_max` input. IF6 stochastic-unbiased therefore needs the
 candidate error/scale rounding semantics matched, not just support gating or a
 single adjustment constant.
 
+Re-tested NVFP4 `pseudo_quantize=True` with `round_style=stochastic` by calling
+the fused CuTe pseudo path directly while keeping the frontend support block in
+place. The nearest-style fused pseudo path is not enough to claim true
+stochastic pseudo: on `128x256`, `mae` and `mse` pass the input-error gate, but
+`abs_max`, `static_4`, and `static_6` fail max-error; on `1024x1024`, only
+`mae` passes, while `abs_max`, `mse`, `static_4`, and `static_6` fail max-error.
+The hard `stochastic` pseudo block remains correct until a real stochastic
+pseudo implementation exists.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
