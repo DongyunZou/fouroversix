@@ -1,0 +1,35 @@
+{
+  "status": "complete",
+  "scope": "default auto-amax CuTe sm100 versus Triton benchmark matrix",
+  "policy": {
+    "non_pseudo_required_speedup": ">=1.2x",
+    "pseudo_required_speedup": ">1.0x",
+    "provided_x_amax": "measured separately; not part of completion scope"
+  },
+  "benchmark_current_json": {
+    "total_rows": 476,
+    "meets_required_target": 476,
+    "rows_below_required_target": 0,
+    "meets_old_all_rows_1_2x": 476,
+    "non_pseudo_rows": 338,
+    "non_pseudo_meets_1_2x": 338,
+    "pseudo_rows": 138,
+    "pseudo_strictly_faster_than_triton": 138
+  },
+  "executable_support_current_json": {
+    "triton_predicate_rows": 423,
+    "triton_runnable_rows": 405,
+    "cute_predicate_rows": 411,
+    "cute_runnable_rows": 411,
+    "cute_missing_triton_runnable_rows": 0,
+    "cute_predicate_failures": 0
+  },
+  "fresh_validation": {
+    "benchmark_command": "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python profile/cute_sm100_full_triton_parity/benchmark_current.py",
+    "benchmark_result": "476/476 workloads meet required target",
+    "pytest_command": "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/test_quantize.py -q -rxXs -k cute_sm100",
+    "pytest_result": "488 passed, 10 skipped, 34631 deselected, 1 warning in 36.55s",
+    "support_audit_command": "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python profile/cute_sm100_full_triton_parity/audit_executable_support.py",
+    "support_audit_result": "cute_missing_runnable 0; cute_predicate_failures 0"
+  }
+}
