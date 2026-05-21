@@ -3556,6 +3556,28 @@ Triton `~0.0597 ms`, CuTe `~0.0607 ms`, speedup `~0.983x`. The code was
 restored. Simply reducing launched thread count without changing the per-block
 instruction shape does not address the NCU-observed compute pressure.
 
+Retained an NCU-directed IF3 pseudo rewrite that removes the pack-then-unpack
+candidate path from `_process_if3_adaptive_pseudo_block_bfloat`. The kernel now
+computes FP3 and INT3 quantized float values directly for error selection and
+BF16 pseudo output, preserving the same FP3-vs-INT3 per-block semantics while
+avoiding immediate 3-bit packing followed by unpacking. The focused IF3 pseudo
+accuracy slice passed (`6 passed`). Focused timing for
+`4096x4096 if3 abs_max pseudo_quantize=True` improved from the previous CuTe
+`~0.0607 ms` to `~0.0480 ms`, while Triton remains `~0.0598 ms`, so the row is
+now `~1.24x` faster than Triton. A refreshed NCU run for the CuTe kernel
+reports `34.05 us` duration, down from the previous `46.91 us` and comparable
+to Triton's `34.43 us`; the new report is recorded as
+`profile/cute_sm100_full_triton_parity/ncu/if3_absmax4096_cute_direct_values.*`.
+
+The refreshed full benchmark now reports `475/476` workloads meeting the 1.2x
+target and `476/476` workloads strictly faster than Triton. Class breakdown:
+ordinary/base `138/138` meet 1.2x, transpose `80/80` meet 1.2x,
+block_scale_2d `120/120` meet 1.2x, and pseudo `138/138` are strictly faster
+than Triton with `137/138` at 1.2x. The only row below 1.2x is pseudo
+`128x256 if4 abs_max pseudo_quantize=True`, which is still faster than Triton
+at `1.185x`; this is acceptable under the relaxed pseudo target. The full
+`cute_sm100` test slice passed (`449 passed, 7 skipped`).
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3571,5 +3593,6 @@ instruction shape does not address the NCU-observed compute pressure.
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target is now met for all ordinary quantize, transpose, and
   block-scale-2d rows in the current supported workload matrix. Pseudo-quantize
-  is no longer required to meet 1.2x, but still has one row below Triton:
-  `4096x4096 if3 abs_max pseudo_quantize=True`.
+  is no longer required to meet 1.2x; all pseudo rows are strictly faster than
+  Triton in the refreshed benchmark, with one small-shape IF4 pseudo row below
+  1.2x but still at `1.185x`.

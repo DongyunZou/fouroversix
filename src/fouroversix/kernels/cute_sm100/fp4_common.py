@@ -1739,6 +1739,95 @@ def cvt_e2m0x4_to_f32(
 
 
 @dsl_user_op
+def cvt_e2m0x4_f32_values(
+    f0: Float32,
+    f1: Float32,
+    f2: Float32,
+    f3: Float32,
+    *,
+    loc=None,
+    ip=None,
+) -> Tuple[Float32, Float32, Float32, Float32]:
+    result = llvm.inline_asm(
+        llvm.StructType.get_literal([T.f32(), T.f32(), T.f32(), T.f32()]),
+        [
+            Float32(f0).ir_value(loc=loc, ip=ip),
+            Float32(f1).ir_value(loc=loc, ip=ip),
+            Float32(f2).ir_value(loc=loc, ip=ip),
+            Float32(f3).ir_value(loc=loc, ip=ip),
+        ],
+        """
+        {
+            .reg .f32 a0, a1, a2, a3, q0, q1, q2, q3, n0, n1, n2, n3;
+            .reg .pred p0, p1, p2, p3;
+
+            abs.ftz.f32 a0, $4;
+            abs.ftz.f32 a1, $5;
+            abs.ftz.f32 a2, $6;
+            abs.ftz.f32 a3, $7;
+
+            mov.f32 q0, 0f40800000;
+            setp.le.f32 p0, a0, 0f40400000;
+            selp.f32 q0, 0f40000000, q0, p0;
+            setp.le.f32 p0, a0, 0f3FC00000;
+            selp.f32 q0, 0f3F800000, q0, p0;
+            setp.le.f32 p0, a0, 0f3F000000;
+            selp.f32 q0, 0f00000000, q0, p0;
+
+            mov.f32 q1, 0f40800000;
+            setp.le.f32 p1, a1, 0f40400000;
+            selp.f32 q1, 0f40000000, q1, p1;
+            setp.le.f32 p1, a1, 0f3FC00000;
+            selp.f32 q1, 0f3F800000, q1, p1;
+            setp.le.f32 p1, a1, 0f3F000000;
+            selp.f32 q1, 0f00000000, q1, p1;
+
+            mov.f32 q2, 0f40800000;
+            setp.le.f32 p2, a2, 0f40400000;
+            selp.f32 q2, 0f40000000, q2, p2;
+            setp.le.f32 p2, a2, 0f3FC00000;
+            selp.f32 q2, 0f3F800000, q2, p2;
+            setp.le.f32 p2, a2, 0f3F000000;
+            selp.f32 q2, 0f00000000, q2, p2;
+
+            mov.f32 q3, 0f40800000;
+            setp.le.f32 p3, a3, 0f40400000;
+            selp.f32 q3, 0f40000000, q3, p3;
+            setp.le.f32 p3, a3, 0f3FC00000;
+            selp.f32 q3, 0f3F800000, q3, p3;
+            setp.le.f32 p3, a3, 0f3F000000;
+            selp.f32 q3, 0f00000000, q3, p3;
+
+            neg.f32 n0, q0;
+            neg.f32 n1, q1;
+            neg.f32 n2, q2;
+            neg.f32 n3, q3;
+            setp.lt.f32 p0, $4, 0f00000000;
+            setp.lt.f32 p1, $5, 0f00000000;
+            setp.lt.f32 p2, $6, 0f00000000;
+            setp.lt.f32 p3, $7, 0f00000000;
+            selp.f32 $0, n0, q0, p0;
+            selp.f32 $1, n1, q1, p1;
+            selp.f32 $2, n2, q2, p2;
+            selp.f32 $3, n3, q3, p3;
+        }
+        """,
+        "=f,=f,=f,=f,f,f,f,f",
+        has_side_effects=False,
+        is_align_stack=False,
+        asm_dialect=llvm.AsmDialect.AD_ATT,
+        loc=loc,
+        ip=ip,
+    )
+    return (
+        Float32(llvm.extractvalue(T.f32(), result, [0], loc=loc, ip=ip)),
+        Float32(llvm.extractvalue(T.f32(), result, [1], loc=loc, ip=ip)),
+        Float32(llvm.extractvalue(T.f32(), result, [2], loc=loc, ip=ip)),
+        Float32(llvm.extractvalue(T.f32(), result, [3], loc=loc, ip=ip)),
+    )
+
+
+@dsl_user_op
 def cvt_e2m1x8_f32(
     f0: Float32,
     f1: Float32,
@@ -1984,6 +2073,63 @@ def cvt_int3x4_f32(
             loc=loc,
             ip=ip,
         )
+    )
+
+
+@dsl_user_op
+def cvt_int3x4_f32_values(
+    f0: Float32,
+    f1: Float32,
+    f2: Float32,
+    f3: Float32,
+    *,
+    loc=None,
+    ip=None,
+) -> Tuple[Float32, Float32, Float32, Float32]:
+    result = llvm.inline_asm(
+        llvm.StructType.get_literal([T.f32(), T.f32(), T.f32(), T.f32()]),
+        [
+            Float32(f0).ir_value(loc=loc, ip=ip),
+            Float32(f1).ir_value(loc=loc, ip=ip),
+            Float32(f2).ir_value(loc=loc, ip=ip),
+            Float32(f3).ir_value(loc=loc, ip=ip),
+        ],
+        """
+        {
+            .reg .f32 c0, c1, c2, c3;
+            .reg .s32 i0, i1, i2, i3;
+
+            max.f32 c0, $4, 0fc0400000;
+            min.f32 c0, c0, 0f40400000;
+            max.f32 c1, $5, 0fc0400000;
+            min.f32 c1, c1, 0f40400000;
+            max.f32 c2, $6, 0fc0400000;
+            min.f32 c2, c2, 0f40400000;
+            max.f32 c3, $7, 0fc0400000;
+            min.f32 c3, c3, 0f40400000;
+
+            cvt.rni.s32.f32 i0, c0;
+            cvt.rni.s32.f32 i1, c1;
+            cvt.rni.s32.f32 i2, c2;
+            cvt.rni.s32.f32 i3, c3;
+            cvt.rn.f32.s32 $0, i0;
+            cvt.rn.f32.s32 $1, i1;
+            cvt.rn.f32.s32 $2, i2;
+            cvt.rn.f32.s32 $3, i3;
+        }
+        """,
+        "=f,=f,=f,=f,f,f,f,f",
+        has_side_effects=False,
+        is_align_stack=False,
+        asm_dialect=llvm.AsmDialect.AD_ATT,
+        loc=loc,
+        ip=ip,
+    )
+    return (
+        Float32(llvm.extractvalue(T.f32(), result, [0], loc=loc, ip=ip)),
+        Float32(llvm.extractvalue(T.f32(), result, [1], loc=loc, ip=ip)),
+        Float32(llvm.extractvalue(T.f32(), result, [2], loc=loc, ip=ip)),
+        Float32(llvm.extractvalue(T.f32(), result, [3], loc=loc, ip=ip)),
     )
 
 

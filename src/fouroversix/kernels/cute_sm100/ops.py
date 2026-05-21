@@ -39,10 +39,12 @@ from fouroversix.kernels.cute_sm100.fp4_common import (
     bfloat2x8_to_e3m2x16_packed,
     bfloat2x8_to_e2m1x16_packed,
     bfloat2x8_to_e2m1x16_packed_stochastic,
+    cvt_e2m0x4_f32_values,
     cvt_e2m0x4_to_f32,
     cvt_e2m3x4_to_f32,
     cvt_e3m2x4_to_f32,
     cvt_f32_to_e4m3,
+    cvt_int3x4_f32_values,
     cvt_int3x4_to_f32,
     cvt_int4x4_to_f32,
     cvt_int6x4_to_f32,
@@ -2275,6 +2277,42 @@ def _candidate4_error_bfloat(
 
 
 @cute.jit
+def _fp3_quant4_bfloat_values(
+    h0: cutlass.Uint32,
+    h1: cutlass.Uint32,
+    output_scale: Float32,
+) -> tuple[Float32, Float32, Float32, Float32]:
+    x0, x1 = bfloat2_to_float2_scaled(h0, output_scale)
+    x2, x3 = bfloat2_to_float2_scaled(h1, output_scale)
+    return cvt_e2m0x4_f32_values(x0, x1, x2, x3)
+
+
+@cute.jit
+def _int3_quant4_bfloat_values(
+    h0: cutlass.Uint32,
+    h1: cutlass.Uint32,
+    output_scale: Float32,
+) -> tuple[Float32, Float32, Float32, Float32]:
+    x0, x1 = bfloat2_to_float2_scaled(h0, output_scale)
+    x2, x3 = bfloat2_to_float2_scaled(h1, output_scale)
+    return cvt_int3x4_f32_values(x0, x1, x2, x3)
+
+
+@cute.jit
+def _dequant_values4_to_bfloat2x2(
+    q0: Float32,
+    q1: Float32,
+    q2: Float32,
+    q3: Float32,
+    dequant_scale: Float32,
+) -> tuple[Uint32, Uint32]:
+    return (
+        float2_to_bfloat2(q0 * dequant_scale, q1 * dequant_scale),
+        float2_to_bfloat2(q2 * dequant_scale, q3 * dequant_scale),
+    )
+
+
+@cute.jit
 def _fp3_block_error_bfloat(
     h0: cutlass.Uint32,
     h1: cutlass.Uint32,
@@ -3297,79 +3335,73 @@ def _process_if3_adaptive_pseudo_block_bfloat(
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
     dequant_scale = nvfp4_compute_dequant_scale(scale_fp8_u32, global_scale)
 
+    fpq0, fpq1, fpq2, fpq3 = _fp3_quant4_bfloat_values(h0, h1, output_scale)
+    fpq4, fpq5, fpq6, fpq7 = _fp3_quant4_bfloat_values(h2, h3, output_scale)
+    int_output_scale = output_scale * Float32(IF3_INT_EXPANSION_FACTOR_RCP)
+    intq0, intq1, intq2, intq3 = _int3_quant4_bfloat_values(
+        h0, h1, int_output_scale
+    )
+    intq4, intq5, intq6, intq7 = _int3_quant4_bfloat_values(
+        h2, h3, int_output_scale
+    )
+
     if cutlass.const_expr(scale_block_size == 8):
-        fp0, fp1 = bfloat2x4_to_e2m0x8_values(
-            h0,
-            h1,
-            h2,
-            h3,
-            output_scale,
-        )
-        fp2, fp3 = fp0, fp1
-        int0, int1 = bfloat2x4_to_int3x8_values(
-            h0,
-            h1,
-            h2,
-            h3,
-            output_scale * Float32(IF3_INT_EXPANSION_FACTOR_RCP),
-        )
-        int2, int3 = int0, int1
+        fpq8, fpq9, fpq10, fpq11 = fpq0, fpq1, fpq2, fpq3
+        fpq12, fpq13, fpq14, fpq15 = fpq4, fpq5, fpq6, fpq7
+        intq8, intq9, intq10, intq11 = intq0, intq1, intq2, intq3
+        intq12, intq13, intq14, intq15 = intq4, intq5, intq6, intq7
     else:
-        fp0, fp1, fp2, fp3 = bfloat2x8_to_e2m0x16_values(
-            h0,
-            h1,
-            h2,
-            h3,
-            h4,
-            h5,
-            h6,
-            h7,
-            output_scale,
+        fpq8, fpq9, fpq10, fpq11 = _fp3_quant4_bfloat_values(
+            h4, h5, output_scale
         )
-        int0, int1, int2, int3 = bfloat2x8_to_int3x16_values(
-            h0,
-            h1,
-            h2,
-            h3,
-            h4,
-            h5,
-            h6,
-            h7,
-            output_scale * Float32(IF3_INT_EXPANSION_FACTOR_RCP),
+        fpq12, fpq13, fpq14, fpq15 = _fp3_quant4_bfloat_values(
+            h6, h7, output_scale
+        )
+        intq8, intq9, intq10, intq11 = _int3_quant4_bfloat_values(
+            h4, h5, int_output_scale
+        )
+        intq12, intq13, intq14, intq15 = _int3_quant4_bfloat_values(
+            h6, h7, int_output_scale
         )
 
-    error_fp = _fp3_block_error_bfloat(
-        h0,
-        h1,
-        h2,
-        h3,
-        h4,
-        h5,
-        h6,
-        h7,
-        fp0,
-        fp1,
-        fp2,
-        fp3,
-        dequant_scale,
-        scale_rule_id,
+    error_fp0 = _candidate4_error_bfloat(
+        h0, h1, fpq0, fpq1, fpq2, fpq3, dequant_scale, scale_rule_id
     )
-    error_int = _int3_block_error_bfloat(
-        h0,
-        h1,
-        h2,
-        h3,
-        h4,
-        h5,
-        h6,
-        h7,
-        int0,
-        int1,
-        int2,
-        int3,
-        dequant_scale,
-        scale_rule_id,
+    error_fp1 = _candidate4_error_bfloat(
+        h2, h3, fpq4, fpq5, fpq6, fpq7, dequant_scale, scale_rule_id
     )
+    error_fp2 = _candidate4_error_bfloat(
+        h4, h5, fpq8, fpq9, fpq10, fpq11, dequant_scale, scale_rule_id
+    )
+    error_fp3 = _candidate4_error_bfloat(
+        h6, h7, fpq12, fpq13, fpq14, fpq15, dequant_scale, scale_rule_id
+    )
+    if cutlass.const_expr(scale_rule_id == SCALE_RULE_ABS_MAX):
+        error_fp = cutlass.max(error_fp0, error_fp1)
+        error_fp = cutlass.max(error_fp, error_fp2)
+        error_fp = cutlass.max(error_fp, error_fp3)
+    else:
+        error_fp = error_fp0 + error_fp1 + error_fp2 + error_fp3
+
+    int_dequant_scale = dequant_scale * Float32(IF3_INT_EXPANSION_FACTOR)
+    error_int0 = _candidate4_error_bfloat(
+        h0, h1, intq0, intq1, intq2, intq3, int_dequant_scale, scale_rule_id
+    )
+    error_int1 = _candidate4_error_bfloat(
+        h2, h3, intq4, intq5, intq6, intq7, int_dequant_scale, scale_rule_id
+    )
+    error_int2 = _candidate4_error_bfloat(
+        h4, h5, intq8, intq9, intq10, intq11, int_dequant_scale, scale_rule_id
+    )
+    error_int3 = _candidate4_error_bfloat(
+        h6, h7, intq12, intq13, intq14, intq15, int_dequant_scale, scale_rule_id
+    )
+    if cutlass.const_expr(scale_rule_id == SCALE_RULE_ABS_MAX):
+        error_int = cutlass.max(error_int0, error_int1)
+        error_int = cutlass.max(error_int, error_int2)
+        error_int = cutlass.max(error_int, error_int3)
+    else:
+        error_int = error_int0 + error_int1 + error_int2 + error_int3
 
     z = cutlass.Uint32(0)
     out0 = z
@@ -3383,19 +3415,34 @@ def _process_if3_adaptive_pseudo_block_bfloat(
     use_int = error_int < error_fp
 
     if not use_int:
-        out0, out1 = _dequant_e2m0x4_to_bfloat2x2(fp0, dequant_scale)
-        out2, out3 = _dequant_e2m0x4_to_bfloat2x2(fp1, dequant_scale)
+        out0, out1 = _dequant_values4_to_bfloat2x2(
+            fpq0, fpq1, fpq2, fpq3, dequant_scale
+        )
+        out2, out3 = _dequant_values4_to_bfloat2x2(
+            fpq4, fpq5, fpq6, fpq7, dequant_scale
+        )
         if cutlass.const_expr(scale_block_size != 8):
-            out4, out5 = _dequant_e2m0x4_to_bfloat2x2(fp2, dequant_scale)
-            out6, out7 = _dequant_e2m0x4_to_bfloat2x2(fp3, dequant_scale)
+            out4, out5 = _dequant_values4_to_bfloat2x2(
+                fpq8, fpq9, fpq10, fpq11, dequant_scale
+            )
+            out6, out7 = _dequant_values4_to_bfloat2x2(
+                fpq12, fpq13, fpq14, fpq15, dequant_scale
+            )
 
     if use_int:
-        dequant_scale_int = dequant_scale * Float32(IF3_INT_EXPANSION_FACTOR)
-        out0, out1 = _dequant_int3x4_to_bfloat2x2(int0, dequant_scale_int)
-        out2, out3 = _dequant_int3x4_to_bfloat2x2(int1, dequant_scale_int)
+        out0, out1 = _dequant_values4_to_bfloat2x2(
+            intq0, intq1, intq2, intq3, int_dequant_scale
+        )
+        out2, out3 = _dequant_values4_to_bfloat2x2(
+            intq4, intq5, intq6, intq7, int_dequant_scale
+        )
         if cutlass.const_expr(scale_block_size != 8):
-            out4, out5 = _dequant_int3x4_to_bfloat2x2(int2, dequant_scale_int)
-            out6, out7 = _dequant_int3x4_to_bfloat2x2(int3, dequant_scale_int)
+            out4, out5 = _dequant_values4_to_bfloat2x2(
+                intq8, intq9, intq10, intq11, int_dequant_scale
+            )
+            out6, out7 = _dequant_values4_to_bfloat2x2(
+                intq12, intq13, intq14, intq15, int_dequant_scale
+            )
 
     return (out0, out1, out2, out3, out4, out5, out6, out7)
 
