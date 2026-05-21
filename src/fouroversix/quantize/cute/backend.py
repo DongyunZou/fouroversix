@@ -872,7 +872,27 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             x_quantize = rht_transform(x_quantize)
         x_amax = None if config.rht else config.kwargs.get("x_amax")
 
-        if config.dtype in _PSEUDO_MXFP3_DTYPES:
+        if config.dtype in _PSEUDO_IF3_DTYPES:
+            if config.scale_rule in _ADAPTIVE_SCALE_RULES:
+                out = pseudo_quantize_if3_adaptive(
+                    x_quantize,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    scale_block_size=config.dtype.block_size,
+                    x_amax=x_amax,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype in _PSEUDO_IF4_DTYPES:
+            if config.scale_rule in _ADAPTIVE_SCALE_RULES:
+                out = pseudo_quantize_if4_adaptive(
+                    x_quantize,
+                    scale_rule_id=config.scale_rule.cuda_id,
+                    scale_block_size=config.dtype.block_size,
+                    x_amax=x_amax,
+                )
+            else:
+                return super().pseudo_quantize(x, config)
+        elif config.dtype in _PSEUDO_MXFP3_DTYPES:
             if config.scale_rule in _STATIC_SCALE_RULES:
                 out = pseudo_quantize_mxfp3_static(
                     x_quantize,
@@ -965,26 +985,6 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     x_quantize,
                     max_quantized_value=4,
                     scale_block_size=config.dtype.block_size,
-                )
-            else:
-                return super().pseudo_quantize(x, config)
-        elif config.dtype in _PSEUDO_IF4_DTYPES:
-            if config.scale_rule in _ADAPTIVE_SCALE_RULES:
-                out = pseudo_quantize_if4_adaptive(
-                    x_quantize,
-                    scale_rule_id=config.scale_rule.cuda_id,
-                    scale_block_size=config.dtype.block_size,
-                    x_amax=x_amax,
-                )
-            else:
-                return super().pseudo_quantize(x, config)
-        elif config.dtype in _PSEUDO_IF3_DTYPES:
-            if config.scale_rule in _ADAPTIVE_SCALE_RULES:
-                out = pseudo_quantize_if3_adaptive(
-                    x_quantize,
-                    scale_rule_id=config.scale_rule.cuda_id,
-                    scale_block_size=config.dtype.block_size,
-                    x_amax=x_amax,
                 )
             else:
                 return super().pseudo_quantize(x, config)

@@ -3472,6 +3472,21 @@ capability benchmark improved from the retained `453/476` snapshot to
 `454/476`; the remaining misses in this run are all pseudo-quantize rows
 (`22` pseudo misses, `0` ordinary, `0` block_scale_2d).
 
+Moved IF3/IF4 adaptive pseudo-quantize dispatch ahead of the static MX/NV
+pseudo branches in `CuteSm100QuantizeBackend.pseudo_quantize`. This keeps the
+same fused CuTe kernels but reduces Python branch scanning for the main
+near-threshold pseudo misses. The focused pseudo slice passed (`72 passed`),
+and the full `cute_sm100` test slice passed (`449 passed, 7 skipped`). The
+full capability benchmark improved from the retained `454/476` snapshot to
+`467/476`; the remaining misses are all pseudo rows (`9` pseudo misses,
+`0` ordinary, `0` block_scale_2d).
+
+Tested also moving NVFP4/NVFP4_BS8 and NVINT3/NVINT3_BS8 static pseudo dispatch
+ahead of the other static pseudo branches. The focused pseudo slice passed
+(`72 passed`), but the full capability benchmark regressed to `463/476` and
+introduced a transpose miss, so that extra ordering change was restored. The
+retained pseudo dispatch order only moves IF3/IF4 adaptive pseudo earlier.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3486,5 +3501,5 @@ capability benchmark improved from the retained `453/476` snapshot to
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `454/476`
+  latest median capability-driven benchmark snapshot reports `467/476`
   workloads meeting 1.2x.
