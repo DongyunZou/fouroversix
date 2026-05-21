@@ -3425,6 +3425,19 @@ E2M3 and E3M2 (`cute_dist` around `64-65` vs Triton around `20-22`). The code
 and tests were restored. These gaps need true stochastic-unbiased IF6/NVFP6
 kernel semantics, not just can-quantize gating changes.
 
+Added a CuTe backend helper that passes `padded_shape=original_shape` into
+`QuantizedTensor` when the output is already aligned to the Blackwell scale
+layout (`rows % 128 == 0` and `cols % (4 * block_size) == 0`). This avoids
+recomputing padding metadata and validation checks in the short public
+`quantize()` path while preserving the existing constructor path for non-aligned
+shapes. Targeted timing improved representative short rows by about `2 us`
+(`1024x1024 nvfp4 abs_max`, `1024x1024 nvfp4 mse block_scale_2d=True`, and
+`1024x1024 nvfp4 static_4 transpose`). The full capability benchmark improved
+from the retained `390/476` snapshot to `411/476` workloads meeting `1.2x`.
+The remaining misses are now mostly pseudo paths: `55` pseudo, `5` ordinary,
+and `5` block_scale_2d. The full `cute_sm100` test slice passed (`449 passed,
+7 skipped`).
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3439,5 +3452,5 @@ kernel semantics, not just can-quantize gating changes.
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `390/476`
+  latest median capability-driven benchmark snapshot reports `411/476`
   workloads meeting 1.2x.

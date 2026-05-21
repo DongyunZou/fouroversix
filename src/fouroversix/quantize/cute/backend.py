@@ -55,6 +55,37 @@ _STATIC_NVINT_DTYPES = frozenset(
 )
 
 
+def _make_quantized_tensor(
+    values: torch.Tensor,
+    scale_factors: torch.Tensor,
+    amax: torch.Tensor,
+    dtype: DataType,
+    original_shape: tuple[int, int] | torch.Size,
+    scale_rule: ScaleRule,
+    round_style: RoundStyle,
+    *,
+    scale_factors_are_in_blackwell_layout: bool = True,
+) -> QuantizedTensor:
+    original_shape = tuple(original_shape)
+    cols_div = 4 * dtype.block_size
+    padded_shape = (
+        original_shape
+        if original_shape[0] % 128 == 0 and original_shape[1] % cols_div == 0
+        else None
+    )
+    return QuantizedTensor(
+        values,
+        scale_factors,
+        amax,
+        dtype,
+        original_shape,
+        scale_rule,
+        round_style,
+        padded_shape=padded_shape,
+        scale_factors_are_in_blackwell_layout=scale_factors_are_in_blackwell_layout,
+    )
+
+
 @functools.lru_cache
 def _static_nv_quantizers():
     from fouroversix.kernels.cute_sm100 import ops
@@ -1036,7 +1067,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     x_amax=x_amax,
                 )
 
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1083,7 +1114,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     ),
                     x_amax=x_amax,
                 )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1111,7 +1142,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 scale_block_size=config.dtype.block_size,
                 x_amax=config.kwargs.get("x_amax"),
             )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1137,7 +1168,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 adjustment_factor=1.0,
                 x_amax=config.kwargs.get("x_amax"),
             )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1166,7 +1197,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 adjustment_factor=config.round_style.adjustment_factor,
                 x_amax=config.kwargs.get("x_amax"),
             )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1192,7 +1223,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 scale_block_size=config.dtype.block_size,
                 x_amax=config.kwargs.get("x_amax"),
             )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1219,7 +1250,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 scale_block_size=config.dtype.block_size,
                 x_amax=config.kwargs.get("x_amax"),
             )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1269,7 +1300,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     ),
                     use_e3m2=config.dtype == DataType.mxfp6_e3m2,
                 )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e8m0fnu),
                 None,
@@ -1315,7 +1346,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     adjustment_factor=config.round_style.adjustment_factor,
                     x_amax=x_amax,
                 )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1361,7 +1392,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     ),
                     x_amax=x_amax,
                 )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1388,7 +1419,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 ),
                 x_amax=config.kwargs.get("x_amax"),
             )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1459,7 +1490,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     use_e3m2=config.dtype == DataType.if6_e3m2,
                     x_amax=x_amax,
                 )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1518,7 +1549,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     use_e3m2=config.dtype == DataType.mxfp6_e3m2,
                 )
 
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e8m0fnu),
                 None,
@@ -1547,7 +1578,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 adjustment_factor=config.round_style.adjustment_factor,
                 x_amax=config.kwargs.get("x_amax"),
             )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1580,7 +1611,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     x,
                     x_amax=x_amax,
                 )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1632,7 +1663,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     x,
                     x_amax=x_amax,
                 )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1658,7 +1689,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 stochastic_rounding=config.round_style == RoundStyle.stochastic,
                 x_amax=config.kwargs.get("x_amax"),
             )
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1720,7 +1751,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     x_amax=x_amax,
                 )
 
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -1770,7 +1801,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     use_e3m2=config.dtype == DataType.mxfp6_e3m2,
                 )
 
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e8m0fnu),
                 None,
@@ -1815,7 +1846,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     x_amax=x_amax,
                 )
 
-            return QuantizedTensor(
+            return _make_quantized_tensor(
                 values,
                 scale_factors_u8.view(torch.float8_e4m3fn),
                 amax,
@@ -2615,7 +2646,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             DataType.if6_e3m2,
         }
 
-        return QuantizedTensor(
+        return _make_quantized_tensor(
             values,
             scale_factors_u8.view(scale_dtype),
             amax,
