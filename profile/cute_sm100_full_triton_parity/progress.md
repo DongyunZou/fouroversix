@@ -3540,6 +3540,14 @@ memory bandwidth; it is compute/instruction pressure from the current flat
 one-thread-per-scale-block mapping. Reports and details are recorded under
 `profile/cute_sm100_full_triton_parity/ncu/if3_absmax4096_*current*`.
 
+Tested whether the IF3 abs_max pseudo row could avoid the expensive per-block
+FP3-vs-INT3 error selection by always choosing one candidate. Both shortcuts
+failed the Triton-compatibility accuracy gate: INT-only failed the IF3/IF3_BS8
+abs_max pseudo tests with MSE to Triton around `0.022`, and FP-only failed with
+MSE around `0.058` for IF3 and `0.036` for IF3_BS8. The code was restored.
+This confirms that the remaining row needs a faster implementation of the same
+selection semantics, not a semantic shortcut.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
