@@ -3160,6 +3160,18 @@ near-threshold/noisy and mostly not main-kernel limited. Further NV static
 performance work should use focused alternating medians or CUDA timeline
 breakdowns rather than single full-matrix row flips as the acceptance signal.
 
+Tested a Python frontend branch-order experiment for adaptive IF pseudo
+quantize. The change moved the IF4/IF3/IF6 adaptive pseudo dispatch checks ahead
+of the MX/NV static pseudo chain while keeping the same CuTe kernels and return
+semantics. The targeted IF pseudo accuracy slice passed (`20 passed`), and
+focused timings showed the same small/medium fixed-overhead profile as before
+(`~1.10x-1.17x` for most 128x256/1024x1024 IF pseudo rows, with 4096x4096
+non-BS8 IF3 still at about `0.98x/1.06x/1.06x` for `abs_max/mae/mse`). The full
+benchmark with the experiment dropped to `301/476`, so the branch-order change
+was reverted. This rules out Python dtype-branch ordering as a useful path for
+the remaining IF pseudo gap; the persistent 4096x4096 IF3 non-BS8 row still
+needs kernel-body candidate/error reduction.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
