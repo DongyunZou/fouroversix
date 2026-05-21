@@ -52,7 +52,7 @@ completion claim.
 |---|---:|---:|
 | `nearest` | `True` | `True` |
 | `stochastic` | `True` | 1D NVFP4/IF3/IF3_BS8/IF4/IF4_BS8/IF6; static NVFP4_BS8/MXFP3/MXFP3_BS8/MXFP4/MXFP4_BS8/MXFP6/NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8/NVINT4/NVINT4_BS8/NVINT6/NVFP6; 2D NVFP4/IF3/IF3_BS8/IF4 and static MXFP3/MXFP3_BS8/MXFP4/MXFP4_BS8/NVFP3/NVFP3_BS8/NVINT3/NVINT3_BS8/NVINT4/NVINT6/NVFP6 |
-| `stochastic_unbiased` | `True` | NVFP4/IF4/IF4_BS8; NVFP4 pseudo via quantize+dequantize; static `nvfp4_bs8`, `mxfp3`, `mxfp3_bs8`, `mxfp4`, `mxfp4_bs8`, `mxfp6_*`, `nvfp3`, `nvfp3_bs8`, `nvint3`, `nvint3_bs8`, `nvint4`, `nvint4_bs8`, and 1D `nvfp6_e3m2`; 2D NVFP4/IF4 and static `nvfp4_bs8`/`mxfp3`/`mxfp3_bs8`/`mxfp4`/`mxfp4_bs8`/`nvint4`/NVFP6 |
+| `stochastic_unbiased` | `True` | NVFP4/IF4/IF4_BS8; NVFP4 pseudo via quantize+dequantize; static `nvfp4_bs8`, `mxfp3`, `mxfp3_bs8`, `mxfp4`, `mxfp4_bs8`, `mxfp6_*`, `nvfp3`, `nvfp3_bs8`, `nvint3`, `nvint3_bs8`, `nvint4`, `nvint4_bs8`, and 1D `nvfp6_e3m2`; 2D NVFP4/IF4 and static `nvfp4_bs8`/`mxfp3`/`mxfp3_bs8`/`mxfp4`/`mxfp4_bs8`/`nvfp3`/`nvfp3_bs8`/`nvint3`/`nvint3_bs8`/`nvint4`/NVFP6 |
 
 ## Dequantize Values
 

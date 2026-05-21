@@ -436,10 +436,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     and not config.pseudo_quantize
                     and (
                         config.round_style == RoundStyle.stochastic
-                        or (
-                            not config.block_scale_2d
-                            and config.round_style == RoundStyle.stochastic_unbiased
-                        )
+                        or config.round_style == RoundStyle.stochastic_unbiased
                     )
                 )
                 or (
@@ -520,10 +517,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     and not config.pseudo_quantize
                     and (
                         config.round_style == RoundStyle.stochastic
-                        or (
-                            not config.block_scale_2d
-                            and config.round_style == RoundStyle.stochastic_unbiased
-                        )
+                        or config.round_style == RoundStyle.stochastic_unbiased
                     )
                 )
                 or (
@@ -1730,11 +1724,13 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             if config.dtype == DataType.nvfp3:
                 values, scale_factors_u8, amax = quantize_nvfp3_static_2d(
                     x,
+                    adjustment_factor=config.round_style.adjustment_factor,
                     x_amax=x_amax,
                 )
             else:
                 values, scale_factors_u8, amax = quantize_nvfp3_bs8_static_2d(
                     x,
+                    adjustment_factor=config.round_style.adjustment_factor,
                     x_amax=x_amax,
                 )
             return _make_quantized_tensor(
@@ -1767,11 +1763,13 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             if config.dtype == DataType.nvint3:
                 values, scale_factors_u8, amax = quantize_nvint3_static_2d(
                     x,
+                    adjustment_factor=config.round_style.adjustment_factor,
                     x_amax=x_amax,
                 )
             elif config.dtype == DataType.nvint3_bs8:
                 values, scale_factors_u8, amax = quantize_nvint3_bs8_static_2d(
                     x,
+                    adjustment_factor=config.round_style.adjustment_factor,
                     x_amax=x_amax,
                 )
             elif config.dtype == DataType.nvint4:

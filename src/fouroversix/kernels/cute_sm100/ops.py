@@ -7950,8 +7950,9 @@ class Sm100NVINT3StaticTransposeQuantize:
 
 
 class Sm100NVINT3StaticQuantize2D:
-    def __init__(self, k: int):
+    def __init__(self, k: int, adjustment_factor: float = 1.0):
         self.k = k
+        self.adjustment_factor = adjustment_factor
         self.scale_blocks_per_row = k // NVFP4_SCALE_BLOCK_SIZE
 
     @cute.jit
@@ -7990,7 +7991,7 @@ class Sm100NVINT3StaticQuantize2D:
         stride = grid_dim_x * THREADS_PER_BLOCK
         global_scale = _compute_global_scale(
             amax_tensor,
-            3.0 * E4M3_STATIC_MAX,
+            3.0 * E4M3_STATIC_MAX * float(self.adjustment_factor),
         )
 
         while tile_idx < total_scale_tiles:
@@ -8046,8 +8047,9 @@ class Sm100NVINT3StaticQuantize2D:
 
 
 class Sm100NVINT3BS8StaticQuantize2D:
-    def __init__(self, k: int):
+    def __init__(self, k: int, adjustment_factor: float = 1.0):
         self.k = k
+        self.adjustment_factor = adjustment_factor
         self.scale_blocks_per_row = k // 8
 
     @cute.jit
@@ -8086,7 +8088,7 @@ class Sm100NVINT3BS8StaticQuantize2D:
         stride = grid_dim_x * THREADS_PER_BLOCK
         global_scale = _compute_global_scale(
             amax_tensor,
-            3.0 * E4M3_STATIC_MAX,
+            3.0 * E4M3_STATIC_MAX * float(self.adjustment_factor),
         )
 
         while tile_idx < total_scale_tiles:
@@ -8143,8 +8145,9 @@ class Sm100NVINT3BS8StaticQuantize2D:
 
 
 class Sm100NVFP3StaticQuantize2D:
-    def __init__(self, k: int):
+    def __init__(self, k: int, adjustment_factor: float = 1.0):
         self.k = k
+        self.adjustment_factor = adjustment_factor
         self.scale_blocks_per_row = k // NVFP4_SCALE_BLOCK_SIZE
 
     @cute.jit
@@ -8185,7 +8188,7 @@ class Sm100NVFP3StaticQuantize2D:
         stride = grid_dim_x * IF3_2D_GROUPS_PER_BLOCK
         global_scale = _compute_global_scale(
             amax_tensor,
-            E2M0_MAX * E4M3_STATIC_MAX,
+            E2M0_MAX * E4M3_STATIC_MAX * float(self.adjustment_factor),
         )
 
         while tile_idx < total_scale_tiles:
@@ -8231,8 +8234,9 @@ class Sm100NVFP3StaticQuantize2D:
 
 
 class Sm100NVFP3BS8StaticQuantize2D:
-    def __init__(self, k: int):
+    def __init__(self, k: int, adjustment_factor: float = 1.0):
         self.k = k
+        self.adjustment_factor = adjustment_factor
         self.scale_blocks_per_row = k // 8
 
     @cute.jit
@@ -8271,7 +8275,7 @@ class Sm100NVFP3BS8StaticQuantize2D:
         stride = grid_dim_x * THREADS_PER_BLOCK
         global_scale = _compute_global_scale(
             amax_tensor,
-            E2M0_MAX * E4M3_STATIC_MAX,
+            E2M0_MAX * E4M3_STATIC_MAX * float(self.adjustment_factor),
         )
 
         while tile_idx < total_scale_tiles:
@@ -12315,7 +12319,10 @@ def _compile_nvint3_static_transpose_quantize(
 
 
 @functools.cache
-def _compile_nvint3_static_quantize_2d(k: int):
+def _compile_nvint3_static_quantize_2d(
+    k: int,
+    adjustment_factor: float = 1.0,
+):
     sym_m = cute.sym_int()
     sym_scale_blocks = cute.sym_int()
 
@@ -12343,7 +12350,7 @@ def _compile_nvint3_static_quantize_2d(k: int):
     )
     stream_fake = cute.runtime.make_fake_stream()
 
-    kernel = Sm100NVINT3StaticQuantize2D(k)
+    kernel = Sm100NVINT3StaticQuantize2D(k, adjustment_factor)
     compiled = cute.compile(
         kernel,
         x_fake,
@@ -12358,7 +12365,10 @@ def _compile_nvint3_static_quantize_2d(k: int):
 
 
 @functools.cache
-def _compile_nvint3_bs8_static_quantize_2d(k: int):
+def _compile_nvint3_bs8_static_quantize_2d(
+    k: int,
+    adjustment_factor: float = 1.0,
+):
     sym_m = cute.sym_int()
     sym_scale_blocks = cute.sym_int()
 
@@ -12386,7 +12396,7 @@ def _compile_nvint3_bs8_static_quantize_2d(k: int):
     )
     stream_fake = cute.runtime.make_fake_stream()
 
-    kernel = Sm100NVINT3BS8StaticQuantize2D(k)
+    kernel = Sm100NVINT3BS8StaticQuantize2D(k, adjustment_factor)
     compiled = cute.compile(
         kernel,
         x_fake,
@@ -12401,7 +12411,10 @@ def _compile_nvint3_bs8_static_quantize_2d(k: int):
 
 
 @functools.cache
-def _compile_nvfp3_static_quantize_2d(k: int):
+def _compile_nvfp3_static_quantize_2d(
+    k: int,
+    adjustment_factor: float = 1.0,
+):
     sym_m = cute.sym_int()
     sym_scale_blocks = cute.sym_int()
 
@@ -12429,7 +12442,7 @@ def _compile_nvfp3_static_quantize_2d(k: int):
     )
     stream_fake = cute.runtime.make_fake_stream()
 
-    kernel = Sm100NVFP3StaticQuantize2D(k)
+    kernel = Sm100NVFP3StaticQuantize2D(k, adjustment_factor)
     compiled = cute.compile(
         kernel,
         x_fake,
@@ -12444,7 +12457,10 @@ def _compile_nvfp3_static_quantize_2d(k: int):
 
 
 @functools.cache
-def _compile_nvfp3_bs8_static_quantize_2d(k: int):
+def _compile_nvfp3_bs8_static_quantize_2d(
+    k: int,
+    adjustment_factor: float = 1.0,
+):
     sym_m = cute.sym_int()
     sym_scale_blocks = cute.sym_int()
 
@@ -12472,7 +12488,7 @@ def _compile_nvfp3_bs8_static_quantize_2d(k: int):
     )
     stream_fake = cute.runtime.make_fake_stream()
 
-    kernel = Sm100NVFP3BS8StaticQuantize2D(k)
+    kernel = Sm100NVFP3BS8StaticQuantize2D(k, adjustment_factor)
     compiled = cute.compile(
         kernel,
         x_fake,
@@ -14302,6 +14318,7 @@ def quantize_nvint6_static_2d(
 def quantize_nvint3_static_2d(
     x: torch.Tensor,
     *,
+    adjustment_factor: float = 1.0,
     x_amax: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     m, k = _validate_quantize_input(x, 6)
@@ -14322,7 +14339,7 @@ def quantize_nvint3_static_2d(
     )
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
-    kernel = _compile_nvint3_static_quantize_2d(k)
+    kernel = _compile_nvint3_static_quantize_2d(k, adjustment_factor)
     kernel(
         x,
         values,
@@ -14338,6 +14355,7 @@ def quantize_nvint3_static_2d(
 def quantize_nvint3_bs8_static_2d(
     x: torch.Tensor,
     *,
+    adjustment_factor: float = 1.0,
     x_amax: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     m, k = _validate_quantize_input(x, 6)
@@ -14356,7 +14374,7 @@ def quantize_nvint3_bs8_static_2d(
     total_scale_tiles = (m // 8) * (k // 8)
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
-    kernel = _compile_nvint3_bs8_static_quantize_2d(k)
+    kernel = _compile_nvint3_bs8_static_quantize_2d(k, adjustment_factor)
     kernel(
         x,
         values,
@@ -14372,6 +14390,7 @@ def quantize_nvint3_bs8_static_2d(
 def quantize_nvfp3_static_2d(
     x: torch.Tensor,
     *,
+    adjustment_factor: float = 1.0,
     x_amax: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     m, k = _validate_quantize_input(x, 4)
@@ -14396,7 +14415,7 @@ def quantize_nvfp3_static_2d(
         threads_per_block=IF3_2D_GROUPS_PER_BLOCK,
     )
 
-    kernel = _compile_nvfp3_static_quantize_2d(k)
+    kernel = _compile_nvfp3_static_quantize_2d(k, adjustment_factor)
     kernel(
         x,
         values,
@@ -14412,6 +14431,7 @@ def quantize_nvfp3_static_2d(
 def quantize_nvfp3_bs8_static_2d(
     x: torch.Tensor,
     *,
+    adjustment_factor: float = 1.0,
     x_amax: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     m, k = _validate_quantize_input(x, 4)
@@ -14430,7 +14450,7 @@ def quantize_nvfp3_bs8_static_2d(
     total_scale_tiles = (m // 8) * (k // 8)
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
-    kernel = _compile_nvfp3_bs8_static_quantize_2d(k)
+    kernel = _compile_nvfp3_bs8_static_quantize_2d(k, adjustment_factor)
     kernel(
         x,
         values,
