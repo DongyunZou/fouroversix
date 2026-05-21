@@ -1881,7 +1881,6 @@ def test_cute_sm100_if6_pseudo_quantize_matches_triton_error(
     ("dtype", "scale_rule", "round_style", "block_scale_2d"),
     [
         (DataType.if3_bs8, ScaleRule.mae, RoundStyle.stochastic_unbiased, False),
-        (DataType.if3_bs8, ScaleRule.mae, RoundStyle.stochastic_unbiased, True),
     ],
 )
 def test_cute_sm100_if3_unsupported_modes_are_not_claimed(
@@ -1932,8 +1931,9 @@ def test_cute_sm100_if3_stochastic_matches_triton_error(
         dtype == DataType.if3_bs8
         and scale_rule == ScaleRule.mae
         and round_style == RoundStyle.stochastic_unbiased
+        and not block_scale_2d
     ):
-        pytest.skip("IF3_BS8 mae stochastic-unbiased remains unsupported")
+        pytest.skip("IF3_BS8 mae 1D stochastic-unbiased remains unsupported")
 
     config_triton = QuantizationConfig(
         backend=QuantizeBackend.triton,

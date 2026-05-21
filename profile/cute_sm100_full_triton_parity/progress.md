@@ -3821,6 +3821,17 @@ support-gap enumerator now reports `26` missing Triton-supported rows in the
 broader round-style matrix: IF3_BS8 `mae` stochastic-unbiased variants and true
 stochastic NVFP4 pseudo variants.
 
+Narrowed the IF3_BS8 `mae` stochastic-unbiased gap and opened the safe 2D
+block-scale subset. A temporary full gate reproduced the known 1D mismatch on
+`128x256`: only one scale byte/candidate bit differed, but CuTe's dequantized
+L2 distance was worse than Triton by about `2.6e-4`, so 1D remains unclaimed.
+The same five-seed probe for `block_scale_2d=True` was bit-exact for values and
+scales, so IF3_BS8 `mae block_scale_2d=True stochastic_unbiased` is now
+claimed. Transpose still shows small candidate-bit mismatches and remains
+unclaimed. The targeted IF3 stochastic slice passed (`24 passed, 1 skipped`),
+the full `cute_sm100` selection passed (`478 passed, 8 skipped`), and the
+support-gap enumerator is now down to `23` missing Triton-supported rows.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and
@@ -3829,8 +3840,9 @@ stochastic NVFP4 pseudo variants.
   stochastic-unbiased paths are now claimed.
 - Feature flags still missing: true stochastic NVFP4 pseudo is intentionally not
   claimed after failing the current Triton-error gate; IF3_BS8 `mae`
-  stochastic-unbiased remains unclaimed across 1D, 2D, transpose, and pseudo
-  variants after rare candidate mismatches.
+  stochastic-unbiased remains unclaimed across 1D, transpose, and pseudo
+  variants after rare candidate mismatches. Its 2D block-scale variant is now
+  claimed.
 - `block_scale_2d=True` is currently implemented for `nvfp4`,
   `nvfp4_bs8 static_4/static_6`,
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,

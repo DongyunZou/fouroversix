@@ -472,6 +472,10 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                                 config.dtype == DataType.if3
                                 or config.scale_rule
                                 in {ScaleRule.abs_max, ScaleRule.mse}
+                                or (
+                                    config.scale_rule == ScaleRule.mae
+                                    and config.block_scale_2d
+                                )
                             )
                         )
                     )
@@ -614,6 +618,10 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                                 config.dtype == DataType.if3
                                 or config.scale_rule
                                 in {ScaleRule.abs_max, ScaleRule.mse}
+                                or (
+                                    config.scale_rule == ScaleRule.mae
+                                    and config.block_scale_2d
+                                )
                             )
                         )
                     )
