@@ -3266,6 +3266,18 @@ full benchmark improved from `342/476` to `355/476` workloads meeting 1.2x, so
 this change was retained. Remaining misses are now `121/476`; pseudo misses
 dropped from `70` to `39`.
 
+Removed the launch-grid cap from the ordinary NVFP3 static, NVFP6 static, and
+IF6 adaptive 1D wrappers, using a full
+`ceil(total_scale_blocks / THREADS_PER_BLOCK)` grid for those paths. The
+targeted non-pseudo CuTe accuracy slice passed (`70 passed`). Focused
+alternating timings moved representative previously-missing rows above target,
+including `128x256 nvfp3 static_6` at about `1.21x`, `1024x1024 nvfp3
+static_6` at about `1.22x`, `128x256 nvfp6_e2m3 static_6` at about `1.24x`,
+and IF6 E2M3/E3M2 rows at about `1.21x-1.23x`. The full median benchmark
+improved from `355/476` to `363/476` workloads meeting 1.2x, so this change
+was retained. Remaining misses are now `113/476`; ordinary misses dropped from
+`37` to `31`.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
@@ -3280,5 +3292,5 @@ dropped from `70` to `39`.
   `if3/if3_bs8/if4/if4_bs8 abs_max/mae/mse`, `mxfp3/mxfp3_bs8/mxfp4/mxfp4_bs8/mxfp6 static_4/static_6`,
   `nvfp3/nvfp3_bs8/nvint3/nvint3_bs8/nvint4/nvint4_bs8/nvint6 static_6`, and NVFP6 static paths. Missing 2D paths still include related non-nearest variants.
 - Performance target still missing for many current supported workloads. The
-  latest median capability-driven benchmark snapshot reports `355/476`
+  latest median capability-driven benchmark snapshot reports `363/476`
   workloads meeting 1.2x.

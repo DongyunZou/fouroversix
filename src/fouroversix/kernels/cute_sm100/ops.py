@@ -14438,7 +14438,10 @@ def quantize_nvfp3_static(
     )
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = m * (k // scale_block_size)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _uncapped_launch_grid(
+        total_scale_blocks,
+        threads_per_block=THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_nvfp3_static_quantize(k, scale_block_size, adjustment_factor)
     kernel(
@@ -14586,7 +14589,10 @@ def quantize_nvfp6_static(
     )
     amax = _resolve_amax(x, x_amax)
     total_scale_blocks = m * (k // NVFP4_SCALE_BLOCK_SIZE)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _uncapped_launch_grid(
+        total_scale_blocks,
+        threads_per_block=THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_nvfp6_static_quantize(
         k,
@@ -15241,7 +15247,10 @@ def quantize_if6_adaptive(
         dtype=torch.uint8,
         device=x.device,
     )
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _uncapped_launch_grid(
+        total_scale_blocks,
+        threads_per_block=THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_if6_adaptive_quantize(
         k,
