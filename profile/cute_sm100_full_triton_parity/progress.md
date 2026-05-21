@@ -3334,6 +3334,14 @@ around `0.99x/1.08x/1.08x` for `abs_max/mae/mse`. The experiment was reverted
 without running a full benchmark; IF3 pseudo still needs a different kernel
 mapping rather than only CTA-size alignment.
 
+Tested retuning only the NVFP4/NVFP4_BS8 static pseudo CTA from 128 to 64
+threads, leaving NVFP4 adaptive pseudo unchanged. The targeted NVFP4 pseudo
+CuTe accuracy slice passed (`22 passed`), and focused timings moved sampled
+static pseudo rows to about `1.20x-1.22x`. The full benchmark regressed from
+the retained `390/476` snapshot to `343/476`, so the code and benchmark JSON
+were restored. Like the other small-shape pseudo misses, this is not stable
+enough as a simple CTA retune.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
