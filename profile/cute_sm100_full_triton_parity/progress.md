@@ -3985,6 +3985,17 @@ non-pseudo rows at `>=1.2x`, `138/138` pseudo rows strictly faster than Triton,
 and `471/476` total rows meeting the old all-rows-1.2x policy. The full
 `cute_sm100` test selection passes (`488 passed, 10 skipped`).
 
+Retuned IF3/IF3_BS8 transpose quantize to use an uncapped launch grid. The
+prior capped launch limited `4096x4096 if3 mse transpose` to the SM target
+instead of the natural `4096` CTA grid. Focused timings moved the 4096x4096
+IF3 transpose rows to about `1.29x-1.30x` (`abs_max=1.300x`,
+`mae=1.289x`, `mse=1.288x`) without regressing 1024x1024 rows
+(`~1.64x`). NCU on `4096x4096 if3 mse transpose` confirms the CuTe transpose
+kernel now launches grid `4096`, block `256`, with about `6.92` waves/SM and
+`69.6-70.2 us` kernel duration. The refreshed full benchmark remains
+`476/476` rows meeting the required target and `472/476` rows meeting the old
+all-rows-1.2x policy; the IF3 test slice passes (`61 passed`).
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, and

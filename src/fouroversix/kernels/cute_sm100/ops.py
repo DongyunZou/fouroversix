@@ -15483,7 +15483,10 @@ def quantize_if3_adaptive_transpose(
     amax = _resolve_amax(x, x_amax)
 
     total_scale_blocks = k * (m // scale_block_size)
-    num_blocks = _launch_grid(total_scale_blocks, x.device)
+    num_blocks = _uncapped_launch_grid(
+        total_scale_blocks,
+        threads_per_block=THREADS_PER_BLOCK,
+    )
 
     kernel = _compile_if3_adaptive_transpose_quantize(
         m,
