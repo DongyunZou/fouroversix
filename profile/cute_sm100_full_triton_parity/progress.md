@@ -3288,6 +3288,15 @@ typically to about `1.25x-1.30x`. The full median benchmark improved from
 has no remaining MX ordinary rows below target. Remaining misses are now
 `110/476`; ordinary misses dropped from `31` to `22`.
 
+Tested removing the launch-grid cap from the ordinary NVFP4 adaptive 1D wrapper
+(`abs_max/mae/mse`). The targeted non-pseudo non-2D non-transpose NVFP4 CuTe
+accuracy slice passed (`42 passed, 6 skipped`), and focused timings showed some
+local improvement, with representative `1024x1024 nvfp4 abs_max` and
+`128x256 nvfp4 mse` rows around `1.20x`. The full benchmark regressed from the
+retained `366/476` snapshot to `354/476`, so the code and benchmark JSON were
+restored. This path is too noisy to retain without a deeper NVFP4 adaptive
+kernel change.
+
 ## Remaining major gaps
 
 - Nearest 1D coverage is complete for the current dtype/rule test matrix, but
