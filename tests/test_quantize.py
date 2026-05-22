@@ -41,6 +41,16 @@ def _require_cuda_for_cute_sm100_accuracy() -> None:
         )
 
 
+def _require_cuda_for_cute_sm120_accuracy() -> None:
+    if not torch.cuda.is_available():
+        pytest.xfail("CUDA is required to validate the CuTe sm120 accuracy gate")
+
+    if torch.cuda.get_device_capability()[0] != SM_120:
+        pytest.xfail(
+            "An sm120 GPU is required to validate the CuTe sm120 accuracy gate",
+        )
+
+
 def _scale_factors_as_matrix(
     tensor,
     shape: tuple[int, int],
@@ -49,13 +59,13 @@ def _scale_factors_as_matrix(
     if tensor.scale_factors_are_in_blackwell_layout:
         return from_blocked(
             tensor.scale_factors.bfloat16(),
-            (shape[0], shape[1] // dtype.block_size),
-        )
+            (tensor.padded_shape[0], tensor.padded_shape[1] // dtype.block_size),
+        )[: shape[0], : shape[1] // dtype.block_size]
 
     return tensor.scale_factors.bfloat16().reshape(
-        shape[0],
+        tensor.scale_factors.numel() // (shape[1] // dtype.block_size),
         shape[1] // dtype.block_size,
-    )
+    )[: shape[0]]
 
 
 def _quantize_against_pytorch_reference_metrics(
@@ -89,7 +99,14 @@ def _quantize_against_pytorch_reference_metrics(
     quantized_reference = quantize(x.clone(), config_reference)
 
     values_equal_ratio = (
-        quantized_backend.values == quantized_reference.values
+        quantized_backend.values[
+            : x.shape[0],
+            : x.shape[1] // dtype.quantized_value_type.packing_factor,
+        ]
+        == quantized_reference.values[
+            : x.shape[0],
+            : x.shape[1] // dtype.quantized_value_type.packing_factor,
+        ]
     ).float().mean()
 
     backend_scales = _scale_factors_as_matrix(
@@ -276,6 +293,92 @@ def test_cute_sm100_quantize_zero_input(scale_rule: ScaleRule) -> None:
     assert quantized.scale_factors.view(torch.uint8).count_nonzero().item() == 0
     assert quantized.amax.item() == 0
     assert dequantized.abs().max().item() == 0
+
+
+@pytest.mark.parametrize(
+    "input_shape",
+    [
+        (1, 576),
+        (6, 576),
+        (1, 1536),
+        (6, 1536),
+        (192, 576),
+        (576, 576),
+        (576, 1536),
+        (1536, 576),
+    ],
+)
+def test_cute_sm120_default_mse_quantize_is_not_less_accurate_than_triton(
+    input_shape: tuple[int, int],
+) -> None:
+    _require_cuda_for_cute_sm120_accuracy()
+
+    if QuantizeBackend.cute_sm120 not in AVAILABLE_BACKENDS:
+        pytest.fail("QuantizeBackend.cute_sm120 is not registered")
+
+    cute_backend = AVAILABLE_BACKENDS[QuantizeBackend.cute_sm120]
+    triton_backend = AVAILABLE_BACKENDS[QuantizeBackend.triton]
+    pytorch_backend = AVAILABLE_BACKENDS[QuantizeBackend.pytorch]
+    if (
+        not cute_backend.is_available()
+        or not triton_backend.is_available()
+        or not pytorch_backend.is_available()
+    ):
+        pytest.xfail("Required backend is not available")
+
+    torch.manual_seed(0)
+    x = torch.randn(*input_shape, dtype=torch.bfloat16, device="cuda")
+
+    triton_metrics = _quantize_against_pytorch_reference_metrics(
+        x,
+        backend=QuantizeBackend.triton,
+        dtype=DataType.nvfp4,
+        scale_rule=ScaleRule.mse,
+    )
+    cute_metrics = _quantize_against_pytorch_reference_metrics(
+        x,
+        backend=QuantizeBackend.cute_sm120,
+        dtype=DataType.nvfp4,
+        scale_rule=ScaleRule.mse,
+    )
+
+    assert cute_metrics["values_equal_ratio"] >= CUTE_VALUE_EQUAL_RATIO_FLOOR
+    assert cute_metrics["input_mse"] <= (
+        triton_metrics["input_mse"] + CUTE_DEQUANT_METRIC_TOLERANCE
+    )
+    assert cute_metrics["input_mae"] <= (
+        triton_metrics["input_mae"] + CUTE_DEQUANT_METRIC_TOLERANCE
+    )
+    assert cute_metrics["input_max_error"] <= (
+        triton_metrics["input_max_error"] + CUTE_DEQUANT_METRIC_TOLERANCE
+    )
+
+
+def test_cute_sm120_default_mse_quantize_zero_input() -> None:
+    _require_cuda_for_cute_sm120_accuracy()
+
+    config = QuantizationConfig(
+        backend=QuantizeBackend.cute_sm120,
+        dtype=DataType.nvfp4,
+        scale_rule=ScaleRule.mse,
+    )
+
+    for input_shape in [(1, 576), (6, 1536), (192, 576)]:
+        x = torch.zeros(*input_shape, dtype=torch.bfloat16, device="cuda")
+        quantized = quantize(x, config)
+        dequantized = dequantize(
+            quantized,
+            dtype=torch.float32,
+            backend=QuantizeBackend.pytorch,
+            intermediate_dtype=torch.float32,
+        )
+
+        assert quantized.values[
+            : input_shape[0],
+            : input_shape[1] // 2,
+        ].count_nonzero().item() == 0
+        assert quantized.amax.item() == 0
+        assert dequantized.abs().max().item() == 0
 
 
 @pytest.mark.parametrize(

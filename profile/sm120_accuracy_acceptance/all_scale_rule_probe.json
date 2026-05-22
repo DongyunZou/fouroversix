@@ -1,0 +1,32 @@
+{
+  "generated_at_unix": 1779412646.8500535,
+  "device": "NVIDIA GeForce RTX 5090",
+  "capability": [
+    12,
+    0
+  ],
+  "rows": 50,
+  "failures": 1,
+  "failure_rows": [
+    {
+      "shape": [
+        6,
+        1536
+      ],
+      "scale_rule": "abs_max",
+      "triton": {
+        "input_mse": 0.007791554089635611,
+        "input_mae": 0.07092130184173584,
+        "input_max_error": 0.353515625,
+        "finite": true
+      },
+      "cute_sm120": {
+        "input_mse": 0.007825003936886787,
+        "input_mae": 0.07109253853559494,
+        "input_max_error": 0.353515625,
+        "finite": true
+      },
+      "ok": false
+    }
+  ]
+}

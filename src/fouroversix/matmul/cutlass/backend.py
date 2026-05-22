@@ -6,6 +6,71 @@ from fouroversix.quantize import QuantizedTensor
 from fouroversix.utils import BLACKWELL_SM_IDS, SM_100, SM_120, DataType
 
 
+def _to_blackwell_blocked(a: torch.Tensor) -> torch.Tensor:
+    rows, cols = a.shape
+    if rows % 128 != 0 or cols % 4 != 0:
+        msg = (
+            "Blackwell scale layout requires rows divisible by 128 and columns "
+            f"divisible by 4, got {tuple(a.shape)}"
+        )
+        raise ValueError(msg)
+
+    return (
+        a.reshape(-1, 128, cols // 4, 4)
+        .transpose(1, 2)
+        .reshape(-1, 4, 32, 4)
+        .transpose(1, 2)
+        .contiguous()
+        .reshape(-1)
+    )
+
+
+def _ensure_padded_values_clean(tensor: QuantizedTensor) -> None:
+    padded_rows = tensor.padded_shape[0]
+    if tensor.values.shape[0] != padded_rows:
+        padded_values = torch.zeros(
+            (padded_rows, tensor.values.shape[1]),
+            device=tensor.values.device,
+            dtype=tensor.values.dtype,
+        )
+        padded_values[: tensor.values.shape[0]].copy_(tensor.values)
+        tensor.values = padded_values
+
+    if tensor.scale_factors.ndim > 1 and tensor.scale_factors.shape[0] != padded_rows:
+        padded_scales = torch.zeros(
+            (padded_rows, tensor.scale_factors.shape[1]),
+            device=tensor.scale_factors.device,
+            dtype=tensor.scale_factors.dtype,
+        )
+        padded_scales[: tensor.scale_factors.shape[0]].copy_(tensor.scale_factors)
+        tensor.scale_factors = padded_scales
+
+    padded_rows = tensor.values.shape[0]
+    original_rows = tensor.original_shape[0]
+
+    if (
+        not getattr(tensor, "_fouroversix_padded_values_clean", True)
+        and padded_rows != original_rows
+    ):
+        tensor.values[original_rows:padded_rows].zero_()
+    tensor._fouroversix_padded_values_clean = True
+
+    if (
+        not getattr(tensor, "_fouroversix_padded_scales_clean", True)
+        and tensor.scale_factors.ndim > 1
+        and tensor.scale_factors.shape[0] != original_rows
+    ):
+        tensor.scale_factors[original_rows : tensor.scale_factors.shape[0]].zero_()
+    tensor._fouroversix_padded_scales_clean = True
+
+    if not tensor.scale_factors_are_in_blackwell_layout:
+        if tensor.scale_factors.ndim != 2:
+            msg = "row-major scale factors must be a 2D tensor before conversion"
+            raise ValueError(msg)
+        tensor.scale_factors = _to_blackwell_blocked(tensor.scale_factors)
+        tensor.scale_factors_are_in_blackwell_layout = True
+
+
 class CUTLASSMatmulBackend(MatmulBackendBase):
     """
     The CUTLASS matrix multiplication backend. Uses CUTLASS kernels to perform fast
@@ -140,6 +205,9 @@ class CUTLASSMatmulBackend(MatmulBackendBase):
                 f"out_dtype: {torch.cuda.get_device_capability()[0]}, {out_dtype}"
             )
             raise ValueError(msg)
+
+        _ensure_padded_values_clean(input)
+        _ensure_padded_values_clean(other)
 
         out = gemm_fn(
             input.values,

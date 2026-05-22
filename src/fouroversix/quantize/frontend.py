@@ -1,9 +1,10 @@
 import torch
-from fouroversix.utils import QuantizeBackend
+from fouroversix.utils import DataType, QuantizeBackend, RoundStyle, ScaleRule
 
 from .config import QuantizationConfig
 from .cuda import CUDAQuantizeBackend
-from .cute import CuteSm100QuantizeBackend
+from .cute import CuteSm100QuantizeBackend, CuteSm120QuantizeBackend
+from .cute.sm120_backend import quantize_nvfp4_adaptive_default
 from .pytorch import PyTorchQuantizeBackend
 from .quantized_tensor import QuantizedTensor
 from .transformer_engine import TransformerEngineQuantizeBackend
@@ -12,6 +13,7 @@ from .triton import TritonQuantizeBackend
 AVAILABLE_BACKENDS = {
     QuantizeBackend.cuda: CUDAQuantizeBackend,
     QuantizeBackend.cute_sm100: CuteSm100QuantizeBackend,
+    QuantizeBackend.cute_sm120: CuteSm120QuantizeBackend,
     QuantizeBackend.transformer_engine: TransformerEngineQuantizeBackend,
     QuantizeBackend.triton: TritonQuantizeBackend,
     QuantizeBackend.pytorch: PyTorchQuantizeBackend,
@@ -133,6 +135,31 @@ def quantize(
 
     if config is None:
         config = QuantizationConfig()
+
+    if (
+        config.backend == QuantizeBackend.cute_sm120
+        and x.is_cuda
+        and x.dtype == torch.bfloat16
+        and x.ndim == 2
+        and not config.transpose
+        and not config.rht
+        and not config.block_scale_2d
+        and not config.pseudo_quantize
+        and (
+            config.dtype == DataType.nvfp4
+            or (
+                config.dtype == DataType.nvfp4_bs8
+                and config.round_style == RoundStyle.nearest
+            )
+        )
+        and (
+            config.scale_rule == ScaleRule.mse
+            or config.scale_rule == ScaleRule.mae
+            or config.scale_rule == ScaleRule.abs_max
+        )
+        and (not config.kwargs or set(config.kwargs) == {"x_amax"})
+    ):
+        return quantize_nvfp4_adaptive_default(x, config)
 
     selected_backend = config.backend
 

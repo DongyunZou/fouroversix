@@ -1,0 +1,102 @@
+{
+  "model_name": "HuggingFaceTB/SmolLM2-135M",
+  "dtype": "nvfp4",
+  "scale_rule": "mse",
+  "baseline_backend": "triton",
+  "candidate_backend": "cuda",
+  "generated_at_unix": 1779374613,
+  "weights": [
+    {
+      "shape": [
+        192,
+        576
+      ],
+      "count": 60,
+      "baseline_mean_ms": 0.15752800032496453,
+      "candidate_mean_ms": 0.05534559991210699,
+      "speedup": 2.8462605984058524
+    },
+    {
+      "shape": [
+        576,
+        576
+      ],
+      "count": 60,
+      "baseline_mean_ms": 0.1541600003838539,
+      "candidate_mean_ms": 0.053815999813377854,
+      "speedup": 2.8645756079687668
+    },
+    {
+      "shape": [
+        576,
+        1536
+      ],
+      "count": 30,
+      "baseline_mean_ms": 0.15612320080399514,
+      "candidate_mean_ms": 0.05421119965612888,
+      "speedup": 2.8799067682381483
+    },
+    {
+      "shape": [
+        1536,
+        576
+      ],
+      "count": 60,
+      "baseline_mean_ms": 0.15249439999461173,
+      "candidate_mean_ms": 0.0543503999710083,
+      "speedup": 2.805764080410735
+    },
+    {
+      "shape": [
+        49152,
+        576
+      ],
+      "count": 1,
+      "baseline_mean_ms": 0.20649920105934144,
+      "candidate_mean_ms": 0.17644159868359566,
+      "speedup": 1.170354398282497
+    }
+  ],
+  "activations": [
+    {
+      "shape": [
+        1,
+        576
+      ],
+      "count": 1268,
+      "baseline_mean_ms": 0.14576000049710275,
+      "candidate_mean_ms": 0.05607520025223493,
+      "speedup": 2.599366562071142
+    },
+    {
+      "shape": [
+        1,
+        1536
+      ],
+      "count": 210,
+      "baseline_mean_ms": 0.14464640021324157,
+      "candidate_mean_ms": 0.053747199662029746,
+      "speedup": 2.6912360294638473
+    },
+    {
+      "shape": [
+        6,
+        576
+      ],
+      "count": 180,
+      "baseline_mean_ms": 0.1486448012292385,
+      "candidate_mean_ms": 0.05336479935795069,
+      "speedup": 2.7854466430612055
+    },
+    {
+      "shape": [
+        6,
+        1536
+      ],
+      "count": 30,
+      "baseline_mean_ms": 0.143596800416708,
+      "candidate_mean_ms": 0.053561600111424926,
+      "speedup": 2.680965470000553
+    }
+  ]
+}

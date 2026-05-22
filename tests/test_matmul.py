@@ -6,11 +6,13 @@ from fouroversix import (
     DataType,
     MatmulBackend,
     QuantizationConfig,
+    QuantizeBackend,
     ScaleRule,
     quantize,
     quantized_matmul,
 )
 from fouroversix.matmul.frontend import AVAILABLE_BACKENDS
+from fouroversix.utils import SM_120
 
 MISMATCH_TOLERANCE = 1e-3
 NUM_RANDOM_SEEDS = 10
@@ -86,3 +88,64 @@ def test_matmul(
             print(f"Out A: {out_a}")
             print(f"Out B: {out_b}")
             pytest.fail("Values mismatch")
+
+
+@pytest.mark.parametrize(
+    ("m", "n", "k"),
+    [
+        (1, 192, 576),
+        (1, 576, 1536),
+        (6, 576, 576),
+        (6, 576, 1536),
+        (128, 256, 256),
+        (256, 512, 512),
+    ],
+)
+def test_cute_sm120_cutlass_matmul_matches_pytorch(
+    m: int,
+    n: int,
+    k: int,
+) -> None:
+    if not torch.cuda.is_available():
+        pytest.xfail("CUDA is required to validate the CuTe sm120 matmul gate")
+
+    if torch.cuda.get_device_capability()[0] != SM_120:
+        pytest.xfail("An sm120 GPU is required to validate the CuTe sm120 matmul gate")
+
+    cutlass_backend = AVAILABLE_BACKENDS[MatmulBackend.cutlass]
+    pytorch_backend = AVAILABLE_BACKENDS[MatmulBackend.pytorch]
+    if not cutlass_backend.is_available() or not pytorch_backend.is_available():
+        pytest.xfail("Required backend is not available")
+
+    config = QuantizationConfig(
+        backend=QuantizeBackend.cute_sm120,
+        dtype=DataType.nvfp4,
+        scale_rule=ScaleRule.mse,
+    )
+
+    for random_seed in range(5):
+        torch.manual_seed(random_seed)
+        x = torch.randn(m, k, dtype=torch.bfloat16, device="cuda")
+        y = torch.randn(n, k, dtype=torch.bfloat16, device="cuda")
+
+        x_reference = quantize(x, config)
+        y_reference = quantize(y, config)
+        out_reference = quantized_matmul(
+            x_reference,
+            y_reference,
+            backend=MatmulBackend.pytorch,
+        )
+
+        x_candidate = quantize(x, config)
+        y_candidate = quantize(y, config)
+        out_candidate = quantized_matmul(
+            x_candidate,
+            y_candidate,
+            backend=MatmulBackend.cutlass,
+        )
+
+        values_mismatch_prop = (
+            (out_candidate != out_reference).sum() / out_reference.numel()
+        )
+        max_error = (out_candidate.float() - out_reference.float()).abs().max()
+        assert values_mismatch_prop <= MISMATCH_TOLERANCE or max_error <= 1e-3

@@ -105,6 +105,8 @@ def collect_model_shapes(
 def profile_shapes(
     shapes: dict[tuple[int, int], int],
     *,
+    baseline_backend: QuantizeBackend,
+    candidate_backend: QuantizeBackend,
     dtype: DataType,
     scale_rule: ScaleRule,
     repeats: int,
@@ -113,29 +115,29 @@ def profile_shapes(
     rows = []
     for shape, count in sorted(shapes.items(), key=lambda item: (item[0][0] * item[0][1], item[0])):
         x = torch.randn(shape, dtype=torch.bfloat16, device="cuda")
-        triton = bench_quantize(
+        baseline = bench_quantize(
             x,
-            backend=QuantizeBackend.triton,
+            backend=baseline_backend,
             dtype=dtype,
             scale_rule=scale_rule,
             repeats=repeats,
             warmup=warmup,
         )
-        cute = bench_quantize(
+        candidate = bench_quantize(
             x,
-            backend=QuantizeBackend.cute_sm100,
+            backend=candidate_backend,
             dtype=dtype,
             scale_rule=scale_rule,
             repeats=repeats,
             warmup=warmup,
         )
-        speedup = triton["mean_ms"] / cute["mean_ms"]
+        speedup = baseline["mean_ms"] / candidate["mean_ms"]
         rows.append(
             {
                 "shape": list(shape),
                 "count": count,
-                "triton_mean_ms": triton["mean_ms"],
-                "cute_sm100_mean_ms": cute["mean_ms"],
+                "baseline_mean_ms": baseline["mean_ms"],
+                "candidate_mean_ms": candidate["mean_ms"],
                 "speedup": speedup,
             },
         )
@@ -150,6 +152,8 @@ def write_markdown(output: Path, results: dict[str, Any]) -> None:
         f"- model: `{results['model_name']}`",
         f"- dtype: `{results['dtype']}`",
         f"- scale_rule: `{results['scale_rule']}`",
+        f"- baseline_backend: `{results['baseline_backend']}`",
+        f"- candidate_backend: `{results['candidate_backend']}`",
         f"- generated_at_unix: `{results['generated_at_unix']}`",
         "",
     ]
@@ -159,15 +163,15 @@ def write_markdown(output: Path, results: dict[str, Any]) -> None:
         lines += [
             f"## {section.title()}",
             "",
-            "| shape | count | Triton mean ms | CuTe sm100 mean ms | speedup |",
+            "| shape | count | Baseline mean ms | Candidate mean ms | speedup |",
             "| --- | ---: | ---: | ---: | ---: |",
         ]
         for row in rows:
             shape = "x".join(str(v) for v in row["shape"])
             lines.append(
                 "| "
-                f"{shape} | {row['count']} | {row['triton_mean_ms']:.6f} | "
-                f"{row['cute_sm100_mean_ms']:.6f} | {row['speedup']:.3f}x |",
+                f"{shape} | {row['count']} | {row['baseline_mean_ms']:.6f} | "
+                f"{row['candidate_mean_ms']:.6f} | {row['speedup']:.3f}x |",
             )
         lines.append("")
 
@@ -184,6 +188,16 @@ def main() -> None:
     parser.add_argument("--dtype", type=DataType, default=DataType.nvfp4)
     parser.add_argument("--scale-rule", type=ScaleRule, default=ScaleRule.mse)
     parser.add_argument(
+        "--baseline-backend",
+        type=QuantizeBackend,
+        default=QuantizeBackend.triton,
+    )
+    parser.add_argument(
+        "--candidate-backend",
+        type=QuantizeBackend,
+        default=QuantizeBackend.cute_sm120,
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=Path("profile/inference_kernel_profile"),
@@ -191,7 +205,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if not torch.cuda.is_available():
-        raise RuntimeError("CUDA is required for CuTe sm100/Triton profiling")
+        raise RuntimeError("CUDA is required for quantize backend profiling")
 
     weight_shapes, activation_shapes = collect_model_shapes(
         args.model_name,
@@ -202,9 +216,13 @@ def main() -> None:
         "model_name": args.model_name,
         "dtype": args.dtype.value,
         "scale_rule": args.scale_rule.value,
+        "baseline_backend": args.baseline_backend.value,
+        "candidate_backend": args.candidate_backend.value,
         "generated_at_unix": int(time.time()),
         "weights": profile_shapes(
             weight_shapes,
+            baseline_backend=args.baseline_backend,
+            candidate_backend=args.candidate_backend,
             dtype=args.dtype,
             scale_rule=args.scale_rule,
             repeats=args.repeats,
@@ -212,6 +230,8 @@ def main() -> None:
         ),
         "activations": profile_shapes(
             activation_shapes,
+            baseline_backend=args.baseline_backend,
+            candidate_backend=args.candidate_backend,
             dtype=args.dtype,
             scale_rule=args.scale_rule,
             repeats=args.repeats,
