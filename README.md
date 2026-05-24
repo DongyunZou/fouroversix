@@ -39,6 +39,24 @@ To speed up build times, set `CUDA_ARCHS=100` to only compile kernels for B-seri
 
 Also, if you don't have a Blackwell GPU, you may use our reference implementation, which is slow but helpful for testing, by setting `SKIP_CUDA_BUILD=1` before running `pip install`.
 
+**CuTe backend development with uv:**
+
+The CuTe quantization backends (`cute_sm100` and `cute_sm120`) depend on NVIDIA's CUTLASS DSL Python package.
+Install the CUDA 13 CUTLASS DSL wheel in the same environment before importing or developing those backends:
+
+```bash
+uv venv .venv --python 3.12
+source .venv/bin/activate
+uv pip install --python .venv/bin/python ninja packaging psutil "setuptools>=77.0.3"
+# Install a CUDA-enabled PyTorch 2.8+ wheel that matches your CUDA stack.
+uv pip install --python .venv/bin/python torch
+uv pip install --python .venv/bin/python "nvidia-cutlass-dsl[cu13]"
+git submodule update --init third_party/cutlass
+CUDA_ARCHS=120 MAX_JOBS=4 FORCE_BUILD=1 uv pip install --python .venv/bin/python -e . --no-build-isolation
+```
+
+Use `CUDA_ARCHS=100` instead of `CUDA_ARCHS=120` when developing the SM100 CuTe backend.
+
 ### PTQ Experiments (New)
 
 In our newest work, Adaptive Block-Scaled Data Types, our experiments were run with a new vLLM-based PTQ setup.
