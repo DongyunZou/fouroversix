@@ -143,6 +143,6 @@ print(
 )
 print(
     f"{'Peak VRAM reserved (GB)':<28} {results_bf16['peak_reserved_gb']:>10.2f} "
-    "{results_fp4['peak_reserved_gb']:>10.2f} "
+    f"{results_fp4['peak_reserved_gb']:>10.2f} "
     f"{results_bf16['peak_reserved_gb']/results_fp4['peak_reserved_gb']:>9.2f}x",
 )
