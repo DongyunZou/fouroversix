@@ -43,7 +43,7 @@ Primary CuTe sm100 implementation:
 
 - `src/fouroversix/kernels/cute_sm100/fp4_common.py`
 - `src/fouroversix/kernels/cute_sm100/ops.py`
-- `src/fouroversix/quantize/cute/backend.py`
+- `src/fouroversix/quantize/cute/sm100_backend.py`
 
 Backend dispatch and benchmark plumbing:
 
