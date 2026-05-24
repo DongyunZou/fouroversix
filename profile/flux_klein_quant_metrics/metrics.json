@@ -1,0 +1,71 @@
+{
+  "model_id": "black-forest-labs/FLUX.2-klein-4B",
+  "prompt": "A cozy bookshop in Tokyo at night, warm light spilling onto a rain-slicked street, cherry blossom petals drifting through the air, Studio Ghibli style",
+  "height": 1024,
+  "width": 1024,
+  "steps": 4,
+  "seed": 42,
+  "device": "NVIDIA GeForce RTX 5090",
+  "capability": [
+    12,
+    0
+  ],
+  "cases": {
+    "bf16": {
+      "label": "bf16",
+      "quantize_backend": null,
+      "matmul_backend": null,
+      "load_time_s": 4.993547451682389,
+      "generate_time_s": 1.484915029257536,
+      "peak_vram_gb": {
+        "allocated": 18.625993216,
+        "reserved": 21.053308928
+      },
+      "image_path": "profile/flux_klein_quant_metrics/bf16.png"
+    },
+    "nvfp4_triton": {
+      "label": "nvfp4_triton",
+      "quantize_backend": "triton",
+      "matmul_backend": "cutlass",
+      "load_time_s": 5.402520942501724,
+      "generate_time_s": 0.7647295240312815,
+      "peak_vram_gb": {
+        "allocated": 13.06114816,
+        "reserved": 15.625879552
+      },
+      "image_path": "profile/flux_klein_quant_metrics/nvfp4_triton.png"
+    },
+    "nvfp4_cute_sm120": {
+      "label": "nvfp4_cute_sm120",
+      "quantize_backend": "cute_sm120",
+      "matmul_backend": "cutlass",
+      "load_time_s": 9.06920619495213,
+      "generate_time_s": 2.0334367929026484,
+      "peak_vram_gb": {
+        "allocated": 13.313560064,
+        "reserved": 15.544090624
+      },
+      "image_path": "profile/flux_klein_quant_metrics/nvfp4_cute_sm120.png"
+    }
+  },
+  "comparisons": {
+    "bf16_vs_nvfp4_triton": {
+      "mse": 0.029601478949189186,
+      "psnr_db": 15.286865901766584,
+      "max_abs": 0.9882352948188782,
+      "mean_abs": 0.11800241470336914
+    },
+    "bf16_vs_nvfp4_cute_sm120": {
+      "mse": 0.033402688801288605,
+      "psnr_db": 14.762185725728028,
+      "max_abs": 0.9725490212440491,
+      "mean_abs": 0.1273416429758072
+    },
+    "nvfp4_triton_vs_nvfp4_cute_sm120": {
+      "mse": 0.022688433527946472,
+      "psnr_db": 16.441954879693437,
+      "max_abs": 0.9450980424880981,
+      "mean_abs": 0.09903097152709961
+    }
+  }
+}

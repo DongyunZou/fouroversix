@@ -64,6 +64,9 @@ def quantize(  # noqa: C901, PLR0915
             else torch.ones(1, device=x.device, dtype=torch.float32)
         )
 
+    if not transpose and not x.is_contiguous():
+        x = x.contiguous()
+
     padded_m = M + (block_size_m - M % block_size_m) % block_size_m
     padded_n = N + (block_size_n - N % block_size_n) % block_size_n
 

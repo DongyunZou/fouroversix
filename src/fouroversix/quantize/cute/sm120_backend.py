@@ -93,11 +93,18 @@ _AMAX_CACHE_MAX_SIZE = 256
 _AMAX_CACHE: dict[tuple[int, int, int, tuple[int, ...], tuple[int, ...]], tuple[weakref.ReferenceType[torch.Tensor], torch.Tensor]] = {}
 
 
+def _tensor_version(x: torch.Tensor) -> int:
+    try:
+        return x._version
+    except RuntimeError:
+        return -1
+
+
 def _cached_amax(x: torch.Tensor) -> torch.Tensor:
     key = (
         id(x),
         x.data_ptr(),
-        x._version,
+        _tensor_version(x),
         tuple(x.shape),
         tuple(x.stride()),
     )

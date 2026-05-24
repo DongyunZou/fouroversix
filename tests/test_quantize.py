@@ -198,6 +198,32 @@ def test_triton_matches_pytorch_reference_quantize_metrics(
         assert metrics["mae"] < 1e-4
 
 
+def test_triton_quantize_accepts_flux_like_noncontiguous_activation() -> None:
+    _require_cuda()
+
+    triton_backend = AVAILABLE_BACKENDS[QuantizeBackend.triton]
+    if not triton_backend.is_available():
+        pytest.skip("Triton backend is not available")
+
+    torch.manual_seed(0)
+    x = torch.randn(1, 128, 128, dtype=torch.bfloat16, device="cuda").transpose(1, 2)
+    x_flat = x.reshape(-1, x.shape[-1])
+    assert not x_flat.is_contiguous()
+    assert x_flat.stride(-1) != 1
+
+    config = QuantizationConfig(
+        backend=QuantizeBackend.triton,
+        dtype=DataType.nvfp4,
+        scale_rule=ScaleRule.mse,
+    )
+    quantized = quantize(x_flat, config)
+    quantized_contiguous = quantize(x_flat.contiguous(), config)
+
+    assert torch.equal(quantized.values, quantized_contiguous.values)
+    assert torch.equal(quantized.scale_factors, quantized_contiguous.scale_factors)
+    assert torch.equal(quantized.amax, quantized_contiguous.amax)
+
+
 @pytest.mark.parametrize("input_shape", [(128, 256), (256, 256), (1024, 1024)])
 @pytest.mark.parametrize(
     "scale_rule",
