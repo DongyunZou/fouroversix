@@ -67,5 +67,6 @@
       "max_abs": 0.9450980424880981,
       "mean_abs": 0.09903097152709961
     }
-  }
+  },
+  "validity_note": "Diagnostic artifact: forced Triton metrics were generated during a temporary local workaround that has been reverted. The current branch intentionally does not modify CUDA or Triton backends; official upstream FLUX examples use default FourOverSixConfig(), not forced Triton/CUDA validation."
 }

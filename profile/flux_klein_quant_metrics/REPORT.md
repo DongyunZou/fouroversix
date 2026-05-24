@@ -47,12 +47,11 @@ Notes:
 - This is a real Diffusers pipeline run, not a quantize-kernel microbenchmark.
 - The CuTe timing includes first-use CuTe compilation overhead for this run and should
   not be treated as steady-state serving latency.
-- Pixel PSNR/MSE confirms all three paths complete and produce finite images under the
-  same seed. It is not a strict layerwise equivalence proof because diffusion sampling
-  can amplify small numerical differences.
-- Two end-to-end compatibility fixes were needed:
-  - Triton quantize materializes non-transpose non-contiguous inputs before building a
-    `TensorDescriptor`, which handles FLUX activation layouts whose flattened stride is
-    not 16-byte aligned.
-  - The SM120 amax cache tolerates PyTorch inference tensors that do not expose a
-    version counter.
+- These metrics were produced during a diagnostic run that temporarily allowed forced
+  Triton on the FLUX activation layout. The Triton backend workaround was reverted; the
+  current branch intentionally does not modify CUDA or Triton backends.
+- Current forced CUDA/Triton FLUX.2-klein activation quantization is not treated as
+  validated. The official upstream examples use `FourOverSixConfig()` rather than
+  explicit forced Triton/CUDA backend validation.
+- The retained SM120 compatibility fix is that the CuTe SM120 amax cache tolerates
+  PyTorch inference tensors that do not expose a version counter.
