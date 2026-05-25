@@ -1,0 +1,72 @@
+{
+  "timestamp": "2026-05-24 23:42:09 EDT",
+  "device": "NVIDIA GeForce RTX 5090",
+  "capability": [
+    12,
+    0
+  ],
+  "repeats": 50,
+  "warmups": 20,
+  "scale_rule": "mse",
+  "cases": [
+    {
+      "m": 16384,
+      "n": 1024,
+      "k": 1024,
+      "results": [
+        {
+          "backend": "cuda",
+          "status": "ok",
+          "quant_x_ms": 0.12710847973823547,
+          "quant_x_std_ms": 0.0030304949163648047,
+          "quant_y_ms": 0.05291199989616871,
+          "quant_y_std_ms": 0.0022841984341312356,
+          "quant_pair_ms": 0.15640383929014207,
+          "quant_pair_std_ms": 0.002369701692675239,
+          "cutlass_gemm_ms": 0.08582143992185592,
+          "cutlass_gemm_std_ms": 0.0030198139326074415
+        },
+        {
+          "backend": "cute_sm120",
+          "status": "ok",
+          "quant_x_ms": 0.10572288021445274,
+          "quant_x_std_ms": 0.008356592985780219,
+          "quant_y_ms": 0.10330688044428825,
+          "quant_y_std_ms": 0.0038892438633138307,
+          "quant_pair_ms": 0.19334399998188018,
+          "quant_pair_std_ms": 0.014620192127814192,
+          "cutlass_gemm_ms": 0.08730560079216958,
+          "cutlass_gemm_std_ms": 0.003715231620322603
+        },
+        {
+          "backend": "triton",
+          "status": "ok",
+          "quant_x_ms": 0.17283584117889406,
+          "quant_x_std_ms": 0.003866874559452721,
+          "quant_y_ms": 0.15039359986782075,
+          "quant_y_std_ms": 0.003325285526716394,
+          "quant_pair_ms": 0.2897932809591293,
+          "quant_pair_std_ms": 0.012971989108183432,
+          "cutlass_gemm_ms": 0.08666816025972367,
+          "cutlass_gemm_std_ms": 0.003267442636140117
+        },
+        {
+          "backend": "pytorch",
+          "status": "ok",
+          "quant_x_ms": 6.097704944610595,
+          "quant_x_std_ms": 0.02353536414871931,
+          "quant_y_ms": 1.179903359413147,
+          "quant_y_std_ms": 0.010194281371028423,
+          "quant_pair_ms": 7.233248014450073,
+          "quant_pair_std_ms": 0.019889686265759966,
+          "cutlass_gemm_ms": 0.08564608037471771,
+          "cutlass_gemm_std_ms": 0.0019601363959953445
+        },
+        {
+          "backend": "transformer_engine",
+          "status": "not_available"
+        }
+      ]
+    }
+  ]
+}
