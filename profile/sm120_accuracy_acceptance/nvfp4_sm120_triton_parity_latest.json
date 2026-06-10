@@ -1,0 +1,1748 @@
+{
+  "generated_at": "2026-06-09T16:14:18.988346+00:00",
+  "host": {
+    "hostname": "yotta-5090-244",
+    "platform": "Linux-5.15.0-051500-generic-x86_64-with-glibc2.39"
+  },
+  "device": {
+    "name": "NVIDIA GeForce RTX 5090",
+    "capability": [
+      12,
+      0
+    ]
+  },
+  "config": {
+    "dtype": "nvfp4",
+    "round_style": "nearest",
+    "backends": [
+      "triton",
+      "cute_sm120"
+    ],
+    "shapes": [
+      [
+        1,
+        576
+      ],
+      [
+        6,
+        1536
+      ],
+      [
+        128,
+        256
+      ],
+      [
+        1024,
+        1024
+      ],
+      [
+        4096,
+        4096
+      ],
+      [
+        8192,
+        4096
+      ]
+    ],
+    "scale_rules": [
+      "static_4",
+      "static_6",
+      "abs_max",
+      "mae",
+      "mse"
+    ],
+    "cute_sm120_match_triton_reduction": true
+  },
+  "summary": {
+    "cases": 30,
+    "value_mismatch_count": 0,
+    "scale_mismatch_count": 0,
+    "amax_bitwise_equal_cases": 30,
+    "max_dequant_mae": 0.0,
+    "max_dequant_mse": 0.0,
+    "max_dequant_error": 0.0,
+    "all_bitwise_equal": true
+  },
+  "rows": [
+    {
+      "shape": [
+        1,
+        576
+      ],
+      "scale_rule": "static_4",
+      "amax": {
+        "triton": 3.3125,
+        "cute_sm120": 3.3125,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          84,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          84,
+          64
+        ]
+      },
+      "values": {
+        "total": 288,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 36,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.07370651513338089,
+          "mse": 0.008738196454942226,
+          "max_error": 0.3136160373687744,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.07370651513338089,
+          "mse": 0.008738196454942226,
+          "max_error": 0.3136160373687744,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        1,
+        576
+      ],
+      "scale_rule": "static_6",
+      "amax": {
+        "triton": 3.3125,
+        "cute_sm120": 3.3125,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          84,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          84,
+          64
+        ]
+      },
+      "values": {
+        "total": 288,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 36,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.06470593065023422,
+          "mse": 0.007884476333856583,
+          "max_error": 0.3816964626312256,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.06470593065023422,
+          "mse": 0.007884476333856583,
+          "max_error": 0.3816964626312256,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        1,
+        576
+      ],
+      "scale_rule": "abs_max",
+      "amax": {
+        "triton": 3.3125,
+        "cute_sm120": 3.3125,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          84,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          84,
+          64
+        ]
+      },
+      "values": {
+        "total": 288,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 36,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.06805814057588577,
+          "mse": 0.007522693835198879,
+          "max_error": 0.2916666269302368,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.06805814057588577,
+          "mse": 0.007522693835198879,
+          "max_error": 0.2916666269302368,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        1,
+        576
+      ],
+      "scale_rule": "mae",
+      "amax": {
+        "triton": 3.3125,
+        "cute_sm120": 3.3125,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          84,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          84,
+          64
+        ]
+      },
+      "values": {
+        "total": 288,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 36,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.06467520445585251,
+          "mse": 0.007671358063817024,
+          "max_error": 0.42578125,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.06467520445585251,
+          "mse": 0.007671358063817024,
+          "max_error": 0.42578125,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        1,
+        576
+      ],
+      "scale_rule": "mse",
+      "amax": {
+        "triton": 3.3125,
+        "cute_sm120": 3.3125,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          84,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          84,
+          64
+        ]
+      },
+      "values": {
+        "total": 288,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 36,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.0662875548005104,
+          "mse": 0.0071907988749444485,
+          "max_error": 0.3125,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.0662875548005104,
+          "mse": 0.0071907988749444485,
+          "max_error": 0.3125,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        6,
+        1536
+      ],
+      "scale_rule": "static_4",
+      "amax": {
+        "triton": 4.21875,
+        "cute_sm120": 4.21875,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          135,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          135,
+          64
+        ]
+      },
+      "values": {
+        "total": 4608,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 576,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.07949692755937576,
+          "mse": 0.009727958589792252,
+          "max_error": 0.3683035373687744,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.07949692755937576,
+          "mse": 0.009727958589792252,
+          "max_error": 0.3683035373687744,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        6,
+        1536
+      ],
+      "scale_rule": "static_6",
+      "amax": {
+        "triton": 4.21875,
+        "cute_sm120": 4.21875,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          135,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          135,
+          64
+        ]
+      },
+      "values": {
+        "total": 4608,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 576,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.07105842232704163,
+          "mse": 0.008956599980592728,
+          "max_error": 0.4464285373687744,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.07105842232704163,
+          "mse": 0.008956599980592728,
+          "max_error": 0.4464285373687744,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        6,
+        1536
+      ],
+      "scale_rule": "abs_max",
+      "amax": {
+        "triton": 4.21875,
+        "cute_sm120": 4.21875,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          135,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          135,
+          64
+        ]
+      },
+      "values": {
+        "total": 4608,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 576,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.07159730792045593,
+          "mse": 0.0079428032040596,
+          "max_error": 0.380859375,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.07159730792045593,
+          "mse": 0.0079428032040596,
+          "max_error": 0.380859375,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        6,
+        1536
+      ],
+      "scale_rule": "mae",
+      "amax": {
+        "triton": 4.21875,
+        "cute_sm120": 4.21875,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          135,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          135,
+          64
+        ]
+      },
+      "values": {
+        "total": 4608,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 576,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.0674496442079544,
+          "mse": 0.007775336503982544,
+          "max_error": 0.5,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.0674496442079544,
+          "mse": 0.007775336503982544,
+          "max_error": 0.5,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        6,
+        1536
+      ],
+      "scale_rule": "mse",
+      "amax": {
+        "triton": 4.21875,
+        "cute_sm120": 4.21875,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          135,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          135,
+          64
+        ]
+      },
+      "values": {
+        "total": 4608,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 576,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.06838540732860565,
+          "mse": 0.0075356545858085155,
+          "max_error": 0.462890625,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.06838540732860565,
+          "mse": 0.0075356545858085155,
+          "max_error": 0.462890625,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        128,
+        256
+      ],
+      "scale_rule": "static_4",
+      "amax": {
+        "triton": 4.21875,
+        "cute_sm120": 4.21875,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          135,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          135,
+          64
+        ]
+      },
+      "values": {
+        "total": 16384,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 2048,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.0789831280708313,
+          "mse": 0.009634319692850113,
+          "max_error": 0.4464287757873535,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.0789831280708313,
+          "mse": 0.009634319692850113,
+          "max_error": 0.4464287757873535,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        128,
+        256
+      ],
+      "scale_rule": "static_6",
+      "amax": {
+        "triton": 4.21875,
+        "cute_sm120": 4.21875,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          135,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          135,
+          64
+        ]
+      },
+      "values": {
+        "total": 16384,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 2048,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.0710698664188385,
+          "mse": 0.00895477831363678,
+          "max_error": 0.4754464626312256,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.0710698664188385,
+          "mse": 0.00895477831363678,
+          "max_error": 0.4754464626312256,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        128,
+        256
+      ],
+      "scale_rule": "abs_max",
+      "amax": {
+        "triton": 4.21875,
+        "cute_sm120": 4.21875,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          135,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          135,
+          64
+        ]
+      },
+      "values": {
+        "total": 16384,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 2048,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.0711565613746643,
+          "mse": 0.007856141775846481,
+          "max_error": 0.380859375,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.0711565613746643,
+          "mse": 0.007856141775846481,
+          "max_error": 0.380859375,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        128,
+        256
+      ],
+      "scale_rule": "mae",
+      "amax": {
+        "triton": 4.21875,
+        "cute_sm120": 4.21875,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          135,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          135,
+          64
+        ]
+      },
+      "values": {
+        "total": 16384,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 2048,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.06716811656951904,
+          "mse": 0.00767581956461072,
+          "max_error": 0.5078125,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.06716811656951904,
+          "mse": 0.00767581956461072,
+          "max_error": 0.5078125,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        128,
+        256
+      ],
+      "scale_rule": "mse",
+      "amax": {
+        "triton": 4.21875,
+        "cute_sm120": 4.21875,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          135,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          135,
+          64
+        ]
+      },
+      "values": {
+        "total": 16384,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 2048,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.06802919507026672,
+          "mse": 0.007455660495907068,
+          "max_error": 0.462890625,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.06802919507026672,
+          "mse": 0.007455660495907068,
+          "max_error": 0.462890625,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        1024,
+        1024
+      ],
+      "scale_rule": "static_4",
+      "amax": {
+        "triton": 5.125,
+        "cute_sm120": 5.125,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          164,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          164,
+          64
+        ]
+      },
+      "values": {
+        "total": 524288,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 65536,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.07902494072914124,
+          "mse": 0.009629771113395691,
+          "max_error": 0.4910712242126465,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.07902494072914124,
+          "mse": 0.009629771113395691,
+          "max_error": 0.4910712242126465,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        1024,
+        1024
+      ],
+      "scale_rule": "static_6",
+      "amax": {
+        "triton": 5.125,
+        "cute_sm120": 5.125,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          164,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          164,
+          64
+        ]
+      },
+      "values": {
+        "total": 524288,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 65536,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.07139936089515686,
+          "mse": 0.009041033685207367,
+          "max_error": 0.6592261791229248,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.07139936089515686,
+          "mse": 0.009041033685207367,
+          "max_error": 0.6592261791229248,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        1024,
+        1024
+      ],
+      "scale_rule": "abs_max",
+      "amax": {
+        "triton": 5.125,
+        "cute_sm120": 5.125,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          164,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          164,
+          64
+        ]
+      },
+      "values": {
+        "total": 524288,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 65536,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.07188586890697479,
+          "mse": 0.00798503216356039,
+          "max_error": 0.4609375,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.07188586890697479,
+          "mse": 0.00798503216356039,
+          "max_error": 0.4609375,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        1024,
+        1024
+      ],
+      "scale_rule": "mae",
+      "amax": {
+        "triton": 5.125,
+        "cute_sm120": 5.125,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          164,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          164,
+          64
+        ]
+      },
+      "values": {
+        "total": 524288,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 65536,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.0676494762301445,
+          "mse": 0.007797636557370424,
+          "max_error": 0.578125,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.0676494762301445,
+          "mse": 0.007797636557370424,
+          "max_error": 0.578125,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        1024,
+        1024
+      ],
+      "scale_rule": "mse",
+      "amax": {
+        "triton": 5.125,
+        "cute_sm120": 5.125,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          164,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          164,
+          64
+        ]
+      },
+      "values": {
+        "total": 524288,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 65536,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.06857538968324661,
+          "mse": 0.0075598061084747314,
+          "max_error": 0.5572915077209473,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.06857538968324661,
+          "mse": 0.0075598061084747314,
+          "max_error": 0.5572915077209473,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        4096,
+        4096
+      ],
+      "scale_rule": "static_4",
+      "amax": {
+        "triton": 5.59375,
+        "cute_sm120": 5.59375,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          179,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          179,
+          64
+        ]
+      },
+      "values": {
+        "total": 8388608,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 1048576,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.07906796038150787,
+          "mse": 0.009630071930587292,
+          "max_error": 0.5714285373687744,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.07906796038150787,
+          "mse": 0.009630071930587292,
+          "max_error": 0.5714285373687744,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        4096,
+        4096
+      ],
+      "scale_rule": "static_6",
+      "amax": {
+        "triton": 5.59375,
+        "cute_sm120": 5.59375,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          179,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          179,
+          64
+        ]
+      },
+      "values": {
+        "total": 8388608,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 1048576,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.07144531607627869,
+          "mse": 0.009041293524205685,
+          "max_error": 0.6644344329833984,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.07144531607627869,
+          "mse": 0.009041293524205685,
+          "max_error": 0.6644344329833984,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        4096,
+        4096
+      ],
+      "scale_rule": "abs_max",
+      "amax": {
+        "triton": 5.59375,
+        "cute_sm120": 5.59375,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          179,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          179,
+          64
+        ]
+      },
+      "values": {
+        "total": 8388608,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 1048576,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.07186082750558853,
+          "mse": 0.00797579437494278,
+          "max_error": 0.46354174613952637,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.07186082750558853,
+          "mse": 0.00797579437494278,
+          "max_error": 0.46354174613952637,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        4096,
+        4096
+      ],
+      "scale_rule": "mae",
+      "amax": {
+        "triton": 5.59375,
+        "cute_sm120": 5.59375,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          179,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          179,
+          64
+        ]
+      },
+      "values": {
+        "total": 8388608,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 1048576,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.06764756143093109,
+          "mse": 0.0077879359014332294,
+          "max_error": 0.640625,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.06764756143093109,
+          "mse": 0.0077879359014332294,
+          "max_error": 0.640625,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        4096,
+        4096
+      ],
+      "scale_rule": "mse",
+      "amax": {
+        "triton": 5.59375,
+        "cute_sm120": 5.59375,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          179,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          179,
+          64
+        ]
+      },
+      "values": {
+        "total": 8388608,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 1048576,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.06856873631477356,
+          "mse": 0.0075543709099292755,
+          "max_error": 0.5924477577209473,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.06856873631477356,
+          "mse": 0.0075543709099292755,
+          "max_error": 0.5924477577209473,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        8192,
+        4096
+      ],
+      "scale_rule": "static_4",
+      "amax": {
+        "triton": 5.59375,
+        "cute_sm120": 5.59375,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          179,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          179,
+          64
+        ]
+      },
+      "values": {
+        "total": 16777216,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 2097152,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.0790826827287674,
+          "mse": 0.009633494541049004,
+          "max_error": 0.5959823131561279,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.0790826827287674,
+          "mse": 0.009633494541049004,
+          "max_error": 0.5959823131561279,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        8192,
+        4096
+      ],
+      "scale_rule": "static_6",
+      "amax": {
+        "triton": 5.59375,
+        "cute_sm120": 5.59375,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          179,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          179,
+          64
+        ]
+      },
+      "values": {
+        "total": 16777216,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 2097152,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.07145743072032928,
+          "mse": 0.009043888188898563,
+          "max_error": 0.6949403285980225,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.07145743072032928,
+          "mse": 0.009043888188898563,
+          "max_error": 0.6949403285980225,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        8192,
+        4096
+      ],
+      "scale_rule": "abs_max",
+      "amax": {
+        "triton": 5.59375,
+        "cute_sm120": 5.59375,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          179,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          179,
+          64
+        ]
+      },
+      "values": {
+        "total": 16777216,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 2097152,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.07187703251838684,
+          "mse": 0.00797884538769722,
+          "max_error": 0.5234375,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.07187703251838684,
+          "mse": 0.00797884538769722,
+          "max_error": 0.5234375,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        8192,
+        4096
+      ],
+      "scale_rule": "mae",
+      "amax": {
+        "triton": 5.59375,
+        "cute_sm120": 5.59375,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          179,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          179,
+          64
+        ]
+      },
+      "values": {
+        "total": 16777216,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 2097152,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.06766243278980255,
+          "mse": 0.007791417185217142,
+          "max_error": 0.671875,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.06766243278980255,
+          "mse": 0.007791417185217142,
+          "max_error": 0.671875,
+          "finite": true
+        }
+      }
+    },
+    {
+      "shape": [
+        8192,
+        4096
+      ],
+      "scale_rule": "mse",
+      "amax": {
+        "triton": 5.59375,
+        "cute_sm120": 5.59375,
+        "bitwise_equal": true,
+        "triton_u8": [
+          0,
+          0,
+          179,
+          64
+        ],
+        "cute_sm120_u8": [
+          0,
+          0,
+          179,
+          64
+        ]
+      },
+      "values": {
+        "total": 16777216,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "scale_factors_e4m3": {
+        "total": 2097152,
+        "mismatch_count": 0,
+        "equal_ratio": 1.0,
+        "sample_mismatches": []
+      },
+      "dequant_cute_minus_triton": {
+        "mae": 0.0,
+        "mse": 0.0,
+        "max_error": 0.0,
+        "finite": true
+      },
+      "input_error": {
+        "triton": {
+          "mae": 0.06858642399311066,
+          "mse": 0.007557407021522522,
+          "max_error": 0.5950520038604736,
+          "finite": true
+        },
+        "cute_sm120": {
+          "mae": 0.06858642399311066,
+          "mse": 0.007557407021522522,
+          "max_error": 0.5950520038604736,
+          "finite": true
+        }
+      }
+    }
+  ]
+}

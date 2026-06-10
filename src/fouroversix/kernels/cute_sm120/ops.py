@@ -22,9 +22,14 @@ from fouroversix.kernels.cute_sm120.fp4_common import (
     bfloat2_int6_mse_error,
     bfloat2_max_abs_8,
     bfloat2_nvfp4_absmax_error,
+    bfloat2_nvfp4_absmax_error_triton_dequant,
     bfloat2_nvfp4_dequant_bfloat2,
     bfloat2_nvfp4_mae_error,
+    bfloat2_nvfp4_mae_error_scalar_triton_dequant,
+    bfloat2_nvfp4_mae_error_triton_dequant,
     bfloat2_nvfp4_mse_error,
+    bfloat2_nvfp4_mse_error_triton_dequant,
+    bfloat2x4_nvfp4_mse_error_triton_dequant,
     bfloat2_to_float2_scaled,
     bfloat2x4_to_e2m0x8_values,
     bfloat2x4_to_e2m1x8_packed,
@@ -56,9 +61,9 @@ from fouroversix.kernels.cute_sm120.fp4_common import (
     ld_global_u16,
     ld_global_v4_u32,
     nvfp4_compute_dequant_scale,
+    nvfp4_compute_dequant_scale_from_amax,
     nvfp4_compute_output_scale,
     nvfp4_compute_quant_scale_exact,
-    rcp_approx_ftz,
     stochastic_round_e2m1_value,
     stochastic_round_int4_value,
     st_global_u32,
@@ -130,11 +135,7 @@ def _blackwell_scale_index(
     col_in_group = col_idx % Int32(4)
     return (
         (
-            (
-                row_group * Int32(scale_blocks_per_row // 4)
-                + col_group
-            )
-            * Int32(32)
+            (row_group * Int32(scale_blocks_per_row // 4) + col_group) * Int32(32)
             + (row_in_group % Int32(32))
         )
         * Int32(16)
@@ -177,8 +178,7 @@ def _process_nvfp4_static_block_bfloat(
         block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    fp4_max_rcp = rcp_approx_ftz(Float32(float(max_quantized_value)))
-    scale_float = global_scale * (block_max * fp4_max_rcp)
+    scale_float = global_scale * (block_max / Float32(float(max_quantized_value)))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
 
@@ -289,8 +289,7 @@ def _process_nvfp4_static_block_bfloat_transposed(
         block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    fp4_max_rcp = rcp_approx_ftz(Float32(float(max_quantized_value)))
-    scale_float = global_scale * (block_max * fp4_max_rcp)
+    scale_float = global_scale * (block_max / Float32(float(max_quantized_value)))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
 
@@ -360,8 +359,7 @@ def _process_nvfp4_static_pseudo_block_bfloat(
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    fp4_max_rcp = rcp_approx_ftz(Float32(float(max_quantized_value)))
-    scale_float = global_scale * (block_max * fp4_max_rcp)
+    scale_float = global_scale * (block_max / Float32(float(max_quantized_value)))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
     dequant_scale = Float32(0.0)
@@ -475,9 +473,7 @@ def _process_mxfp4_static_block_bfloat_transposed(
     if cutlass.const_expr(scale_block_size == 8):
         max0 = bfloat2_max_abs_8(h0, h1, h2, h3, h0, h1, h2, h3)
         block_max = bfloat2_hmax_reduce_to_f32(max0)
-        normalized_max = block_max * rcp_approx_ftz(
-            Float32(float(max_quantized_value)),
-        )
+        normalized_max = block_max / Float32(float(max_quantized_value))
         scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
         scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
         inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -560,7 +556,7 @@ def _process_mxfp4_static_block_bfloat_transposed(
         max1 = bfloat2_max_abs_8(h8, h9, h10, h11, h12, h13, h14, h15)
         block_max = bfloat2_hmax_reduce_to_f32(bfloat2_hmax2(max0, max1))
 
-    normalized_max = block_max * rcp_approx_ftz(Float32(float(max_quantized_value)))
+    normalized_max = block_max / Float32(float(max_quantized_value))
     scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
     scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
     inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -631,9 +627,7 @@ def _process_mxfp4_static_block_bfloat(
     if cutlass.const_expr(scale_block_size == 8):
         max0 = bfloat2_max_abs_8(h0, h1, h2, h3, h0, h1, h2, h3)
         block_max = bfloat2_hmax_reduce_to_f32(max0)
-        normalized_max = block_max * rcp_approx_ftz(
-            Float32(float(max_quantized_value)),
-        )
+        normalized_max = block_max / Float32(float(max_quantized_value))
         scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
         scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
         inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -650,7 +644,7 @@ def _process_mxfp4_static_block_bfloat(
         max1 = bfloat2_max_abs_8(h8, h9, h10, h11, h12, h13, h14, h15)
         block_max = bfloat2_hmax_reduce_to_f32(bfloat2_hmax2(max0, max1))
 
-    normalized_max = block_max * rcp_approx_ftz(Float32(float(max_quantized_value)))
+    normalized_max = block_max / Float32(float(max_quantized_value))
     scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
     scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
     inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -736,9 +730,7 @@ def _process_mxfp4_static_pseudo_block_bfloat(
     if cutlass.const_expr(scale_block_size == 8):
         max0 = bfloat2_max_abs_8(h0, h1, h2, h3, h0, h1, h2, h3)
         block_max = bfloat2_hmax_reduce_to_f32(max0)
-        normalized_max = block_max * rcp_approx_ftz(
-            Float32(float(max_quantized_value)),
-        )
+        normalized_max = block_max / Float32(float(max_quantized_value))
         scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
         inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
         dequant_scale = ue8m0_to_scale(scale_ue8m0_u32)
@@ -771,7 +763,7 @@ def _process_mxfp4_static_pseudo_block_bfloat(
     max0 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     max1 = bfloat2_max_abs_8(h8, h9, h10, h11, h12, h13, h14, h15)
     block_max = bfloat2_hmax_reduce_to_f32(bfloat2_hmax2(max0, max1))
-    normalized_max = block_max * rcp_approx_ftz(Float32(float(max_quantized_value)))
+    normalized_max = block_max / Float32(float(max_quantized_value))
     scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
     inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
     dequant_scale = ue8m0_to_scale(scale_ue8m0_u32)
@@ -824,7 +816,9 @@ def _process_nvfp3_static_block_bfloat_transposed(
     if cutlass.const_expr(scale_block_size == 8):
         block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h0, h1, h2, h3)
     else:
-        h4 = _ld_transposed_bfloat2(x, elem_base + Int32(8), elem_base + Int32(9), col_idx)
+        h4 = _ld_transposed_bfloat2(
+            x, elem_base + Int32(8), elem_base + Int32(9), col_idx
+        )
         h5 = _ld_transposed_bfloat2(
             x,
             elem_base + Int32(10),
@@ -846,7 +840,7 @@ def _process_nvfp3_static_block_bfloat_transposed(
         block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
 
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-    scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(4.0)))
+    scale_float = global_scale * (block_max / Float32(4.0))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -900,7 +894,7 @@ def _process_nvfp3_static_pseudo_block_bfloat(
         block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
 
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-    scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(E2M0_MAX)))
+    scale_float = global_scale * (block_max / Float32(E2M0_MAX))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
     dequant_scale = Float32(0.0)
@@ -968,7 +962,7 @@ def _process_mxfp3_static_pseudo_block_bfloat(
         block_max = bfloat2_hmax_reduce_to_f32(
             bfloat2_max_abs_8(h0, h1, h2, h3, h0, h1, h2, h3),
         )
-        normalized_max = block_max * rcp_approx_ftz(Float32(4.0))
+        normalized_max = block_max / Float32(4.0)
         scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
         inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
         dequant_scale = ue8m0_to_scale(scale_ue8m0_u32)
@@ -1010,7 +1004,7 @@ def _process_mxfp3_static_pseudo_block_bfloat(
     max0 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     max1 = bfloat2_max_abs_8(h8, h9, h10, h11, h12, h13, h14, h15)
     block_max = bfloat2_hmax_reduce_to_f32(bfloat2_hmax2(max0, max1))
-    normalized_max = block_max * rcp_approx_ftz(Float32(4.0))
+    normalized_max = block_max / Float32(4.0)
     scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
     inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
     dequant_scale = ue8m0_to_scale(scale_ue8m0_u32)
@@ -1150,7 +1144,7 @@ def _process_mxfp6_static_pseudo_block_bfloat(
     max0 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     max1 = bfloat2_max_abs_8(h8, h9, h10, h11, h12, h13, h14, h15)
     block_max = bfloat2_hmax_reduce_to_f32(bfloat2_hmax2(max0, max1))
-    normalized_max = block_max * rcp_approx_ftz(Float32(float(max_quantized_value)))
+    normalized_max = block_max / Float32(float(max_quantized_value))
     scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
     inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
     dequant_scale = ue8m0_to_scale(scale_ue8m0_u32)
@@ -1279,7 +1273,7 @@ def _process_nvint3_static_pseudo_block_bfloat(
         block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
 
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-    scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(3.0)))
+    scale_float = global_scale * (block_max / Float32(3.0))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
     dequant_scale = Float32(0.0)
@@ -1339,7 +1333,7 @@ def _process_nvint6_static_pseudo_block_bfloat(
 
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-    scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(31.0)))
+    scale_float = global_scale * (block_max / Float32(31.0))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
     dequant_scale = Float32(0.0)
@@ -1381,13 +1375,19 @@ def _process_nvint6_static_block_bfloat_transposed(
     h2 = _ld_transposed_bfloat2(x, elem_base + Int32(4), elem_base + Int32(5), col_idx)
     h3 = _ld_transposed_bfloat2(x, elem_base + Int32(6), elem_base + Int32(7), col_idx)
     h4 = _ld_transposed_bfloat2(x, elem_base + Int32(8), elem_base + Int32(9), col_idx)
-    h5 = _ld_transposed_bfloat2(x, elem_base + Int32(10), elem_base + Int32(11), col_idx)
-    h6 = _ld_transposed_bfloat2(x, elem_base + Int32(12), elem_base + Int32(13), col_idx)
-    h7 = _ld_transposed_bfloat2(x, elem_base + Int32(14), elem_base + Int32(15), col_idx)
+    h5 = _ld_transposed_bfloat2(
+        x, elem_base + Int32(10), elem_base + Int32(11), col_idx
+    )
+    h6 = _ld_transposed_bfloat2(
+        x, elem_base + Int32(12), elem_base + Int32(13), col_idx
+    )
+    h7 = _ld_transposed_bfloat2(
+        x, elem_base + Int32(14), elem_base + Int32(15), col_idx
+    )
 
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-    scale_float = scale_global_scale * (block_max * rcp_approx_ftz(Float32(31.0)))
+    scale_float = scale_global_scale * (block_max / Float32(31.0))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, quant_global_scale)
@@ -1431,7 +1431,9 @@ def _process_nvint3_static_block_bfloat_transposed(
             cutlass.Uint32(0),
         )
     else:
-        h4 = _ld_transposed_bfloat2(x, elem_base + Int32(8), elem_base + Int32(9), col_idx)
+        h4 = _ld_transposed_bfloat2(
+            x, elem_base + Int32(8), elem_base + Int32(9), col_idx
+        )
         h5 = _ld_transposed_bfloat2(
             x,
             elem_base + Int32(10),
@@ -1453,7 +1455,7 @@ def _process_nvint3_static_block_bfloat_transposed(
         block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
 
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-    scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(3.0)))
+    scale_float = global_scale * (block_max / Float32(3.0))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -1516,7 +1518,7 @@ def _process_nvint4_static_pseudo_block_bfloat(
         block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
 
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-    scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(7.0)))
+    scale_float = global_scale * (block_max / Float32(7.0))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
     dequant_scale = Float32(0.0)
@@ -1584,9 +1586,7 @@ def _process_nvfp6_static_pseudo_block_bfloat(
 
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-    scale_float = global_scale * (
-        block_max * rcp_approx_ftz(Float32(float(max_quantized_value)))
-    )
+    scale_float = global_scale * (block_max / Float32(float(max_quantized_value)))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
     dequant_scale = Float32(0.0)
@@ -1660,7 +1660,7 @@ def _process_nvint4_static_block_bfloat(
 
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(INT4_MAX)))
+    scale_float = global_scale * (block_max / Float32(INT4_MAX))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
 
@@ -1730,7 +1730,9 @@ def _process_nvint4_static_block_bfloat_transposed(
             cutlass.Uint32(0),
         )
     else:
-        h4 = _ld_transposed_bfloat2(x, elem_base + Int32(8), elem_base + Int32(9), col_idx)
+        h4 = _ld_transposed_bfloat2(
+            x, elem_base + Int32(8), elem_base + Int32(9), col_idx
+        )
         h5 = _ld_transposed_bfloat2(
             x,
             elem_base + Int32(10),
@@ -1752,7 +1754,7 @@ def _process_nvint4_static_block_bfloat_transposed(
         block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
 
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-    scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(INT4_MAX)))
+    scale_float = global_scale * (block_max / Float32(INT4_MAX))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -1806,9 +1808,7 @@ def _process_nvfp6_static_block_bfloat(
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    scale_float = scale_global_scale * (
-        block_max * rcp_approx_ftz(Float32(float(max_quantized_value)))
-    )
+    scale_float = scale_global_scale * (block_max / Float32(float(max_quantized_value)))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, quant_global_scale)
@@ -1897,9 +1897,7 @@ def _process_nvfp6_static_block_bfloat_transposed(
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    scale_float = scale_global_scale * (
-        block_max * rcp_approx_ftz(Float32(float(max_quantized_value)))
-    )
+    scale_float = scale_global_scale * (block_max / Float32(float(max_quantized_value)))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, quant_global_scale)
@@ -1983,6 +1981,192 @@ def _nvfp4_block_error_bfloat(
             + bfloat2_nvfp4_mse_error(h6, output_scale, dequant_scale)
             + bfloat2_nvfp4_mse_error(h7, output_scale, dequant_scale)
         )
+
+
+@cute.jit
+def _nvfp4_block_error_bfloat_triton_dequant(
+    h0: cutlass.Uint32,
+    h1: cutlass.Uint32,
+    h2: cutlass.Uint32,
+    h3: cutlass.Uint32,
+    h4: cutlass.Uint32,
+    h5: cutlass.Uint32,
+    h6: cutlass.Uint32,
+    h7: cutlass.Uint32,
+    output_scale: Float32,
+    scale_fp8_u32: Uint32,
+    amax: Float32,
+    scale_denominator: Float32,
+    scale_rule_id: cutlass.Constexpr[int],
+    match_triton_reduction: cutlass.Constexpr[bool] = False,
+) -> Float32:
+    if cutlass.const_expr(scale_rule_id == SCALE_RULE_ABS_MAX):
+        err01 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h0, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err23 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h1, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err45 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h2, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err67 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h3, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err89 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h4, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err1011 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h5, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err1213 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h6, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err1415 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h7, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err = cutlass.max(err01, err23)
+        err = cutlass.max(err, err45)
+        err = cutlass.max(err, err67)
+        err = cutlass.max(err, err89)
+        err = cutlass.max(err, err1011)
+        err = cutlass.max(err, err1213)
+        return cutlass.max(err, err1415)
+    elif cutlass.const_expr(scale_rule_id == SCALE_RULE_MAE):
+        if cutlass.const_expr(not match_triton_reduction):
+            err01 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h0, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err23 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h1, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err45 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h2, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err67 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h3, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err89 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h4, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err1011 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h5, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err1213 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h6, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err1415 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h7, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            sum0 = (err01 + err23) + (err45 + err67)
+            sum1 = (err89 + err1011) + (err1213 + err1415)
+            return sum0 + sum1
+
+        err0 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h0, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err1 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h0, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        err2 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h1, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err3 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h1, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        err4 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h2, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err5 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h2, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        err6 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h3, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err7 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h3, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        err8 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h4, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err9 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h4, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        err10 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h5, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err11 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h5, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        err12 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h6, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err13 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h6, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        err14 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h7, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err15 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h7, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        sum0 = ((((((err0 + err1) + err2) + err3) + err4) + err5) + err6) + err7
+        sum1 = (
+            ((((((err8 + err9) + err10) + err11) + err12) + err13) + err14)
+            + err15
+        )
+        return sum0 + sum1
+    else:
+        if cutlass.const_expr(not match_triton_reduction):
+            err01 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h0, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err23 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h1, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err45 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h2, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err67 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h3, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err89 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h4, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err1011 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h5, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err1213 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h6, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err1415 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h7, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            sum0 = (err01 + err23) + (err45 + err67)
+            sum1 = (err89 + err1011) + (err1213 + err1415)
+            return sum0 + sum1
+
+        sum0 = bfloat2x4_nvfp4_mse_error_triton_dequant(
+            h0,
+            h1,
+            h2,
+            h3,
+            output_scale,
+            scale_fp8_u32,
+            amax,
+            scale_denominator,
+        )
+        sum1 = bfloat2x4_nvfp4_mse_error_triton_dequant(
+            h4,
+            h5,
+            h6,
+            h7,
+            output_scale,
+            scale_fp8_u32,
+            amax,
+            scale_denominator,
+        )
+        return sum0 + sum1
 
 
 @cute.jit
@@ -2453,10 +2637,12 @@ def _process_nvfp4_adaptive_block_bfloat(
     row_tensor: cute.Tensor,
     elem_base: Int32,
     global_scale: Float32,
+    amax: Float32,
     scale_rule_id: cutlass.Constexpr[int],
     stochastic_rounding: cutlass.Constexpr[bool],
     seed_base: Uint32,
     scale_block_size: cutlass.Constexpr[int] = NVFP4_SCALE_BLOCK_SIZE,
+    match_triton_reduction: cutlass.Constexpr[bool] = False,
 ) -> tuple[Uint8, cutlass.Uint64]:
     ptr0 = get_ptr_as_int64(row_tensor, elem_base)
 
@@ -2472,7 +2658,7 @@ def _process_nvfp4_adaptive_block_bfloat(
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    scale_float_6 = global_scale * (block_max * rcp_approx_ftz(Float32(6.0)))
+    scale_float_6 = global_scale * (block_max / Float32(6.0))
     scale_fp8_u32_6 = cvt_f32_to_e4m3(scale_float_6)
     scale_fp8_6 = Uint8(scale_fp8_u32_6 & cutlass.Uint32(0xFF))
     output_scale_6 = nvfp4_compute_output_scale(scale_fp8_u32_6, global_scale)
@@ -2480,7 +2666,10 @@ def _process_nvfp4_adaptive_block_bfloat(
         scale_fp8_u32_6,
         global_scale,
     )
-    dequant_scale_6 = nvfp4_compute_dequant_scale(scale_fp8_u32_6, global_scale)
+    dequant_scale_6 = nvfp4_compute_dequant_scale_from_amax(
+        scale_fp8_u32_6,
+        amax / Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
+    )
     if cutlass.const_expr(stochastic_rounding):
         packed64_6 = bfloat2x8_to_e2m1x16_packed_stochastic(
             h0,
@@ -2512,7 +2701,7 @@ def _process_nvfp4_adaptive_block_bfloat(
         packed64_6 = cutlass.Uint64(
             bfloat2x4_to_e2m1x8_packed(h0, h1, h2, h3, output_scale_6),
         )
-        error_6 = _nvfp4_block_error_bfloat(
+        error_6 = _nvfp4_block_error_bfloat_triton_dequant(
             h0,
             h1,
             h2,
@@ -2522,8 +2711,11 @@ def _process_nvfp4_adaptive_block_bfloat(
             h6,
             h7,
             selection_scale_6,
-            dequant_scale_6,
+            scale_fp8_u32_6,
+            amax,
+            Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
             scale_rule_id,
+            match_triton_reduction,
         )
     else:
         packed64_6 = bfloat2x8_to_e2m1x16_packed(
@@ -2537,7 +2729,7 @@ def _process_nvfp4_adaptive_block_bfloat(
             h7,
             output_scale_6,
         )
-        error_6 = _nvfp4_block_error_bfloat(
+        error_6 = _nvfp4_block_error_bfloat_triton_dequant(
             h0,
             h1,
             h2,
@@ -2547,11 +2739,14 @@ def _process_nvfp4_adaptive_block_bfloat(
             h6,
             h7,
             selection_scale_6,
-            dequant_scale_6,
+            scale_fp8_u32_6,
+            amax,
+            Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
             scale_rule_id,
+            match_triton_reduction,
         )
 
-    scale_float_4 = global_scale * (block_max * rcp_approx_ftz(Float32(4.0)))
+    scale_float_4 = global_scale * (block_max / Float32(6.0)) * Float32(1.5)
     scale_fp8_u32_4 = cvt_f32_to_e4m3(scale_float_4)
     scale_fp8_4 = Uint8(scale_fp8_u32_4 & cutlass.Uint32(0xFF))
     output_scale_4 = nvfp4_compute_output_scale(scale_fp8_u32_4, global_scale)
@@ -2559,7 +2754,10 @@ def _process_nvfp4_adaptive_block_bfloat(
         scale_fp8_u32_4,
         global_scale,
     )
-    dequant_scale_4 = nvfp4_compute_dequant_scale(scale_fp8_u32_4, global_scale)
+    dequant_scale_4 = nvfp4_compute_dequant_scale_from_amax(
+        scale_fp8_u32_4,
+        amax / Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
+    )
     if cutlass.const_expr(stochastic_rounding):
         packed64_4 = bfloat2x8_to_e2m1x16_packed_stochastic(
             h0,
@@ -2591,7 +2789,7 @@ def _process_nvfp4_adaptive_block_bfloat(
         packed64_4 = cutlass.Uint64(
             bfloat2x4_to_e2m1x8_packed(h0, h1, h2, h3, output_scale_4),
         )
-        error_4 = _nvfp4_block_error_bfloat(
+        error_4 = _nvfp4_block_error_bfloat_triton_dequant(
             h0,
             h1,
             h2,
@@ -2601,8 +2799,11 @@ def _process_nvfp4_adaptive_block_bfloat(
             h6,
             h7,
             selection_scale_4,
-            dequant_scale_4,
+            scale_fp8_u32_4,
+            amax,
+            Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
             scale_rule_id,
+            match_triton_reduction,
         )
     else:
         packed64_4 = bfloat2x8_to_e2m1x16_packed(
@@ -2616,7 +2817,7 @@ def _process_nvfp4_adaptive_block_bfloat(
             h7,
             output_scale_4,
         )
-        error_4 = _nvfp4_block_error_bfloat(
+        error_4 = _nvfp4_block_error_bfloat_triton_dequant(
             h0,
             h1,
             h2,
@@ -2626,8 +2827,11 @@ def _process_nvfp4_adaptive_block_bfloat(
             h6,
             h7,
             selection_scale_4,
-            dequant_scale_4,
+            scale_fp8_u32_4,
+            amax,
+            Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
             scale_rule_id,
+            match_triton_reduction,
         )
 
     scale_fp8 = scale_fp8_6
@@ -2645,6 +2849,7 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
     col_idx: Int32,
     elem_base: Int32,
     global_scale: Float32,
+    amax: Float32,
     scale_rule_id: cutlass.Constexpr[int],
 ) -> tuple[Uint8, cutlass.Uint64]:
     h0 = _ld_transposed_bfloat2(x, elem_base, elem_base + Int32(1), col_idx)
@@ -2674,7 +2879,7 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    scale_float_6 = global_scale * (block_max * rcp_approx_ftz(Float32(6.0)))
+    scale_float_6 = global_scale * (block_max / Float32(6.0))
     scale_fp8_u32_6 = cvt_f32_to_e4m3(scale_float_6)
     scale_fp8_6 = Uint8(scale_fp8_u32_6 & cutlass.Uint32(0xFF))
     output_scale_6 = nvfp4_compute_output_scale(scale_fp8_u32_6, global_scale)
@@ -2682,7 +2887,10 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
         scale_fp8_u32_6,
         global_scale,
     )
-    dequant_scale_6 = nvfp4_compute_dequant_scale(scale_fp8_u32_6, global_scale)
+    dequant_scale_6 = nvfp4_compute_dequant_scale_from_amax(
+        scale_fp8_u32_6,
+        amax / Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
+    )
     packed64_6 = bfloat2x8_to_e2m1x16_packed(
         h0,
         h1,
@@ -2694,7 +2902,7 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
         h7,
         output_scale_6,
     )
-    error_6 = _nvfp4_block_error_bfloat(
+    error_6 = _nvfp4_block_error_bfloat_triton_dequant(
         h0,
         h1,
         h2,
@@ -2704,11 +2912,13 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
         h6,
         h7,
         selection_scale_6,
-        dequant_scale_6,
+        scale_fp8_u32_6,
+        amax,
+        Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
         scale_rule_id,
     )
 
-    scale_float_4 = global_scale * (block_max * rcp_approx_ftz(Float32(4.0)))
+    scale_float_4 = global_scale * (block_max / Float32(6.0)) * Float32(1.5)
     scale_fp8_u32_4 = cvt_f32_to_e4m3(scale_float_4)
     scale_fp8_4 = Uint8(scale_fp8_u32_4 & cutlass.Uint32(0xFF))
     output_scale_4 = nvfp4_compute_output_scale(scale_fp8_u32_4, global_scale)
@@ -2716,7 +2926,10 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
         scale_fp8_u32_4,
         global_scale,
     )
-    dequant_scale_4 = nvfp4_compute_dequant_scale(scale_fp8_u32_4, global_scale)
+    dequant_scale_4 = nvfp4_compute_dequant_scale_from_amax(
+        scale_fp8_u32_4,
+        amax / Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
+    )
     packed64_4 = bfloat2x8_to_e2m1x16_packed(
         h0,
         h1,
@@ -2728,7 +2941,7 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
         h7,
         output_scale_4,
     )
-    error_4 = _nvfp4_block_error_bfloat(
+    error_4 = _nvfp4_block_error_bfloat_triton_dequant(
         h0,
         h1,
         h2,
@@ -2738,7 +2951,9 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
         h6,
         h7,
         selection_scale_4,
-        dequant_scale_4,
+        scale_fp8_u32_4,
+        amax,
+        Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
         scale_rule_id,
     )
 
@@ -2773,7 +2988,7 @@ def _process_if4_adaptive_block_bfloat(
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(E2M1_MAX)))
+    scale_float = global_scale * (block_max / Float32(E2M1_MAX))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -2933,7 +3148,9 @@ def _process_if4_adaptive_block_bfloat_transposed(
     if cutlass.const_expr(scale_block_size == 8):
         h4, h5, h6, h7 = h0, h1, h2, h3
     else:
-        h4 = _ld_transposed_bfloat2(x, elem_base + Int32(8), elem_base + Int32(9), col_idx)
+        h4 = _ld_transposed_bfloat2(
+            x, elem_base + Int32(8), elem_base + Int32(9), col_idx
+        )
         h5 = _ld_transposed_bfloat2(
             x,
             elem_base + Int32(10),
@@ -2956,7 +3173,7 @@ def _process_if4_adaptive_block_bfloat_transposed(
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(E2M1_MAX)))
+    scale_float = global_scale * (block_max / Float32(E2M1_MAX))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -3072,7 +3289,7 @@ def _process_if4_adaptive_pseudo_block_bfloat(
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(E2M1_MAX)))
+    scale_float = global_scale * (block_max / Float32(E2M1_MAX))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
     selection_scale = nvfp4_compute_quant_scale_exact(
@@ -3183,9 +3400,7 @@ def _process_if3_adaptive_block_bfloat(
 
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-    scale_float = scale_global_scale * (
-        block_max * rcp_approx_ftz(Float32(E2M0_MAX))
-    )
+    scale_float = scale_global_scale * (block_max / Float32(E2M0_MAX))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, quant_global_scale)
@@ -3291,7 +3506,9 @@ def _process_if3_adaptive_block_bfloat_transposed(
     if cutlass.const_expr(scale_block_size == 8):
         h4, h5, h6, h7 = h0, h1, h2, h3
     else:
-        h4 = _ld_transposed_bfloat2(x, elem_base + Int32(8), elem_base + Int32(9), col_idx)
+        h4 = _ld_transposed_bfloat2(
+            x, elem_base + Int32(8), elem_base + Int32(9), col_idx
+        )
         h5 = _ld_transposed_bfloat2(
             x,
             elem_base + Int32(10),
@@ -3313,9 +3530,7 @@ def _process_if3_adaptive_block_bfloat_transposed(
 
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-    scale_float = scale_global_scale * (
-        block_max * rcp_approx_ftz(Float32(E2M0_MAX))
-    )
+    scale_float = scale_global_scale * (block_max / Float32(E2M0_MAX))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, quant_global_scale)
@@ -3431,7 +3646,7 @@ def _process_if3_adaptive_pseudo_block_bfloat(
 
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-    scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(E2M0_MAX)))
+    scale_float = global_scale * (block_max / Float32(E2M0_MAX))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
     dequant_scale = nvfp4_compute_dequant_scale(scale_fp8_u32, global_scale)
@@ -3439,12 +3654,8 @@ def _process_if3_adaptive_pseudo_block_bfloat(
     fpq0, fpq1, fpq2, fpq3 = _fp3_quant4_bfloat_values(h0, h1, output_scale)
     fpq4, fpq5, fpq6, fpq7 = _fp3_quant4_bfloat_values(h2, h3, output_scale)
     int_output_scale = output_scale * Float32(IF3_INT_EXPANSION_FACTOR_RCP)
-    intq0, intq1, intq2, intq3 = _int3_quant4_bfloat_values(
-        h0, h1, int_output_scale
-    )
-    intq4, intq5, intq6, intq7 = _int3_quant4_bfloat_values(
-        h2, h3, int_output_scale
-    )
+    intq0, intq1, intq2, intq3 = _int3_quant4_bfloat_values(h0, h1, int_output_scale)
+    intq4, intq5, intq6, intq7 = _int3_quant4_bfloat_values(h2, h3, int_output_scale)
 
     if cutlass.const_expr(scale_block_size == 8):
         fpq8, fpq9, fpq10, fpq11 = fpq0, fpq1, fpq2, fpq3
@@ -3452,12 +3663,8 @@ def _process_if3_adaptive_pseudo_block_bfloat(
         intq8, intq9, intq10, intq11 = intq0, intq1, intq2, intq3
         intq12, intq13, intq14, intq15 = intq4, intq5, intq6, intq7
     else:
-        fpq8, fpq9, fpq10, fpq11 = _fp3_quant4_bfloat_values(
-            h4, h5, output_scale
-        )
-        fpq12, fpq13, fpq14, fpq15 = _fp3_quant4_bfloat_values(
-            h6, h7, output_scale
-        )
+        fpq8, fpq9, fpq10, fpq11 = _fp3_quant4_bfloat_values(h4, h5, output_scale)
+        fpq12, fpq13, fpq14, fpq15 = _fp3_quant4_bfloat_values(h6, h7, output_scale)
         intq8, intq9, intq10, intq11 = _int3_quant4_bfloat_values(
             h4, h5, int_output_scale
         )
@@ -3569,9 +3776,7 @@ def _process_if6_adaptive_block_bfloat(
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    scale_float = scale_global_scale * (
-        block_max * rcp_approx_ftz(Float32(float(max_quantized_value)))
-    )
+    scale_float = scale_global_scale * (block_max / Float32(float(max_quantized_value)))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, quant_global_scale)
@@ -3686,9 +3891,7 @@ def _process_if6_adaptive_pseudo_block_bfloat(
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    scale_float = global_scale * (
-        block_max * rcp_approx_ftz(Float32(float(max_quantized_value)))
-    )
+    scale_float = global_scale * (block_max / Float32(float(max_quantized_value)))
     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
     output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
     selection_scale = nvfp4_compute_quant_scale_exact(
@@ -3820,7 +4023,7 @@ def _process_nvfp4_adaptive_pseudo_block_bfloat(
     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-    scale_float_6 = global_scale * (block_max * rcp_approx_ftz(Float32(6.0)))
+    scale_float_6 = global_scale * (block_max / Float32(6.0))
     scale_fp8_u32_6 = cvt_f32_to_e4m3(scale_float_6)
     output_scale_6 = nvfp4_compute_output_scale(scale_fp8_u32_6, global_scale)
     selection_scale_6 = nvfp4_compute_quant_scale_exact(
@@ -3860,7 +4063,7 @@ def _process_nvfp4_adaptive_pseudo_block_bfloat(
             scale_rule_id,
         )
 
-    scale_float_4 = global_scale * (block_max * rcp_approx_ftz(Float32(4.0)))
+    scale_float_4 = global_scale * (block_max / Float32(6.0)) * Float32(1.5)
     scale_fp8_u32_4 = cvt_f32_to_e4m3(scale_float_4)
     output_scale_4 = nvfp4_compute_output_scale(scale_fp8_u32_4, global_scale)
     selection_scale_4 = nvfp4_compute_quant_scale_exact(
@@ -4145,6 +4348,7 @@ class Sm120NVFP4AdaptiveQuantize:
         stochastic_rounding: bool = False,
         scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
         min_blocks_per_mp: int = BLOCKS_PER_SM,
+        match_triton_reduction: bool = False,
     ):
         self.k = k
         self.scale_rule_id = scale_rule_id
@@ -4152,6 +4356,7 @@ class Sm120NVFP4AdaptiveQuantize:
         self.scale_block_size = scale_block_size
         self.scale_blocks_per_row = k // scale_block_size
         self.min_blocks_per_mp = min_blocks_per_mp
+        self.match_triton_reduction = match_triton_reduction
 
     @cute.jit
     def __call__(
@@ -4200,6 +4405,7 @@ class Sm120NVFP4AdaptiveQuantize:
             amax_tensor,
             E2M1_MAX * E4M3_FOUROVERSIX_MAX,
         )
+        amax_for_error = Float32(amax_tensor[Int32(0)])
 
         while sf_idx < total_scale_blocks:
             row_idx = sf_idx // self.scale_blocks_per_row
@@ -4210,10 +4416,12 @@ class Sm120NVFP4AdaptiveQuantize:
                 x[row_idx, None],
                 elem_base,
                 global_scale,
+                amax_for_error,
                 self.scale_rule_id,
                 self.stochastic_rounding,
                 Uint32(row_idx * self.k + elem_base),
                 self.scale_block_size,
+                self.match_triton_reduction,
             )
 
             scales[sf_idx] = scale_fp8
@@ -4239,12 +4447,14 @@ class Sm120NVFP4AdaptiveSmallMQuantize:
         scale_rule_id: int,
         stochastic_rounding: bool = False,
         scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+        match_triton_reduction: bool = False,
     ):
         self.k = k
         self.scale_rule_id = scale_rule_id
         self.stochastic_rounding = stochastic_rounding
         self.scale_block_size = scale_block_size
         self.scale_blocks_per_row = k // scale_block_size
+        self.match_triton_reduction = match_triton_reduction
 
     @cute.jit
     def __call__(
@@ -4325,8 +4535,10 @@ class Sm120NVFP4AdaptiveSmallMQuantize:
             amax_tensor[Int32(0)] = amax
 
         global_scale = Float32(0.0)
+        amax_for_error = Float32(0.0)
         if amax != Float32(0.0):
             global_scale = Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX) / amax
+            amax_for_error = amax
 
         sf_idx = tidx
         while sf_idx < total_scale_blocks:
@@ -4338,10 +4550,12 @@ class Sm120NVFP4AdaptiveSmallMQuantize:
                 x[row_idx, None],
                 elem_base,
                 global_scale,
+                amax_for_error,
                 self.scale_rule_id,
                 self.stochastic_rounding,
                 Uint32(row_idx * self.k + elem_base),
                 self.scale_block_size,
+                self.match_triton_reduction,
             )
 
             scales[sf_idx] = scale_fp8
@@ -4362,12 +4576,14 @@ class Sm120NVFP4AdaptiveSingleCtaQuantize:
         scale_rule_id: int,
         stochastic_rounding: bool = False,
         scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+        match_triton_reduction: bool = False,
     ):
         self.k = k
         self.scale_rule_id = scale_rule_id
         self.stochastic_rounding = stochastic_rounding
         self.scale_block_size = scale_block_size
         self.scale_blocks_per_row = k // scale_block_size
+        self.match_triton_reduction = match_triton_reduction
 
     @cute.jit
     def __call__(
@@ -4457,8 +4673,10 @@ class Sm120NVFP4AdaptiveSingleCtaQuantize:
 
         amax = Float32(amax_tensor[Int32(0)])
         global_scale = Float32(0.0)
+        amax_for_error = Float32(0.0)
         if amax != Float32(0.0):
             global_scale = Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX) / amax
+            amax_for_error = amax
 
         sf_idx = tidx
         while sf_idx < total_scale_blocks:
@@ -4470,10 +4688,12 @@ class Sm120NVFP4AdaptiveSingleCtaQuantize:
                 x[row_idx, None],
                 elem_base,
                 global_scale,
+                amax_for_error,
                 self.scale_rule_id,
                 self.stochastic_rounding,
                 Uint32(row_idx * self.k + elem_base),
                 self.scale_block_size,
+                self.match_triton_reduction,
             )
 
             scales[sf_idx] = scale_fp8
@@ -4573,6 +4793,7 @@ class Sm120NVFP4AdaptiveTransposeQuantize:
             amax_tensor,
             E2M1_MAX * E4M3_FOUROVERSIX_MAX,
         )
+        amax_for_error = Float32(amax_tensor[Int32(0)])
 
         while work_idx < total_scale_blocks:
             row_idx = work_idx % output_rows
@@ -4585,6 +4806,7 @@ class Sm120NVFP4AdaptiveTransposeQuantize:
                 row_idx,
                 elem_base,
                 global_scale,
+                amax_for_error,
                 self.scale_rule_id,
             )
 
@@ -4665,8 +4887,9 @@ class Sm120NVFP4StaticQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            fp4_max_rcp = rcp_approx_ftz(Float32(float(self.max_quantized_value)))
-            scale_float = global_scale * (block_max * fp4_max_rcp)
+            scale_float = global_scale * (
+                block_max / Float32(float(self.max_quantized_value))
+            )
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -4784,8 +5007,9 @@ class Sm120NVFP4BS8StaticQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            fp4_max_rcp = rcp_approx_ftz(Float32(float(self.max_quantized_value)))
-            scale_float = global_scale * (block_max * fp4_max_rcp)
+            scale_float = global_scale * (
+                block_max / Float32(float(self.max_quantized_value))
+            )
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -4814,10 +5038,16 @@ class Sm120NVFP4BS8StaticQuantize2D:
 
 
 class Sm120NVFP4AdaptiveQuantize2D:
-    def __init__(self, k: int, scale_rule_id: int):
+    def __init__(
+        self,
+        k: int,
+        scale_rule_id: int,
+        match_triton_reduction: bool = False,
+    ):
         self.k = k
         self.scale_rule_id = scale_rule_id
         self.scale_blocks_per_row = k // NVFP4_SCALE_BLOCK_SIZE
+        self.match_triton_reduction = match_triton_reduction
 
     @cute.jit
     def __call__(
@@ -4857,6 +5087,7 @@ class Sm120NVFP4AdaptiveQuantize2D:
             amax_tensor,
             E2M1_MAX * E4M3_FOUROVERSIX_MAX,
         )
+        amax_for_error = Float32(amax_tensor[Int32(0)])
 
         while tile_idx < total_scale_tiles:
             row_group = tile_idx // self.scale_blocks_per_row
@@ -4877,7 +5108,7 @@ class Sm120NVFP4AdaptiveQuantize2D:
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
 
-            scale_float_6 = global_scale * (block_max * rcp_approx_ftz(Float32(6.0)))
+            scale_float_6 = global_scale * (block_max / Float32(6.0))
             scale_fp8_u32_6 = cvt_f32_to_e4m3(scale_float_6)
             scale_fp8_6 = Uint8(scale_fp8_u32_6 & cutlass.Uint32(0xFF))
             output_scale_6 = nvfp4_compute_output_scale(
@@ -4888,12 +5119,12 @@ class Sm120NVFP4AdaptiveQuantize2D:
                 scale_fp8_u32_6,
                 global_scale,
             )
-            dequant_scale_6 = nvfp4_compute_dequant_scale(
+            dequant_scale_6 = nvfp4_compute_dequant_scale_from_amax(
                 scale_fp8_u32_6,
-                global_scale,
+                amax_for_error / Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
             )
 
-            scale_float_4 = global_scale * (block_max * rcp_approx_ftz(Float32(4.0)))
+            scale_float_4 = global_scale * (block_max / Float32(6.0)) * Float32(1.5)
             scale_fp8_u32_4 = cvt_f32_to_e4m3(scale_float_4)
             scale_fp8_4 = Uint8(scale_fp8_u32_4 & cutlass.Uint32(0xFF))
             output_scale_4 = nvfp4_compute_output_scale(
@@ -4904,9 +5135,9 @@ class Sm120NVFP4AdaptiveQuantize2D:
                 scale_fp8_u32_4,
                 global_scale,
             )
-            dequant_scale_4 = nvfp4_compute_dequant_scale(
+            dequant_scale_4 = nvfp4_compute_dequant_scale_from_amax(
                 scale_fp8_u32_4,
-                global_scale,
+                amax_for_error / Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
             )
 
             error_6 = Float32(0.0)
@@ -4918,7 +5149,7 @@ class Sm120NVFP4AdaptiveQuantize2D:
                 ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
                 h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
                 h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
-                row_error_6 = _nvfp4_block_error_bfloat(
+                row_error_6 = _nvfp4_block_error_bfloat_triton_dequant(
                     h0,
                     h1,
                     h2,
@@ -4928,10 +5159,13 @@ class Sm120NVFP4AdaptiveQuantize2D:
                     h6,
                     h7,
                     selection_scale_6,
-                    dequant_scale_6,
+                    scale_fp8_u32_6,
+                    amax_for_error,
+                    Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
                     self.scale_rule_id,
+                    self.match_triton_reduction,
                 )
-                row_error_4 = _nvfp4_block_error_bfloat(
+                row_error_4 = _nvfp4_block_error_bfloat_triton_dequant(
                     h0,
                     h1,
                     h2,
@@ -4941,8 +5175,11 @@ class Sm120NVFP4AdaptiveQuantize2D:
                     h6,
                     h7,
                     selection_scale_4,
-                    dequant_scale_4,
+                    scale_fp8_u32_4,
+                    amax_for_error,
+                    Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
                     self.scale_rule_id,
+                    self.match_triton_reduction,
                 )
                 if cutlass.const_expr(self.scale_rule_id == SCALE_RULE_ABS_MAX):
                     error_6 = cutlass.max(error_6, row_error_6)
@@ -5140,7 +5377,9 @@ class Sm120IF3AdaptiveQuantize:
             scales[sf_idx] = scale_fp8
             output_ptr = get_ptr_as_int64(values[row_idx, None], elem_base)
             if cutlass.const_expr(self.scale_block_size == 8):
-                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(v0)
+                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(
+                    v0
+                )
                 st_global_u64(output_ptr, packed64)
             else:
                 st_global_v4_u32(output_ptr, v0, v1, v2, v3)
@@ -5299,7 +5538,9 @@ class Sm120IF3AdaptiveTransposeQuantize:
             scales[sf_idx] = scale_fp8
             output_ptr = get_ptr_as_int64(values[row_idx, None], elem_base)
             if cutlass.const_expr(self.scale_block_size == 8):
-                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(v0)
+                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(
+                    v0
+                )
                 st_global_u64(output_ptr, packed64)
             else:
                 st_global_v4_u32(output_ptr, v0, v1, v2, v3)
@@ -5375,9 +5616,7 @@ class Sm120IF3AdaptiveQuantize2D:
                 row_max,
                 threads_in_group=IF3_2D_GROUP_SIZE,
             )
-            scale_float = scale_global_scale * (
-                block_max * rcp_approx_ftz(Float32(E2M0_MAX))
-            )
+            scale_float = scale_global_scale * (block_max / Float32(E2M0_MAX))
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(
@@ -5566,9 +5805,7 @@ class Sm120IF3BS8AdaptiveQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            scale_float = scale_global_scale * (
-                block_max * rcp_approx_ftz(Float32(E2M0_MAX))
-            )
+            scale_float = scale_global_scale * (block_max / Float32(E2M0_MAX))
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(
@@ -5672,7 +5909,9 @@ class Sm120IF3BS8AdaptiveQuantize2D:
                 sf_idx = row_idx * self.scale_blocks_per_row + col_idx
                 scales[sf_idx] = scale_fp8_selected
                 output_ptr = get_ptr_as_int64(values[row_idx, None], elem_base)
-                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(v0)
+                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(
+                    v0
+                )
                 st_global_u64(output_ptr, packed64)
                 row_offset = row_offset + Int32(1)
 
@@ -5839,17 +6078,15 @@ class Sm120IF6AdaptivePseudoQuantize:
             col_idx = sf_idx % self.scale_blocks_per_row
             elem_base = col_idx * NVFP4_SCALE_BLOCK_SIZE
 
-            h0, h1, h2, h3, h4, h5, h6, h7 = (
-                _process_if6_adaptive_pseudo_block_bfloat(
-                    x[row_idx, None],
-                    elem_base,
-                    global_scale,
-                    self.scale_rule_id,
-                    self.max_quantized_value,
-                    self.int_expansion_factor,
-                    self.int_expansion_factor_rcp,
-                    self.use_e3m2,
-                )
+            h0, h1, h2, h3, h4, h5, h6, h7 = _process_if6_adaptive_pseudo_block_bfloat(
+                x[row_idx, None],
+                elem_base,
+                global_scale,
+                self.scale_rule_id,
+                self.max_quantized_value,
+                self.int_expansion_factor,
+                self.int_expansion_factor_rcp,
+                self.use_e3m2,
             )
 
             output_ptr0 = get_ptr_as_int64(out[row_idx, None], elem_base)
@@ -5923,9 +6160,7 @@ class Sm120IF4AdaptiveQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            scale_float = global_scale * (
-                block_max * rcp_approx_ftz(Float32(E2M1_MAX))
-            )
+            scale_float = global_scale * (block_max / Float32(E2M1_MAX))
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(
@@ -6108,9 +6343,7 @@ class Sm120IF4BS8AdaptiveQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            scale_float = global_scale * (
-                block_max * rcp_approx_ftz(Float32(E2M1_MAX))
-            )
+            scale_float = global_scale * (block_max / Float32(E2M1_MAX))
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(
@@ -6289,7 +6522,7 @@ class Sm120IF6AdaptiveQuantize2D:
 
             scale_float = global_scale * (
                 bfloat2_hmax_reduce_to_f32(block_max_h2)
-                * rcp_approx_ftz(Float32(float(self.max_quantized_value)))
+                / Float32(float(self.max_quantized_value))
             )
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
@@ -6476,22 +6709,22 @@ class Sm120MXFP4StaticQuantize:
             col_idx = sf_idx % self.scale_blocks_per_row
             elem_base = col_idx * self.scale_block_size
 
-            scale_ue8m0, packed64_0, packed64_1 = (
-                _process_mxfp4_static_block_bfloat(
-                    x[row_idx, None],
-                    elem_base,
-                    self.max_quantized_value,
-                    self.scale_block_size,
-                    self.stochastic_rounding,
-                    Uint32(row_idx * self.k + elem_base),
-                )
+            scale_ue8m0, packed64_0, packed64_1 = _process_mxfp4_static_block_bfloat(
+                x[row_idx, None],
+                elem_base,
+                self.max_quantized_value,
+                self.scale_block_size,
+                self.stochastic_rounding,
+                Uint32(row_idx * self.k + elem_base),
             )
 
             scales[sf_idx] = scale_ue8m0
             output_offset = col_idx * (self.scale_block_size // 2)
             output_ptr0 = get_ptr_as_int64(values[row_idx, None], output_offset)
             if cutlass.const_expr(self.scale_block_size == 8):
-                st_global_u32(output_ptr0, Uint32(packed64_0 & cutlass.Uint64(0xFFFFFFFF)))
+                st_global_u32(
+                    output_ptr0, Uint32(packed64_0 & cutlass.Uint64(0xFFFFFFFF))
+                )
             else:
                 output_ptr1 = get_ptr_as_int64(
                     values[row_idx, None],
@@ -6573,7 +6806,9 @@ class Sm120MXFP4StaticTransposeQuantize:
             output_offset = col_idx * (self.scale_block_size // 2)
             output_ptr0 = get_ptr_as_int64(values[row_idx, None], output_offset)
             if cutlass.const_expr(self.scale_block_size == 8):
-                st_global_u32(output_ptr0, Uint32(packed64_0 & cutlass.Uint64(0xFFFFFFFF)))
+                st_global_u32(
+                    output_ptr0, Uint32(packed64_0 & cutlass.Uint64(0xFFFFFFFF))
+                )
             else:
                 output_ptr1 = get_ptr_as_int64(
                     values[row_idx, None],
@@ -6640,7 +6875,7 @@ class Sm120MXFP3StaticQuantize:
                 block_max = bfloat2_hmax_reduce_to_f32(
                     bfloat2_max_abs_8(h0, h1, h2, h3, h0, h1, h2, h3),
                 )
-                normalized_max = block_max * rcp_approx_ftz(Float32(4.0))
+                normalized_max = block_max / Float32(4.0)
                 scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
                 scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
                 inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -6675,7 +6910,7 @@ class Sm120MXFP3StaticQuantize:
                     h15,
                 )
                 block_max = bfloat2_hmax_reduce_to_f32(bfloat2_hmax2(max0, max1))
-                normalized_max = block_max * rcp_approx_ftz(Float32(4.0))
+                normalized_max = block_max / Float32(4.0)
                 scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
                 scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
                 inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -6787,7 +7022,7 @@ class Sm120MXFP3StaticTransposeQuantize:
                 block_max = bfloat2_hmax_reduce_to_f32(
                     bfloat2_max_abs_8(h0, h1, h2, h3, h0, h1, h2, h3),
                 )
-                normalized_max = block_max * rcp_approx_ftz(Float32(4.0))
+                normalized_max = block_max / Float32(4.0)
                 scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
                 scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
                 inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -6888,7 +7123,7 @@ class Sm120MXFP3StaticTransposeQuantize:
                     h15,
                 )
                 block_max = bfloat2_hmax_reduce_to_f32(bfloat2_hmax2(max0, max1))
-                normalized_max = block_max * rcp_approx_ftz(Float32(4.0))
+                normalized_max = block_max / Float32(4.0)
                 scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
                 scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
                 inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -6993,7 +7228,7 @@ class Sm120MXFP3StaticQuantize2D:
             )
             row_max = bfloat2_hmax_reduce_to_f32(bfloat2_hmax2(max0, max1))
             block_max = cute.arch.warp_reduction_max(row_max)
-            normalized_max = block_max * rcp_approx_ftz(Float32(4.0))
+            normalized_max = block_max / Float32(4.0)
             scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
             scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
             inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -7105,9 +7340,7 @@ class Sm120MXFP6StaticQuantize:
                 h15,
             )
             block_max = bfloat2_hmax_reduce_to_f32(bfloat2_hmax2(max0, max1))
-            normalized_max = block_max * rcp_approx_ftz(
-                Float32(float(self.max_quantized_value)),
-            )
+            normalized_max = block_max / Float32(float(self.max_quantized_value))
             scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
             scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
             inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -7338,9 +7571,7 @@ class Sm120MXFP6StaticTransposeQuantize:
                 h15,
             )
             block_max = bfloat2_hmax_reduce_to_f32(bfloat2_hmax2(max0, max1))
-            normalized_max = block_max * rcp_approx_ftz(
-                Float32(float(self.max_quantized_value)),
-            )
+            normalized_max = block_max / Float32(float(self.max_quantized_value))
             scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
             scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
             inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -7478,7 +7709,7 @@ class Sm120MXFP3BS8StaticQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            normalized_max = block_max * rcp_approx_ftz(Float32(4.0))
+            normalized_max = block_max / Float32(4.0)
             scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
             scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
             inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -7499,7 +7730,9 @@ class Sm120MXFP3BS8StaticQuantize2D:
                 sf_idx = row_idx * self.scale_blocks_per_row + col_idx
                 scales[sf_idx] = scale_ue8m0
                 output_ptr = get_ptr_as_int64(values[row_idx, None], elem_base)
-                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(v0)
+                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(
+                    v0
+                )
                 st_global_u64(output_ptr, packed64)
                 row_offset = row_offset + Int32(1)
 
@@ -7577,9 +7810,7 @@ class Sm120MXFP4StaticQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            normalized_max = block_max * rcp_approx_ftz(
-                Float32(float(self.max_quantized_value)),
-            )
+            normalized_max = block_max / Float32(float(self.max_quantized_value))
             scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
             scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
             inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -7697,9 +7928,7 @@ class Sm120MXFP4BS8StaticQuantize2D:
                 row_max,
                 threads_in_group=MXFP4_BS8_2D_GROUP_SIZE,
             )
-            normalized_max = block_max * rcp_approx_ftz(
-                Float32(float(self.max_quantized_value)),
-            )
+            normalized_max = block_max / Float32(float(self.max_quantized_value))
             scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
             scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
             inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -7793,9 +8022,7 @@ class Sm120MXFP6StaticQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            normalized_max = block_max * rcp_approx_ftz(
-                Float32(float(self.max_quantized_value)),
-            )
+            normalized_max = block_max / Float32(float(self.max_quantized_value))
             scale_ue8m0_u32 = float_to_ue8m0_ceil(normalized_max)
             scale_ue8m0 = Uint8(scale_ue8m0_u32 & cutlass.Uint32(0xFF))
             inv_scale = ue8m0_to_inv_scale(scale_ue8m0_u32)
@@ -8104,9 +8331,7 @@ class Sm120NVINT6StaticQuantize:
 
             block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            scale_float = scale_global_scale * (
-                block_max * rcp_approx_ftz(Float32(31.0))
-            )
+            scale_float = scale_global_scale * (block_max / Float32(31.0))
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(
@@ -8283,7 +8508,7 @@ class Sm120NVINT6StaticQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(31.0)))
+            scale_float = global_scale * (block_max / Float32(31.0))
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -8398,7 +8623,7 @@ class Sm120NVINT3StaticQuantize:
                 block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(3.0)))
+            scale_float = global_scale * (block_max / Float32(3.0))
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -8414,7 +8639,9 @@ class Sm120NVINT3StaticQuantize:
                     h3,
                     output_scale,
                 )
-                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(v0)
+                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(
+                    v0
+                )
                 st_global_u64(output_ptr, packed64)
             else:
                 v0, v1, v2, v3 = bfloat2x8_to_int3x16_values(
@@ -8503,7 +8730,9 @@ class Sm120NVINT3StaticTransposeQuantize:
             output_offset = col_idx * self.scale_block_size
             output_ptr = get_ptr_as_int64(values[row_idx, None], output_offset)
             if cutlass.const_expr(self.scale_block_size == 8):
-                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(v0)
+                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(
+                    v0
+                )
                 st_global_u64(output_ptr, packed64)
             else:
                 st_global_v4_u32(output_ptr, v0, v1, v2, v3)
@@ -8574,7 +8803,7 @@ class Sm120NVINT3StaticQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(3.0)))
+            scale_float = global_scale * (block_max / Float32(3.0))
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -8678,7 +8907,7 @@ class Sm120NVINT3BS8StaticQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(3.0)))
+            scale_float = global_scale * (block_max / Float32(3.0))
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -8699,7 +8928,9 @@ class Sm120NVINT3BS8StaticQuantize2D:
                 sf_idx = row_idx * self.scale_blocks_per_row + col_idx
                 scales[sf_idx] = scale_fp8
                 output_ptr = get_ptr_as_int64(values[row_idx, None], elem_base)
-                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(v0)
+                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(
+                    v0
+                )
                 st_global_u64(output_ptr, packed64)
                 row_offset = row_offset + Int32(1)
 
@@ -8769,7 +9000,7 @@ class Sm120NVFP3StaticQuantize2D:
                 row_max,
                 threads_in_group=IF3_2D_GROUP_SIZE,
             )
-            scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(E2M0_MAX)))
+            scale_float = global_scale * (block_max / Float32(E2M0_MAX))
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -8865,7 +9096,7 @@ class Sm120NVFP3BS8StaticQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(E2M0_MAX)))
+            scale_float = global_scale * (block_max / Float32(E2M0_MAX))
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -8886,7 +9117,9 @@ class Sm120NVFP3BS8StaticQuantize2D:
                 sf_idx = row_idx * self.scale_blocks_per_row + col_idx
                 scales[sf_idx] = scale_fp8
                 output_ptr = get_ptr_as_int64(values[row_idx, None], elem_base)
-                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(v0)
+                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(
+                    v0
+                )
                 st_global_u64(output_ptr, packed64)
                 row_offset = row_offset + Int32(1)
 
@@ -9142,7 +9375,7 @@ class Sm120NVFP3StaticQuantize:
                 )
                 output_ptr = get_ptr_as_int64(values[row_idx, None], elem_base)
 
-            scale_float = global_scale * (block_max * rcp_approx_ftz(Float32(4.0)))
+            scale_float = global_scale * (block_max / Float32(4.0))
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -9247,7 +9480,9 @@ class Sm120NVFP3StaticTransposeQuantize:
             output_offset = col_idx * self.scale_block_size
             output_ptr = get_ptr_as_int64(values[row_idx, None], output_offset)
             if cutlass.const_expr(self.scale_block_size == 8):
-                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(v0)
+                packed64 = (cutlass.Uint64(v1) << cutlass.Uint64(32)) | cutlass.Uint64(
+                    v0
+                )
                 st_global_u64(output_ptr, packed64)
             else:
                 st_global_v4_u32(output_ptr, v0, v1, v2, v3)
@@ -9317,9 +9552,7 @@ class Sm120NVINT4StaticQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            scale_float = global_scale * (
-                block_max * rcp_approx_ftz(Float32(INT4_MAX))
-            )
+            scale_float = global_scale * (block_max / Float32(INT4_MAX))
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -9422,9 +9655,7 @@ class Sm120NVINT4BS8StaticQuantize2D:
                 row_offset = row_offset + Int32(1)
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
-            scale_float = global_scale * (
-                block_max * rcp_approx_ftz(Float32(INT4_MAX))
-            )
+            scale_float = global_scale * (block_max / Float32(INT4_MAX))
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
             output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
@@ -9526,7 +9757,7 @@ class Sm120NVFP6StaticQuantize2D:
 
             block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
             scale_float = global_scale * (
-                block_max * rcp_approx_ftz(Float32(float(self.max_quantized_value)))
+                block_max / Float32(float(self.max_quantized_value))
             )
             scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
             scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
@@ -9635,16 +9866,14 @@ class Sm120NVFP4StaticPseudoQuantize:
             col_idx = sf_idx % self.scale_blocks_per_row
             elem_base = col_idx * self.scale_block_size
 
-            h0, h1, h2, h3, h4, h5, h6, h7 = (
-                _process_nvfp4_static_pseudo_block_bfloat(
-                    x[row_idx, None],
-                    elem_base,
-                    global_scale,
-                    self.max_quantized_value,
-                    self.scale_block_size,
-                    self.stochastic_rounding,
-                    Uint32(row_idx * self.k + elem_base),
-                )
+            h0, h1, h2, h3, h4, h5, h6, h7 = _process_nvfp4_static_pseudo_block_bfloat(
+                x[row_idx, None],
+                elem_base,
+                global_scale,
+                self.max_quantized_value,
+                self.scale_block_size,
+                self.stochastic_rounding,
+                Uint32(row_idx * self.k + elem_base),
             )
 
             output_ptr0 = get_ptr_as_int64(out[row_idx, None], elem_base)
@@ -9708,13 +9937,11 @@ class Sm120NVFP3StaticPseudoQuantize:
             col_idx = sf_idx % self.scale_blocks_per_row
             elem_base = col_idx * self.scale_block_size
 
-            h0, h1, h2, h3, h4, h5, h6, h7 = (
-                _process_nvfp3_static_pseudo_block_bfloat(
-                    x[row_idx, None],
-                    elem_base,
-                    global_scale,
-                    self.scale_block_size,
-                )
+            h0, h1, h2, h3, h4, h5, h6, h7 = _process_nvfp3_static_pseudo_block_bfloat(
+                x[row_idx, None],
+                elem_base,
+                global_scale,
+                self.scale_block_size,
             )
 
             output_ptr0 = get_ptr_as_int64(out[row_idx, None], elem_base)
@@ -9780,14 +10007,12 @@ class Sm120NVFP6StaticPseudoQuantize:
             col_idx = sf_idx % self.scale_blocks_per_row
             elem_base = col_idx * NVFP4_SCALE_BLOCK_SIZE
 
-            h0, h1, h2, h3, h4, h5, h6, h7 = (
-                _process_nvfp6_static_pseudo_block_bfloat(
-                    x[row_idx, None],
-                    elem_base,
-                    global_scale,
-                    self.max_quantized_value,
-                    self.use_e3m2,
-                )
+            h0, h1, h2, h3, h4, h5, h6, h7 = _process_nvfp6_static_pseudo_block_bfloat(
+                x[row_idx, None],
+                elem_base,
+                global_scale,
+                self.max_quantized_value,
+                self.use_e3m2,
             )
 
             output_ptr0 = get_ptr_as_int64(out[row_idx, None], elem_base)
@@ -9845,12 +10070,10 @@ class Sm120NVINT6StaticPseudoQuantize:
             col_idx = sf_idx % self.scale_blocks_per_row
             elem_base = col_idx * NVFP4_SCALE_BLOCK_SIZE
 
-            h0, h1, h2, h3, h4, h5, h6, h7 = (
-                _process_nvint6_static_pseudo_block_bfloat(
-                    x[row_idx, None],
-                    elem_base,
-                    global_scale,
-                )
+            h0, h1, h2, h3, h4, h5, h6, h7 = _process_nvint6_static_pseudo_block_bfloat(
+                x[row_idx, None],
+                elem_base,
+                global_scale,
             )
 
             output_ptr0 = get_ptr_as_int64(out[row_idx, None], elem_base)
@@ -9909,13 +10132,11 @@ class Sm120NVINT3StaticPseudoQuantize:
             col_idx = sf_idx % self.scale_blocks_per_row
             elem_base = col_idx * self.scale_block_size
 
-            h0, h1, h2, h3, h4, h5, h6, h7 = (
-                _process_nvint3_static_pseudo_block_bfloat(
-                    x[row_idx, None],
-                    elem_base,
-                    global_scale,
-                    self.scale_block_size,
-                )
+            h0, h1, h2, h3, h4, h5, h6, h7 = _process_nvint3_static_pseudo_block_bfloat(
+                x[row_idx, None],
+                elem_base,
+                global_scale,
+                self.scale_block_size,
             )
 
             output_ptr0 = get_ptr_as_int64(out[row_idx, None], elem_base)
@@ -9975,13 +10196,11 @@ class Sm120NVINT4StaticPseudoQuantize:
             col_idx = sf_idx % self.scale_blocks_per_row
             elem_base = col_idx * self.scale_block_size
 
-            h0, h1, h2, h3, h4, h5, h6, h7 = (
-                _process_nvint4_static_pseudo_block_bfloat(
-                    x[row_idx, None],
-                    elem_base,
-                    global_scale,
-                    self.scale_block_size,
-                )
+            h0, h1, h2, h3, h4, h5, h6, h7 = _process_nvint4_static_pseudo_block_bfloat(
+                x[row_idx, None],
+                elem_base,
+                global_scale,
+                self.scale_block_size,
             )
 
             output_ptr0 = get_ptr_as_int64(out[row_idx, None], elem_base)
@@ -10402,14 +10621,12 @@ class Sm120IF4AdaptivePseudoQuantize:
             col_idx = sf_idx % self.scale_blocks_per_row
             elem_base = col_idx * self.scale_block_size
 
-            h0, h1, h2, h3, h4, h5, h6, h7 = (
-                _process_if4_adaptive_pseudo_block_bfloat(
-                    x[row_idx, None],
-                    elem_base,
-                    global_scale,
-                    self.scale_rule_id,
-                    self.scale_block_size,
-                )
+            h0, h1, h2, h3, h4, h5, h6, h7 = _process_if4_adaptive_pseudo_block_bfloat(
+                x[row_idx, None],
+                elem_base,
+                global_scale,
+                self.scale_rule_id,
+                self.scale_block_size,
             )
 
             output_ptr0 = get_ptr_as_int64(out[row_idx, None], elem_base)
@@ -10475,14 +10692,12 @@ class Sm120IF3AdaptivePseudoQuantize:
             col_idx = sf_idx % self.scale_blocks_per_row
             elem_base = col_idx * self.scale_block_size
 
-            h0, h1, h2, h3, h4, h5, h6, h7 = (
-                _process_if3_adaptive_pseudo_block_bfloat(
-                    x[row_idx, None],
-                    elem_base,
-                    global_scale,
-                    self.scale_rule_id,
-                    self.scale_block_size,
-                )
+            h0, h1, h2, h3, h4, h5, h6, h7 = _process_if3_adaptive_pseudo_block_bfloat(
+                x[row_idx, None],
+                elem_base,
+                global_scale,
+                self.scale_rule_id,
+                self.scale_block_size,
             )
 
             output_ptr0 = get_ptr_as_int64(out[row_idx, None], elem_base)
@@ -11508,6 +11723,7 @@ def _compile_adaptive_quantize(
     stochastic_rounding: bool = False,
     scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
     min_blocks_per_mp: int = BLOCKS_PER_SM,
+    match_triton_reduction: bool = False,
 ):
     sym_m = cute.sym_int()
     sym_padded_m = cute.sym_int()
@@ -11543,6 +11759,7 @@ def _compile_adaptive_quantize(
         stochastic_rounding,
         scale_block_size,
         min_blocks_per_mp,
+        match_triton_reduction,
     )
     compiled = cute.compile(
         kernel,
@@ -11564,6 +11781,7 @@ def _compile_adaptive_small_m_quantize(
     scale_rule_id: int,
     stochastic_rounding: bool = False,
     scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+    match_triton_reduction: bool = False,
 ):
     sym_m = cute.sym_int()
     sym_padded_m = cute.sym_int()
@@ -11598,6 +11816,7 @@ def _compile_adaptive_small_m_quantize(
         scale_rule_id,
         stochastic_rounding,
         scale_block_size,
+        match_triton_reduction,
     )
     compiled = cute.compile(
         kernel,
@@ -11618,6 +11837,7 @@ def _compile_adaptive_single_cta_quantize(
     scale_rule_id: int,
     stochastic_rounding: bool = False,
     scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+    match_triton_reduction: bool = False,
 ):
     sym_m = cute.sym_int()
     sym_padded_m = cute.sym_int()
@@ -11652,6 +11872,7 @@ def _compile_adaptive_single_cta_quantize(
         scale_rule_id,
         stochastic_rounding,
         scale_block_size,
+        match_triton_reduction,
     )
     compiled = cute.compile(
         kernel,
@@ -11734,7 +11955,11 @@ def _compile_adaptive_transpose_quantize(
 
 
 @functools.cache
-def _compile_adaptive_quantize_2d(k: int, scale_rule_id: int):
+def _compile_adaptive_quantize_2d(
+    k: int,
+    scale_rule_id: int,
+    match_triton_reduction: bool = False,
+):
     sym_m = cute.sym_int()
     sym_scale_blocks = cute.sym_int()
 
@@ -11762,7 +11987,11 @@ def _compile_adaptive_quantize_2d(k: int, scale_rule_id: int):
     )
     stream_fake = cute.runtime.make_fake_stream()
 
-    kernel = Sm120NVFP4AdaptiveQuantize2D(k, scale_rule_id)
+    kernel = Sm120NVFP4AdaptiveQuantize2D(
+        k,
+        scale_rule_id,
+        match_triton_reduction,
+    )
     compiled = cute.compile(
         kernel,
         x_fake,
@@ -13935,8 +14164,7 @@ def _validate_mxfp4_input(
         raise ValueError(msg)
     if x.shape[1] % scale_block_size != 0:
         msg = (
-            f"last dimension must be divisible by {scale_block_size}, "
-            f"got {x.shape[1]}"
+            f"last dimension must be divisible by {scale_block_size}, got {x.shape[1]}"
         )
         raise ValueError(msg)
     if max_quantized_value not in {4, 6}:
@@ -14143,9 +14371,7 @@ def quantize_nvfp4_static_2d(
     )
     amax = _resolve_amax(x, x_amax)
 
-    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
-        k // NVFP4_SCALE_BLOCK_SIZE
-    )
+    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (k // NVFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
     kernel = _compile_static_quantize_2d(
@@ -14665,9 +14891,7 @@ def quantize_mxfp3_static_2d(
         dtype=torch.uint8,
         device=x.device,
     )
-    total_scale_tiles = (m // MXFP4_SCALE_BLOCK_SIZE) * (
-        k // MXFP4_SCALE_BLOCK_SIZE
-    )
+    total_scale_tiles = (m // MXFP4_SCALE_BLOCK_SIZE) * (k // MXFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(
         total_scale_tiles,
         x.device,
@@ -14814,9 +15038,7 @@ def quantize_mxfp4_static_2d(
         dtype=torch.uint8,
         device=x.device,
     )
-    total_scale_tiles = (m // MXFP4_SCALE_BLOCK_SIZE) * (
-        k // MXFP4_SCALE_BLOCK_SIZE
-    )
+    total_scale_tiles = (m // MXFP4_SCALE_BLOCK_SIZE) * (k // MXFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
     kernel = _compile_mxfp4_static_quantize_2d(k, max_quantized_value)
@@ -14852,9 +15074,7 @@ def quantize_mxfp6_static_2d(
         dtype=torch.uint8,
         device=x.device,
     )
-    total_scale_tiles = (m // MXFP4_SCALE_BLOCK_SIZE) * (
-        k // MXFP4_SCALE_BLOCK_SIZE
-    )
+    total_scale_tiles = (m // MXFP4_SCALE_BLOCK_SIZE) * (k // MXFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(
         total_scale_tiles,
         x.device,
@@ -15090,9 +15310,7 @@ def quantize_nvint6_static_2d(
         device=x.device,
     )
     amax = _resolve_amax(x, x_amax)
-    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
-        k // NVFP4_SCALE_BLOCK_SIZE
-    )
+    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (k // NVFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
     kernel = _compile_nvint6_static_quantize_2d(k, adjustment_factor)
@@ -15127,9 +15345,7 @@ def quantize_nvint3_static_2d(
         device=x.device,
     )
     amax = _resolve_amax(x, x_amax)
-    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
-        k // NVFP4_SCALE_BLOCK_SIZE
-    )
+    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (k // NVFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
     kernel = _compile_nvint3_static_quantize_2d(k, adjustment_factor)
@@ -15199,9 +15415,7 @@ def quantize_nvfp3_static_2d(
         device=x.device,
     )
     amax = _resolve_amax(x, x_amax)
-    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
-        k // NVFP4_SCALE_BLOCK_SIZE
-    )
+    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (k // NVFP4_SCALE_BLOCK_SIZE)
     num_blocks = _uncapped_launch_grid(
         total_scale_tiles,
         threads_per_block=IF3_2D_GROUPS_PER_BLOCK,
@@ -15401,9 +15615,7 @@ def quantize_nvint4_static_2d(
         device=x.device,
     )
     amax = _resolve_amax(x, x_amax)
-    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
-        k // NVFP4_SCALE_BLOCK_SIZE
-    )
+    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (k // NVFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
     kernel = _compile_nvint4_static_quantize_2d(k)
@@ -15562,9 +15774,7 @@ def quantize_nvfp6_static_2d(
         device=x.device,
     )
     amax = _resolve_amax(x, x_amax)
-    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
-        k // NVFP4_SCALE_BLOCK_SIZE
-    )
+    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (k // NVFP4_SCALE_BLOCK_SIZE)
     num_blocks = _uncapped_launch_grid(
         total_scale_tiles,
         threads_per_block=STATIC_2D_THREADS_PER_BLOCK,
@@ -15599,6 +15809,7 @@ def quantize_nvfp4_adaptive(
     scale_factors_dtype: torch.dtype = torch.uint8,
     clear_padded_scales: bool = True,
     clear_padded_values: bool = True,
+    match_triton_reduction: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if scale_rule_id not in {SCALE_RULE_ABS_MAX, SCALE_RULE_MAE, SCALE_RULE_MSE}:
         msg = f"unsupported adaptive four-over-six scale rule id {scale_rule_id}"
@@ -15612,9 +15823,7 @@ def quantize_nvfp4_adaptive(
         msg = f"columns must be divisible by {scale_block_size}, got {k}"
         raise ValueError(msg)
     padded_m = (
-        m
-        if pad_rows_to is None
-        else m + (pad_rows_to - m % pad_rows_to) % pad_rows_to
+        m if pad_rows_to is None else m + (pad_rows_to - m % pad_rows_to) % pad_rows_to
     )
     x = x.contiguous()
 
@@ -15631,6 +15840,7 @@ def quantize_nvfp4_adaptive(
             scale_rule_id,
             stochastic_rounding,
             scale_block_size,
+            match_triton_reduction,
         )
         kernel(
             x,
@@ -15656,6 +15866,7 @@ def quantize_nvfp4_adaptive(
             scale_rule_id,
             stochastic_rounding,
             scale_block_size,
+            match_triton_reduction,
         )
         kernel(
             x,
@@ -15687,6 +15898,7 @@ def quantize_nvfp4_adaptive(
         stochastic_rounding,
         scale_block_size,
         _adaptive_min_blocks_per_mp(m, k),
+        match_triton_reduction,
     )
     kernel(
         x,
@@ -15718,6 +15930,7 @@ def quantize_nvfp4_adaptive_into(
     scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
     clear_padded_scales: bool = True,
     clear_padded_values: bool = True,
+    match_triton_reduction: bool = False,
 ) -> None:
     if scale_rule_id not in {SCALE_RULE_ABS_MAX, SCALE_RULE_MAE, SCALE_RULE_MSE}:
         msg = f"unsupported adaptive four-over-six scale rule id {scale_rule_id}"
@@ -15746,6 +15959,7 @@ def quantize_nvfp4_adaptive_into(
         stochastic_rounding,
         scale_block_size,
         _adaptive_min_blocks_per_mp(m, k),
+        match_triton_reduction,
     )
     kernel(
         x,
@@ -15772,6 +15986,7 @@ def quantize_nvfp4_adaptive_into_unchecked(
     scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
     clear_padded_scales: bool = True,
     clear_padded_values: bool = True,
+    match_triton_reduction: bool = False,
 ) -> None:
     m, k = x.shape
     total_scale_blocks = m * (k // scale_block_size)
@@ -15788,6 +16003,7 @@ def quantize_nvfp4_adaptive_into_unchecked(
         stochastic_rounding,
         scale_block_size,
         _adaptive_min_blocks_per_mp(m, k),
+        match_triton_reduction,
     )
     kernel(
         x,
@@ -15851,6 +16067,7 @@ def quantize_nvfp4_adaptive_2d(
     *,
     scale_rule_id: int,
     x_amax: torch.Tensor | None = None,
+    match_triton_reduction: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if scale_rule_id not in {SCALE_RULE_ABS_MAX, SCALE_RULE_MAE, SCALE_RULE_MSE}:
         msg = f"unsupported adaptive four-over-six scale rule id {scale_rule_id}"
@@ -15870,12 +16087,14 @@ def quantize_nvfp4_adaptive_2d(
     )
     amax = _resolve_amax(x, x_amax)
 
-    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
-        k // NVFP4_SCALE_BLOCK_SIZE
-    )
+    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (k // NVFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
-    kernel = _compile_adaptive_quantize_2d(k, scale_rule_id)
+    kernel = _compile_adaptive_quantize_2d(
+        k,
+        scale_rule_id,
+        match_triton_reduction,
+    )
     kernel(
         x,
         values,
@@ -16160,9 +16379,7 @@ def quantize_if3_adaptive_2d(
         device=x.device,
     )
     amax = _resolve_amax(x, x_amax)
-    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
-        k // NVFP4_SCALE_BLOCK_SIZE
-    )
+    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (k // NVFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(
         total_scale_tiles,
         x.device,
@@ -16253,9 +16470,7 @@ def quantize_if4_adaptive_2d(
         device=x.device,
     )
     amax = _resolve_amax(x, x_amax)
-    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
-        k // NVFP4_SCALE_BLOCK_SIZE
-    )
+    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (k // NVFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
     kernel = _compile_if4_adaptive_quantize_2d(k, scale_rule_id)
@@ -16435,9 +16650,7 @@ def quantize_if6_adaptive_2d(
         device=x.device,
     )
     amax = _resolve_amax(x, x_amax)
-    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
-        k // NVFP4_SCALE_BLOCK_SIZE
-    )
+    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (k // NVFP4_SCALE_BLOCK_SIZE)
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
     kernel = _compile_if6_adaptive_quantize_2d(

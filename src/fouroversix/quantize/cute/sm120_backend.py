@@ -91,6 +91,8 @@ _PSEUDO_SUPPORTED_DTYPES = frozenset(
 )
 _AMAX_CACHE_MAX_SIZE = 256
 _AMAX_CACHE: dict[tuple[int, int, int, tuple[int, ...], tuple[int, ...]], tuple[weakref.ReferenceType[torch.Tensor], torch.Tensor]] = {}
+MATCH_TRITON_REDUCTION_KWARG = "match_triton_reduction"
+FOUROVERSIX_FAST_KWARGS = frozenset({"x_amax", MATCH_TRITON_REDUCTION_KWARG})
 
 
 def _tensor_version(x: torch.Tensor) -> int:
@@ -119,6 +121,10 @@ def _cached_amax(x: torch.Tensor) -> torch.Tensor:
         _AMAX_CACHE.pop(next(iter(_AMAX_CACHE)))
     _AMAX_CACHE[key] = (weakref.ref(x), amax)
     return amax
+
+
+def _match_triton_reduction(config: QuantizationConfig) -> bool:
+    return bool(config.kwargs.get(MATCH_TRITON_REDUCTION_KWARG, False))
 
 
 def _if3_effective_scale_rule_id(config: QuantizationConfig) -> int:
@@ -214,7 +220,8 @@ def quantize_nvfp4_adaptive_default(
     config: QuantizationConfig,
 ) -> QuantizedTensor:
     x_amax = config.kwargs.get("x_amax")
-    if x_amax is None and x.shape[0] >= 128 and x.is_contiguous():
+    match_triton_reduction = _match_triton_reduction(config)
+    if x_amax is None and x.shape[0] > 128 and x.is_contiguous():
         m, k = x.shape
         padded_m = m + (128 - m % 128) % 128
         amax = _cached_amax(x)
@@ -249,6 +256,7 @@ def quantize_nvfp4_adaptive_default(
             scale_block_size=config.dtype.block_size,
             clear_padded_scales=False,
             clear_padded_values=False,
+            match_triton_reduction=match_triton_reduction,
         )
         return tensor
 
@@ -262,6 +270,7 @@ def quantize_nvfp4_adaptive_default(
         scale_factors_dtype=torch.float8_e4m3fn,
         clear_padded_scales=False,
         clear_padded_values=False,
+        match_triton_reduction=match_triton_reduction,
     )
     tensor = QuantizedTensor.__new__(QuantizedTensor)
     tensor.values = values
@@ -1750,6 +1759,7 @@ class CuteSm120QuantizeBackend(QuantizeBackendBase):
                     x,
                     scale_rule_id=config.scale_rule.cuda_id,
                     x_amax=x_amax,
+                    match_triton_reduction=_match_triton_reduction(config),
                 )
             else:
                 values, scale_factors_u8, amax = quantize_nvfp4_static_2d(
@@ -2356,6 +2366,7 @@ class CuteSm120QuantizeBackend(QuantizeBackendBase):
         if config.rht:
             x_quantize = rht_transform(x_quantize)
         x_amax = None if config.rht else config.kwargs.get("x_amax")
+        match_triton_reduction = _match_triton_reduction(config)
 
         if config.dtype == DataType.if3 and config.scale_rule in {
             ScaleRule.abs_max,
@@ -2904,6 +2915,7 @@ class CuteSm120QuantizeBackend(QuantizeBackendBase):
                 x_quantize,
                 scale_rule_id=config.scale_rule.cuda_id,
                 x_amax=x_amax,
+                match_triton_reduction=match_triton_reduction,
             )
             scale_dtype = torch.float8_e4m3fn
         elif (
@@ -2990,6 +3002,7 @@ class CuteSm120QuantizeBackend(QuantizeBackendBase):
                     scale_rule_id=config.scale_rule.cuda_id,
                     stochastic_rounding=config.round_style == RoundStyle.stochastic,
                     x_amax=x_amax,
+                    match_triton_reduction=match_triton_reduction,
                 )
             scale_dtype = torch.float8_e4m3fn
         else:
