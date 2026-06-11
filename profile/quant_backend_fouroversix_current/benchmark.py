@@ -80,14 +80,14 @@ def _iters_for_shape(shape: tuple[int, int]) -> int:
 
 
 def _clear_cute_amax_cache(backend: QuantizeBackend) -> None:
-    if backend == QuantizeBackend.cute_sm120:
-        from fouroversix.quantize.cute import sm120_backend
-
-        sm120_backend._AMAX_CACHE.clear()
-    elif backend == QuantizeBackend.cute_sm100:
+    if backend == QuantizeBackend.cute_sm100:
         from fouroversix.quantize.cute import sm100_backend
 
-        sm100_backend._AMAX_CACHE.clear()
+        cache = getattr(sm100_backend, "_AMAX_CACHE", None)
+    else:
+        cache = None
+    if cache is not None:
+        cache.clear()
 
 
 def _time_cuda_ms(
@@ -192,10 +192,10 @@ def _benchmark_backend(
 
     before_quant = (
         lambda: _clear_cute_amax_cache(backend)
-        if include_amax and backend in {QuantizeBackend.cute_sm100, QuantizeBackend.cute_sm120}
+        if include_amax and backend == QuantizeBackend.cute_sm100
         else None
     )
-    if include_amax and backend in {QuantizeBackend.cute_sm100, QuantizeBackend.cute_sm120}:
+    if include_amax and backend == QuantizeBackend.cute_sm100:
         _clear_cute_amax_cache(backend)
 
     q = quantize(x, config)

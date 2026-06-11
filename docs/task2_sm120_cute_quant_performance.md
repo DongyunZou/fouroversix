@@ -108,11 +108,11 @@ report.
       CuTe-vs-Triton speedup for every shape.
 - [ ] The report measures quantization only for acceptance. Dequant/fake quant
       timings may be present only as non-gating context.
-- [ ] The benchmark includes a cold-cache or `include_amax=True` mode that does
-      not let the SM120 CuTe amax cache hide repeated-call amax cost.
-- [ ] If an optimized repeated-weight path uses the existing SM120 amax cache,
-      the report must separate cached-amax results from task2 acceptance
-      results.
+- [ ] The benchmark includes an `include_amax=True` mode that measures the
+      public SM120 CuTe path with the amax computation included.
+- [ ] SM120 CuTe must not rely on an internal amax cache for task2 acceptance;
+      any provided-`x_amax` or externally cached-amax result must be reported
+      separately from acceptance results.
 - [ ] Existing task1 parity/accuracy tests still pass, or every failure is
       documented with exact test name, shape, and mismatch mode.
 - [ ] The final fast-math audit command above returns no matches.

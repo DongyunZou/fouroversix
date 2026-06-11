@@ -1,5 +1,4 @@
 import functools
-import weakref
 from dataclasses import replace
 
 import torch
@@ -89,38 +88,8 @@ _PSEUDO_SUPPORTED_DTYPES = frozenset(
         DataType.nvfp6_e3m2,
     },
 )
-_AMAX_CACHE_MAX_SIZE = 256
-_AMAX_CACHE: dict[tuple[int, int, int, tuple[int, ...], tuple[int, ...]], tuple[weakref.ReferenceType[torch.Tensor], torch.Tensor]] = {}
 MATCH_TRITON_REDUCTION_KWARG = "match_triton_reduction"
 FOUROVERSIX_FAST_KWARGS = frozenset({"x_amax", MATCH_TRITON_REDUCTION_KWARG})
-
-
-def _tensor_version(x: torch.Tensor) -> int:
-    try:
-        return x._version
-    except RuntimeError:
-        return -1
-
-
-def _cached_amax(x: torch.Tensor) -> torch.Tensor:
-    key = (
-        id(x),
-        x.data_ptr(),
-        _tensor_version(x),
-        tuple(x.shape),
-        tuple(x.stride()),
-    )
-    cached = _AMAX_CACHE.get(key)
-    if cached is not None:
-        ref, amax = cached
-        if ref() is x:
-            return amax
-
-    amax = torch.linalg.vector_norm(x, ord=float("inf"), dtype=torch.float32)
-    if len(_AMAX_CACHE) >= _AMAX_CACHE_MAX_SIZE:
-        _AMAX_CACHE.pop(next(iter(_AMAX_CACHE)))
-    _AMAX_CACHE[key] = (weakref.ref(x), amax)
-    return amax
 
 
 def _match_triton_reduction(config: QuantizationConfig) -> bool:
@@ -224,7 +193,7 @@ def quantize_nvfp4_adaptive_default(
     if x_amax is None and x.shape[0] > 128 and x.is_contiguous():
         m, k = x.shape
         padded_m = m + (128 - m % 128) % 128
-        amax = _cached_amax(x)
+        amax = torch.linalg.vector_norm(x, ord=float("inf"), dtype=torch.float32)
         values = torch.empty((m, k // 2), dtype=torch.uint8, device=x.device)
         scale_factors = torch.empty(
             (m, k // config.dtype.block_size),
