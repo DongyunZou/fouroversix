@@ -162,23 +162,6 @@ def st_global_v4_f32(
 
 
 @dsl_user_op
-def rcp_approx_ftz(a: Float32, *, loc=None, ip=None) -> Float32:
-    return Float32(
-        llvm.inline_asm(
-            T.f32(),
-            [Float32(a).ir_value(loc=loc, ip=ip)],
-            "rcp.approx.ftz.f32 $0, $1;",
-            "=f,f",
-            has_side_effects=False,
-            is_align_stack=False,
-            asm_dialect=llvm.AsmDialect.AD_ATT,
-            loc=loc,
-            ip=ip,
-        )
-    )
-
-
-@dsl_user_op
 def cvt_f32_to_e4m3(a: Float32, *, loc=None, ip=None) -> Uint32:
     return Uint32(
         llvm.inline_asm(
@@ -224,16 +207,16 @@ def nvfp4_compute_output_scale(
                 .reg .b16 fp8_pair;
                 .reg .b32 h2_32;
                 .reg .b16 h_lo, h_hi;
-                .reg .f32 scale_f32, rcp_gs, product, result;
+                .reg .f32 scale_f32, decode_scale, product, result;
 
                 cvt.u16.u32 fp8_pair, $1;
                 cvt.rn.f16x2.e4m3x2 h2_32, fp8_pair;
                 mov.b32 {h_lo, h_hi}, h2_32;
                 cvt.f32.f16 scale_f32, h_lo;
 
-                rcp.approx.ftz.f32 rcp_gs, $2;
-                mul.f32 product, scale_f32, rcp_gs;
-                rcp.approx.ftz.f32 result, product;
+                div.rn.f32 decode_scale, 0f3f800000, $2;
+                mul.rn.f32 product, decode_scale, scale_f32;
+                div.rn.f32 result, 0f3f800000, product;
 
                 setp.eq.f32 p_zero, scale_f32, 0f00000000;
                 selp.f32 $0, 0f00000000, result, p_zero;
@@ -305,16 +288,23 @@ def nvfp4_compute_quant_scale_exact(
             ],
             """
             {
+                .reg .pred p_zero;
                 .reg .b16 fp8_pair;
                 .reg .b32 h2_32;
                 .reg .b16 h_lo, h_hi;
-                .reg .f32 scale_f32;
+                .reg .f32 scale_f32, decode_scale, product, result;
 
                 cvt.u16.u32 fp8_pair, $1;
                 cvt.rn.f16x2.e4m3x2 h2_32, fp8_pair;
                 mov.b32 {h_lo, h_hi}, h2_32;
                 cvt.f32.f16 scale_f32, h_lo;
-                div.rn.f32 $0, $2, scale_f32;
+
+                div.rn.f32 decode_scale, 0f3f800000, $2;
+                mul.rn.f32 product, decode_scale, scale_f32;
+                div.rn.f32 result, 0f3f800000, product;
+
+                setp.eq.f32 p_zero, scale_f32, 0f00000000;
+                selp.f32 $0, 0f00000000, result, p_zero;
             }
             """,
             "=f,r,f",
@@ -460,8 +450,8 @@ def bfloat2_hmax2(a: Uint32, b: Uint32, *, loc=None, ip=None) -> Uint32:
                 mov.b32 fa_hi, a_hi;
                 mov.b32 fb_lo, b_lo;
                 mov.b32 fb_hi, b_hi;
-                max.ftz.f32 fa_lo, fa_lo, fb_lo;
-                max.ftz.f32 fa_hi, fa_hi, fb_hi;
+                max.f32 fa_lo, fa_lo, fb_lo;
+                max.f32 fa_hi, fa_hi, fb_hi;
                 mov.b32 max_lo, fa_lo;
                 mov.b32 max_hi, fa_hi;
                 shr.b32 max_lo, max_lo, 16;
@@ -589,9 +579,9 @@ def bfloat2_nvfp4_absmax_error(
                 mul.rn.f32 q1, q1, $3;
                 sub.f32 d0, q0, x0;
                 sub.f32 d1, q1, x1;
-                abs.ftz.f32 d0, d0;
-                abs.ftz.f32 d1, d1;
-                max.ftz.f32 $0, d0, d1;
+                abs.f32 d0, d0;
+                abs.f32 d1, d1;
+                max.f32 $0, d0, d1;
             }
             """,
             "=f,r,f,f",
@@ -645,8 +635,8 @@ def bfloat2_nvfp4_mae_error(
                 mul.rn.f32 q1, q1, $3;
                 sub.f32 d0, q0, x0;
                 sub.f32 d1, q1, x1;
-                abs.ftz.f32 d0, d0;
-                abs.ftz.f32 d1, d1;
+                abs.f32 d0, d0;
+                abs.f32 d1, d1;
                 add.rn.f32 $0, d0, d1;
             }
             """,
@@ -759,9 +749,9 @@ def bfloat2_int4_absmax_error(
                 mul.rn.f32 q1, q1, $3;
                 sub.f32 d0, q0, x0;
                 sub.f32 d1, q1, x1;
-                abs.ftz.f32 d0, d0;
-                abs.ftz.f32 d1, d1;
-                max.ftz.f32 $0, d0, d1;
+                abs.f32 d0, d0;
+                abs.f32 d1, d1;
+                max.f32 $0, d0, d1;
             }
             """,
             "=f,r,f,f",
@@ -817,8 +807,8 @@ def bfloat2_int4_mae_error(
                 mul.rn.f32 q1, q1, $3;
                 sub.f32 d0, q0, x0;
                 sub.f32 d1, q1, x1;
-                abs.ftz.f32 d0, d0;
-                abs.ftz.f32 d1, d1;
+                abs.f32 d0, d0;
+                abs.f32 d1, d1;
                 add.rn.f32 $0, d0, d1;
             }
             """,
@@ -941,9 +931,9 @@ def bfloat2_fp6_absmax_error(
                 mul.rn.f32 q1, q1, $3;
                 sub.f32 d0, q0, x0;
                 sub.f32 d1, q1, x1;
-                abs.ftz.f32 d0, d0;
-                abs.ftz.f32 d1, d1;
-                max.ftz.f32 $0, d0, d1;
+                abs.f32 d0, d0;
+                abs.f32 d1, d1;
+                max.f32 $0, d0, d1;
             }}
             """,
             "=f,r,f,f",
@@ -1007,8 +997,8 @@ def bfloat2_fp6_mae_error(
                 mul.rn.f32 q1, q1, $3;
                 sub.f32 d0, q0, x0;
                 sub.f32 d1, q1, x1;
-                abs.ftz.f32 d0, d0;
-                abs.ftz.f32 d1, d1;
+                abs.f32 d0, d0;
+                abs.f32 d1, d1;
                 add.rn.f32 $0, d0, d1;
             }}
             """,
@@ -1131,9 +1121,9 @@ def bfloat2_int6_absmax_error(
                 mul.rn.f32 q1, q1, $3;
                 sub.f32 d0, q0, x0;
                 sub.f32 d1, q1, x1;
-                abs.ftz.f32 d0, d0;
-                abs.ftz.f32 d1, d1;
-                max.ftz.f32 $0, d0, d1;
+                abs.f32 d0, d0;
+                abs.f32 d1, d1;
+                max.f32 $0, d0, d1;
             }
             """,
             "=f,r,f,f",
@@ -1189,8 +1179,8 @@ def bfloat2_int6_mae_error(
                 mul.rn.f32 q1, q1, $3;
                 sub.f32 d0, q0, x0;
                 sub.f32 d1, q1, x1;
-                abs.ftz.f32 d0, d0;
-                abs.ftz.f32 d1, d1;
+                abs.f32 d0, d0;
+                abs.f32 d1, d1;
                 add.rn.f32 $0, d0, d1;
             }
             """,
@@ -1601,10 +1591,10 @@ def cvt_e2m0x4_f32(
                 .reg .b8 b0, b1, b2, b3;
                 .reg .pred p0, p1, p2, p3;
 
-                abs.ftz.f32 a0, $1;
-                abs.ftz.f32 a1, $2;
-                abs.ftz.f32 a2, $3;
-                abs.ftz.f32 a3, $4;
+                abs.f32 a0, $1;
+                abs.f32 a1, $2;
+                abs.f32 a2, $3;
+                abs.f32 a3, $4;
 
                 mov.u32 c0, 3;
                 setp.le.f32 p0, a0, 0f40400000;
@@ -1761,10 +1751,10 @@ def cvt_e2m0x4_f32_values(
             .reg .f32 a0, a1, a2, a3, q0, q1, q2, q3, n0, n1, n2, n3;
             .reg .pred p0, p1, p2, p3;
 
-            abs.ftz.f32 a0, $4;
-            abs.ftz.f32 a1, $5;
-            abs.ftz.f32 a2, $6;
-            abs.ftz.f32 a3, $7;
+            abs.f32 a0, $4;
+            abs.f32 a1, $5;
+            abs.f32 a2, $6;
+            abs.f32 a3, $7;
 
             mov.f32 q0, 0f40800000;
             setp.le.f32 p0, a0, 0f40400000;
