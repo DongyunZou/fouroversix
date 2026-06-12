@@ -68,6 +68,52 @@ def _scale_factors_as_matrix(
     )[: shape[0]]
 
 
+def _normalized_scale_factor_bits(tensor) -> torch.Tensor:
+    if tensor.scale_factors is None:
+        return torch.empty(0, dtype=torch.uint8, device=tensor.values.device)
+
+    rows = tensor.padded_shape[0]
+    cols = tensor.scale_factors.numel() // rows
+    if tensor.scale_factors_are_in_blackwell_layout:
+        scales = from_blocked(tensor.scale_factors, (rows, cols))
+    else:
+        scales = tensor.scale_factors.reshape(rows, cols)
+
+    useful_rows = tensor.original_shape[0]
+    useful_cols = min(tensor.original_shape[1] // tensor.dtype.block_size, cols)
+    return scales[:useful_rows, :useful_cols].contiguous().view(torch.uint8)
+
+
+def _useful_quantized_values(tensor) -> torch.Tensor:
+    cols = tensor.original_shape[1] // tensor.dtype.quantized_value_type.packing_factor
+    return tensor.values[: tensor.original_shape[0], :cols].contiguous()
+
+
+def _assert_quantized_tensors_bitwise_equal(actual, expected) -> None:
+    assert actual.values.dtype == expected.values.dtype
+    assert torch.equal(
+        _useful_quantized_values(actual),
+        _useful_quantized_values(expected),
+    )
+    if actual.scale_factors is None or expected.scale_factors is None:
+        assert actual.scale_factors is None and expected.scale_factors is None
+    else:
+        assert actual.scale_factors.dtype == expected.scale_factors.dtype
+    assert torch.equal(
+        _normalized_scale_factor_bits(actual),
+        _normalized_scale_factor_bits(expected),
+    )
+
+    if actual.amax is None or expected.amax is None:
+        assert actual.amax is None and expected.amax is None
+    else:
+        assert actual.amax.dtype == expected.amax.dtype
+        assert torch.equal(
+            actual.amax.reshape(1).view(torch.uint8),
+            expected.amax.reshape(1).view(torch.uint8),
+        )
+
+
 def _quantize_against_pytorch_reference_metrics(
     x: torch.Tensor,
     *,
@@ -899,6 +945,89 @@ def test_cute_sm100_nvfp4_rht_matches_triton(scale_rule: ScaleRule) -> None:
     ).float().mean().item() >= CUTE_VALUE_EQUAL_RATIO_FLOOR
     assert (diff * diff).mean().item() <= CUTE_DEQUANT_METRIC_TOLERANCE
     assert diff.abs().mean().item() <= CUTE_DEQUANT_METRIC_TOLERANCE
+
+
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        DataType.nvfp4,
+        DataType.nvfp4_bs8,
+    ],
+)
+@pytest.mark.parametrize(
+    "scale_rule",
+    [
+        ScaleRule.abs_max,
+        ScaleRule.mae,
+        ScaleRule.mse,
+        ScaleRule.static_4,
+        ScaleRule.static_6,
+    ],
+)
+@pytest.mark.parametrize(
+    ("block_scale_2d", "transpose", "rht"),
+    [
+        (False, False, False),
+        (False, False, True),
+        (False, True, False),
+        (False, True, True),
+        (True, False, False),
+        (True, False, True),
+    ],
+)
+def test_cute_sm100_four_over_six_deterministic_bitwise_matches_triton_or_reference(
+    dtype: DataType,
+    scale_rule: ScaleRule,
+    *,
+    block_scale_2d: bool,
+    transpose: bool,
+    rht: bool,
+) -> None:
+    _require_cuda_for_cute_sm100_accuracy()
+
+    torch.manual_seed(0)
+    x = torch.randn(128, 256, dtype=torch.bfloat16, device="cuda")
+    expected_backend = QuantizeBackend.triton
+    if dtype == DataType.nvfp4_bs8 and scale_rule in {
+        ScaleRule.abs_max,
+        ScaleRule.mae,
+        ScaleRule.mse,
+    }:
+        expected_backend = QuantizeBackend.pytorch
+    if expected_backend == QuantizeBackend.pytorch and rht:
+        pytest.skip("RHT preprocessing is outside four-over-six quant/dequant parity")
+
+    expected_x = x.clone()
+    expected_transpose = transpose
+    expected_rht = rht
+    if expected_backend == QuantizeBackend.pytorch:
+        expected_x = x.T.contiguous() if transpose else expected_x
+        expected_transpose = False
+        expected_rht = False
+
+    config_expected = QuantizationConfig(
+        backend=expected_backend,
+        block_scale_2d=block_scale_2d,
+        dtype=dtype,
+        rht=expected_rht,
+        round_style=RoundStyle.nearest,
+        scale_rule=scale_rule,
+        transpose=expected_transpose,
+    )
+    config_cute = QuantizationConfig(
+        backend=QuantizeBackend.cute_sm100,
+        block_scale_2d=block_scale_2d,
+        dtype=dtype,
+        rht=rht,
+        round_style=RoundStyle.nearest,
+        scale_rule=scale_rule,
+        transpose=transpose,
+    )
+
+    quantized_expected = quantize(expected_x, config_expected)
+    quantized_cute = quantize(x.clone(), config_cute)
+
+    _assert_quantized_tensors_bitwise_equal(quantized_cute, quantized_expected)
 
 
 def test_cute_sm100_rht_transform_matches_torch_reference() -> None:

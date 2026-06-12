@@ -1,0 +1,63 @@
+# SM100 CuTe Four-Over-Six Bitwise Parity Probe
+
+- Compared cases: 408
+- Compared against unmodified Triton: 336
+- Compared against PyTorch reference: 72
+- Bitwise equal: 408
+- Bitwise mismatches: 0
+- Unsupported by one backend: 0
+- Skipped: 72
+- Exceptions: 0
+
+## Skipped
+
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(128, 256), input=zeros
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(128, 256), input=ones
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(128, 256), input=rand01
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(128, 256), input=randn
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(1024, 1024), input=zeros
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(1024, 1024), input=ones
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(1024, 1024), input=rand01
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(1024, 1024), input=randn
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(128, 256), input=zeros
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(128, 256), input=ones
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(128, 256), input=rand01
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(128, 256), input=randn
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(1024, 1024), input=zeros
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(1024, 1024), input=ones
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(1024, 1024), input=rand01
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(1024, 1024), input=randn
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(128, 256), input=zeros
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(128, 256), input=ones
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(128, 256), input=rand01
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(128, 256), input=randn
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(1024, 1024), input=zeros
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(1024, 1024), input=ones
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(1024, 1024), input=rand01
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=abs_max, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(1024, 1024), input=randn
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(128, 256), input=zeros
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(128, 256), input=ones
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(128, 256), input=rand01
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(128, 256), input=randn
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(1024, 1024), input=zeros
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(1024, 1024), input=ones
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(1024, 1024), input=rand01
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(1024, 1024), input=randn
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(128, 256), input=zeros
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(128, 256), input=ones
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(128, 256), input=rand01
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(128, 256), input=randn
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(1024, 1024), input=zeros
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(1024, 1024), input=ones
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(1024, 1024), input=rand01
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=False, transpose=True, rht=True, shape=(1024, 1024), input=randn
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(128, 256), input=zeros
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(128, 256), input=ones
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(128, 256), input=rand01
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(128, 256), input=randn
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(1024, 1024), input=zeros
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(1024, 1024), input=ones
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(1024, 1024), input=rand01
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mae, round_style=nearest, block_scale_2d=True, transpose=False, rht=True, shape=(1024, 1024), input=randn
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mse, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(128, 256), input=zeros
+- reason=rht_preprocess_is_outside_four_over_six_quant_dequant, dtype=nvfp4_bs8, scale_rule=mse, round_style=nearest, block_scale_2d=False, transpose=False, rht=True, shape=(128, 256), input=ones

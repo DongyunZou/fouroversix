@@ -272,6 +272,48 @@ def nvfp4_compute_dequant_scale(
 
 
 @dsl_user_op
+def nvfp4_compute_dequant_scale_from_amax(
+    fp8_val: Uint32,
+    amax_over_global_scale_denominator: Float32,
+    *,
+    loc=None,
+    ip=None,
+) -> Float32:
+    return Float32(
+        llvm.inline_asm(
+            T.f32(),
+            [
+                Uint32(fp8_val).ir_value(loc=loc, ip=ip),
+                Float32(amax_over_global_scale_denominator).ir_value(
+                    loc=loc,
+                    ip=ip,
+                ),
+            ],
+            """
+            {
+                .reg .b16 fp8_pair;
+                .reg .b32 h2_32;
+                .reg .b16 h_lo, h_hi;
+                .reg .f32 scale_f32;
+
+                cvt.u16.u32 fp8_pair, $1;
+                cvt.rn.f16x2.e4m3x2 h2_32, fp8_pair;
+                mov.b32 {h_lo, h_hi}, h2_32;
+                cvt.f32.f16 scale_f32, h_lo;
+                mul.rn.f32 $0, scale_f32, $2;
+            }
+            """,
+            "=f,r,f",
+            has_side_effects=False,
+            is_align_stack=False,
+            asm_dialect=llvm.AsmDialect.AD_ATT,
+            loc=loc,
+            ip=ip,
+        )
+    )
+
+
+@dsl_user_op
 def nvfp4_compute_quant_scale_exact(
     fp8_val: Uint32,
     global_scale: Float32,
@@ -697,6 +739,430 @@ def bfloat2_nvfp4_mse_error(
             }
             """,
             "=f,r,f,f",
+            has_side_effects=False,
+            is_align_stack=False,
+            asm_dialect=llvm.AsmDialect.AD_ATT,
+            loc=loc,
+            ip=ip,
+        )
+    )
+
+
+@dsl_user_op
+def bfloat2_nvfp4_absmax_error_triton_dequant(
+    h2: Uint32,
+    output_scale: Float32,
+    fp8_val: Uint32,
+    amax: Float32,
+    scale_denominator: Float32,
+    *,
+    loc=None,
+    ip=None,
+) -> Float32:
+    return Float32(
+        llvm.inline_asm(
+            T.f32(),
+            [
+                Uint32(h2).ir_value(loc=loc, ip=ip),
+                Float32(output_scale).ir_value(loc=loc, ip=ip),
+                Uint32(fp8_val).ir_value(loc=loc, ip=ip),
+                Float32(amax).ir_value(loc=loc, ip=ip),
+                Float32(scale_denominator).ir_value(loc=loc, ip=ip),
+            ],
+            """
+            {
+                .reg .b32 lo, hi, qh2, h2_32;
+                .reg .b16 qlo, qhi, fp8_pair, h_lo, h_hi;
+                .reg .b8 qbyte;
+                .reg .f32 x0, x1, s0, s1, q0, q1, scale_f32, d0, d1;
+
+                and.b32 lo, $1, 0xFFFF;
+                shr.b32 hi, $1, 16;
+                shl.b32 lo, lo, 16;
+                shl.b32 hi, hi, 16;
+                mov.b32 x0, lo;
+                mov.b32 x1, hi;
+                mul.f32 s0, x0, $2;
+                mul.f32 s1, x1, $2;
+                cvt.rn.satfinite.e2m1x2.f32 qbyte, s1, s0;
+                cvt.rn.f16x2.e2m1x2 qh2, qbyte;
+                mov.b32 {qlo, qhi}, qh2;
+                cvt.f32.f16 q0, qlo;
+                cvt.f32.f16 q1, qhi;
+
+                cvt.u16.u32 fp8_pair, $3;
+                cvt.rn.f16x2.e4m3x2 h2_32, fp8_pair;
+                mov.b32 {h_lo, h_hi}, h2_32;
+                cvt.f32.f16 scale_f32, h_lo;
+
+                mul.rn.f32 q0, q0, scale_f32;
+                mul.rn.f32 q1, q1, scale_f32;
+                mul.rn.f32 q0, q0, $4;
+                mul.rn.f32 q1, q1, $4;
+                div.rn.f32 q0, q0, $5;
+                div.rn.f32 q1, q1, $5;
+                sub.f32 d0, q0, x0;
+                sub.f32 d1, q1, x1;
+                abs.f32 d0, d0;
+                abs.f32 d1, d1;
+                max.f32 $0, d0, d1;
+            }
+            """,
+            "=f,r,f,r,f,f",
+            has_side_effects=False,
+            is_align_stack=False,
+            asm_dialect=llvm.AsmDialect.AD_ATT,
+            loc=loc,
+            ip=ip,
+        )
+    )
+
+
+@dsl_user_op
+def bfloat2_nvfp4_mae_error_triton_dequant(
+    h2: Uint32,
+    output_scale: Float32,
+    fp8_val: Uint32,
+    amax: Float32,
+    scale_denominator: Float32,
+    *,
+    loc=None,
+    ip=None,
+) -> Float32:
+    return Float32(
+        llvm.inline_asm(
+            T.f32(),
+            [
+                Uint32(h2).ir_value(loc=loc, ip=ip),
+                Float32(output_scale).ir_value(loc=loc, ip=ip),
+                Uint32(fp8_val).ir_value(loc=loc, ip=ip),
+                Float32(amax).ir_value(loc=loc, ip=ip),
+                Float32(scale_denominator).ir_value(loc=loc, ip=ip),
+            ],
+            """
+            {
+                .reg .b32 lo, hi, qh2, h2_32;
+                .reg .b16 qlo, qhi, fp8_pair, h_lo, h_hi;
+                .reg .b8 qbyte;
+                .reg .f32 x0, x1, s0, s1, q0, q1, scale_f32, d0, d1;
+
+                and.b32 lo, $1, 0xFFFF;
+                shr.b32 hi, $1, 16;
+                shl.b32 lo, lo, 16;
+                shl.b32 hi, hi, 16;
+                mov.b32 x0, lo;
+                mov.b32 x1, hi;
+                mul.f32 s0, x0, $2;
+                mul.f32 s1, x1, $2;
+                cvt.rn.satfinite.e2m1x2.f32 qbyte, s1, s0;
+                cvt.rn.f16x2.e2m1x2 qh2, qbyte;
+                mov.b32 {qlo, qhi}, qh2;
+                cvt.f32.f16 q0, qlo;
+                cvt.f32.f16 q1, qhi;
+
+                cvt.u16.u32 fp8_pair, $3;
+                cvt.rn.f16x2.e4m3x2 h2_32, fp8_pair;
+                mov.b32 {h_lo, h_hi}, h2_32;
+                cvt.f32.f16 scale_f32, h_lo;
+
+                mul.rn.f32 q0, q0, scale_f32;
+                mul.rn.f32 q1, q1, scale_f32;
+                mul.rn.f32 q0, q0, $4;
+                mul.rn.f32 q1, q1, $4;
+                div.rn.f32 q0, q0, $5;
+                div.rn.f32 q1, q1, $5;
+                sub.f32 d0, q0, x0;
+                sub.f32 d1, q1, x1;
+                abs.f32 d0, d0;
+                abs.f32 d1, d1;
+                add.rn.f32 $0, d0, d1;
+            }
+            """,
+            "=f,r,f,r,f,f",
+            has_side_effects=False,
+            is_align_stack=False,
+            asm_dialect=llvm.AsmDialect.AD_ATT,
+            loc=loc,
+            ip=ip,
+        )
+    )
+
+
+@dsl_user_op
+def bfloat2_nvfp4_mse_error_triton_dequant(
+    h2: Uint32,
+    output_scale: Float32,
+    fp8_val: Uint32,
+    amax: Float32,
+    scale_denominator: Float32,
+    *,
+    loc=None,
+    ip=None,
+) -> Float32:
+    return Float32(
+        llvm.inline_asm(
+            T.f32(),
+            [
+                Uint32(h2).ir_value(loc=loc, ip=ip),
+                Float32(output_scale).ir_value(loc=loc, ip=ip),
+                Uint32(fp8_val).ir_value(loc=loc, ip=ip),
+                Float32(amax).ir_value(loc=loc, ip=ip),
+                Float32(scale_denominator).ir_value(loc=loc, ip=ip),
+            ],
+            """
+            {
+                .reg .b32 lo, hi, qh2, h2_32;
+                .reg .b16 qlo, qhi, fp8_pair, h_lo, h_hi;
+                .reg .b8 qbyte;
+                .reg .f32 x0, x1, s0, s1, q0, q1, scale_f32, d0, d1;
+
+                and.b32 lo, $1, 0xFFFF;
+                shr.b32 hi, $1, 16;
+                shl.b32 lo, lo, 16;
+                shl.b32 hi, hi, 16;
+                mov.b32 x0, lo;
+                mov.b32 x1, hi;
+                mul.f32 s0, x0, $2;
+                mul.f32 s1, x1, $2;
+                cvt.rn.satfinite.e2m1x2.f32 qbyte, s1, s0;
+                cvt.rn.f16x2.e2m1x2 qh2, qbyte;
+                mov.b32 {qlo, qhi}, qh2;
+                cvt.f32.f16 q0, qlo;
+                cvt.f32.f16 q1, qhi;
+
+                cvt.u16.u32 fp8_pair, $3;
+                cvt.rn.f16x2.e4m3x2 h2_32, fp8_pair;
+                mov.b32 {h_lo, h_hi}, h2_32;
+                cvt.f32.f16 scale_f32, h_lo;
+
+                mul.rn.f32 q0, q0, scale_f32;
+                mul.rn.f32 q1, q1, scale_f32;
+                mul.rn.f32 q0, q0, $4;
+                mul.rn.f32 q1, q1, $4;
+                div.rn.f32 q0, q0, $5;
+                div.rn.f32 q1, q1, $5;
+                sub.f32 d0, q0, x0;
+                sub.f32 d1, q1, x1;
+                fma.rn.f32 d0, d0, d0, 0f00000000;
+                fma.rn.f32 d1, d1, d1, d0;
+                mov.f32 $0, d1;
+            }
+            """,
+            "=f,r,f,r,f,f",
+            has_side_effects=False,
+            is_align_stack=False,
+            asm_dialect=llvm.AsmDialect.AD_ATT,
+            loc=loc,
+            ip=ip,
+        )
+    )
+
+
+@dsl_user_op
+def bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+    h2: Uint32,
+    output_scale: Float32,
+    fp8_val: Uint32,
+    amax: Float32,
+    scale_denominator: Float32,
+    half_shift: Uint32,
+    *,
+    loc=None,
+    ip=None,
+) -> Float32:
+    return Float32(
+        llvm.inline_asm(
+            T.f32(),
+            [
+                Uint32(h2).ir_value(loc=loc, ip=ip),
+                Float32(output_scale).ir_value(loc=loc, ip=ip),
+                Uint32(fp8_val).ir_value(loc=loc, ip=ip),
+                Float32(amax).ir_value(loc=loc, ip=ip),
+                Float32(scale_denominator).ir_value(loc=loc, ip=ip),
+                Uint32(half_shift).ir_value(loc=loc, ip=ip),
+            ],
+            """
+            {
+                .reg .b32 half, qh2, h2_32;
+                .reg .b16 qlo, qhi, fp8_pair, h_lo, h_hi;
+                .reg .b8 qbyte;
+                .reg .f32 x0, s0, q0, scale_f32, d0;
+
+                shr.b32 half, $1, $6;
+                and.b32 half, half, 0xFFFF;
+                shl.b32 half, half, 16;
+                mov.b32 x0, half;
+                mul.f32 s0, x0, $2;
+                cvt.rn.satfinite.e2m1x2.f32 qbyte, 0f00000000, s0;
+                cvt.rn.f16x2.e2m1x2 qh2, qbyte;
+                mov.b32 {qlo, qhi}, qh2;
+                cvt.f32.f16 q0, qlo;
+
+                cvt.u16.u32 fp8_pair, $3;
+                cvt.rn.f16x2.e4m3x2 h2_32, fp8_pair;
+                mov.b32 {h_lo, h_hi}, h2_32;
+                cvt.f32.f16 scale_f32, h_lo;
+
+                mul.rn.f32 q0, q0, scale_f32;
+                mul.rn.f32 q0, q0, $4;
+                div.rn.f32 q0, q0, $5;
+                sub.f32 d0, q0, x0;
+                abs.f32 $0, d0;
+            }
+            """,
+            "=f,r,f,r,f,f,r",
+            has_side_effects=False,
+            is_align_stack=False,
+            asm_dialect=llvm.AsmDialect.AD_ATT,
+            loc=loc,
+            ip=ip,
+        )
+    )
+
+
+@dsl_user_op
+def bfloat2x4_nvfp4_mse_error_triton_dequant(
+    h0: Uint32,
+    h1: Uint32,
+    h2: Uint32,
+    h3: Uint32,
+    output_scale: Float32,
+    fp8_val: Uint32,
+    amax: Float32,
+    scale_denominator: Float32,
+    *,
+    loc=None,
+    ip=None,
+) -> Float32:
+    return Float32(
+        llvm.inline_asm(
+            T.f32(),
+            [
+                Uint32(h0).ir_value(loc=loc, ip=ip),
+                Uint32(h1).ir_value(loc=loc, ip=ip),
+                Uint32(h2).ir_value(loc=loc, ip=ip),
+                Uint32(h3).ir_value(loc=loc, ip=ip),
+                Float32(output_scale).ir_value(loc=loc, ip=ip),
+                Uint32(fp8_val).ir_value(loc=loc, ip=ip),
+                Float32(amax).ir_value(loc=loc, ip=ip),
+                Float32(scale_denominator).ir_value(loc=loc, ip=ip),
+            ],
+            """
+            {
+                .reg .b32 lo0, hi0, lo1, hi1, lo2, hi2, lo3, hi3, qh2, h2_32;
+                .reg .b16 qlo, qhi, fp8_pair, h_lo, h_hi;
+                .reg .b8 qbyte;
+                .reg .f32 x0, x1, x2, x3, x4, x5, x6, x7;
+                .reg .f32 s0, s1, s2, s3, s4, s5, s6, s7;
+                .reg .f32 q0, q1, q2, q3, q4, q5, q6, q7;
+                .reg .f32 scale_f32, d0, d1, d2, d3, d4, d5, d6, d7, acc;
+
+                and.b32 lo0, $1, 0xFFFF;
+                shr.b32 hi0, $1, 16;
+                and.b32 lo1, $2, 0xFFFF;
+                shr.b32 hi1, $2, 16;
+                and.b32 lo2, $3, 0xFFFF;
+                shr.b32 hi2, $3, 16;
+                and.b32 lo3, $4, 0xFFFF;
+                shr.b32 hi3, $4, 16;
+                shl.b32 lo0, lo0, 16;
+                shl.b32 hi0, hi0, 16;
+                shl.b32 lo1, lo1, 16;
+                shl.b32 hi1, hi1, 16;
+                shl.b32 lo2, lo2, 16;
+                shl.b32 hi2, hi2, 16;
+                shl.b32 lo3, lo3, 16;
+                shl.b32 hi3, hi3, 16;
+                mov.b32 x0, lo0;
+                mov.b32 x1, hi0;
+                mov.b32 x2, lo1;
+                mov.b32 x3, hi1;
+                mov.b32 x4, lo2;
+                mov.b32 x5, hi2;
+                mov.b32 x6, lo3;
+                mov.b32 x7, hi3;
+
+                mul.f32 s0, x0, $5;
+                mul.f32 s1, x1, $5;
+                cvt.rn.satfinite.e2m1x2.f32 qbyte, s1, s0;
+                cvt.rn.f16x2.e2m1x2 qh2, qbyte;
+                mov.b32 {qlo, qhi}, qh2;
+                cvt.f32.f16 q0, qlo;
+                cvt.f32.f16 q1, qhi;
+
+                mul.f32 s2, x2, $5;
+                mul.f32 s3, x3, $5;
+                cvt.rn.satfinite.e2m1x2.f32 qbyte, s3, s2;
+                cvt.rn.f16x2.e2m1x2 qh2, qbyte;
+                mov.b32 {qlo, qhi}, qh2;
+                cvt.f32.f16 q2, qlo;
+                cvt.f32.f16 q3, qhi;
+
+                mul.f32 s4, x4, $5;
+                mul.f32 s5, x5, $5;
+                cvt.rn.satfinite.e2m1x2.f32 qbyte, s5, s4;
+                cvt.rn.f16x2.e2m1x2 qh2, qbyte;
+                mov.b32 {qlo, qhi}, qh2;
+                cvt.f32.f16 q4, qlo;
+                cvt.f32.f16 q5, qhi;
+
+                mul.f32 s6, x6, $5;
+                mul.f32 s7, x7, $5;
+                cvt.rn.satfinite.e2m1x2.f32 qbyte, s7, s6;
+                cvt.rn.f16x2.e2m1x2 qh2, qbyte;
+                mov.b32 {qlo, qhi}, qh2;
+                cvt.f32.f16 q6, qlo;
+                cvt.f32.f16 q7, qhi;
+
+                cvt.u16.u32 fp8_pair, $6;
+                cvt.rn.f16x2.e4m3x2 h2_32, fp8_pair;
+                mov.b32 {h_lo, h_hi}, h2_32;
+                cvt.f32.f16 scale_f32, h_lo;
+
+                mul.rn.f32 q0, q0, scale_f32;
+                mul.rn.f32 q1, q1, scale_f32;
+                mul.rn.f32 q2, q2, scale_f32;
+                mul.rn.f32 q3, q3, scale_f32;
+                mul.rn.f32 q4, q4, scale_f32;
+                mul.rn.f32 q5, q5, scale_f32;
+                mul.rn.f32 q6, q6, scale_f32;
+                mul.rn.f32 q7, q7, scale_f32;
+                mul.rn.f32 q0, q0, $7;
+                mul.rn.f32 q1, q1, $7;
+                mul.rn.f32 q2, q2, $7;
+                mul.rn.f32 q3, q3, $7;
+                mul.rn.f32 q4, q4, $7;
+                mul.rn.f32 q5, q5, $7;
+                mul.rn.f32 q6, q6, $7;
+                mul.rn.f32 q7, q7, $7;
+                div.rn.f32 q0, q0, $8;
+                div.rn.f32 q1, q1, $8;
+                div.rn.f32 q2, q2, $8;
+                div.rn.f32 q3, q3, $8;
+                div.rn.f32 q4, q4, $8;
+                div.rn.f32 q5, q5, $8;
+                div.rn.f32 q6, q6, $8;
+                div.rn.f32 q7, q7, $8;
+                sub.f32 d0, q0, x0;
+                sub.f32 d1, q1, x1;
+                sub.f32 d2, q2, x2;
+                sub.f32 d3, q3, x3;
+                sub.f32 d4, q4, x4;
+                sub.f32 d5, q5, x5;
+                sub.f32 d6, q6, x6;
+                sub.f32 d7, q7, x7;
+
+                mul.f32 acc, d1, d1;
+                fma.rn.f32 acc, d0, d0, acc;
+                fma.rn.f32 acc, d2, d2, acc;
+                fma.rn.f32 acc, d3, d3, acc;
+                fma.rn.f32 acc, d4, d4, acc;
+                fma.rn.f32 acc, d5, d5, acc;
+                fma.rn.f32 acc, d6, d6, acc;
+                fma.rn.f32 $0, d7, d7, acc;
+            }
+            """,
+            "=f,r,r,r,r,f,r,f,f",
             has_side_effects=False,
             is_align_stack=False,
             asm_dialect=llvm.AsmDialect.AD_ATT,

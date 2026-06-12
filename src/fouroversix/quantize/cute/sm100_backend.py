@@ -89,6 +89,12 @@ _PSEUDO_SUPPORTED_DTYPES = frozenset(
 )
 
 
+def _match_triton_reduction(config: QuantizationConfig) -> bool:
+    return not (
+        config.dtype == DataType.nvfp4_bs8 and config.scale_rule in _ADAPTIVE_SCALE_RULES
+    )
+
+
 def _if3_effective_scale_rule_id(config: QuantizationConfig) -> int:
     if (
         config.dtype == DataType.if3_bs8
@@ -1226,6 +1232,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             out = pseudo_quantize_nvfp4_adaptive(
                 x_quantize,
                 scale_rule_id=config.scale_rule.cuda_id,
+                scale_block_size=config.dtype.block_size,
                 x_amax=x_amax,
             )
         else:
@@ -1322,6 +1329,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     x,
                     scale_rule_id=config.scale_rule.cuda_id,
                     x_amax=x_amax,
+                    match_triton_reduction=_match_triton_reduction(config),
                 )
             else:
                 quantize_nvfp4_static_transpose, _, _ = (
@@ -1603,7 +1611,9 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 values, scale_factors_u8, amax = quantize_nvfp4_adaptive_2d(
                     x,
                     scale_rule_id=config.scale_rule.cuda_id,
+                    scale_block_size=config.dtype.block_size,
                     x_amax=x_amax,
+                    match_triton_reduction=_match_triton_reduction(config),
                 )
             else:
                 values, scale_factors_u8, amax = quantize_nvfp4_static_2d(
@@ -1921,6 +1931,7 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                 stochastic_rounding=config.round_style == RoundStyle.stochastic,
                 scale_block_size=config.dtype.block_size,
                 x_amax=config.kwargs.get("x_amax"),
+                match_triton_reduction=_match_triton_reduction(config),
             )
             return _make_quantized_tensor(
                 values,
@@ -2788,7 +2799,9 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
             values, scale_factors_u8, amax = quantize_nvfp4_adaptive_2d(
                 x_quantize,
                 scale_rule_id=config.scale_rule.cuda_id,
+                scale_block_size=config.dtype.block_size,
                 x_amax=x_amax,
+                match_triton_reduction=_match_triton_reduction(config),
             )
             scale_dtype = torch.float8_e4m3fn
         elif (
@@ -2868,13 +2881,16 @@ class CuteSm100QuantizeBackend(QuantizeBackendBase):
                     x_quantize,
                     scale_rule_id=config.scale_rule.cuda_id,
                     x_amax=x_amax,
+                    match_triton_reduction=_match_triton_reduction(config),
                 )
             else:
                 values, scale_factors_u8, amax = quantize_nvfp4_adaptive(
                     x_quantize,
                     scale_rule_id=config.scale_rule.cuda_id,
                     stochastic_rounding=config.round_style == RoundStyle.stochastic,
+                    scale_block_size=config.dtype.block_size,
                     x_amax=x_amax,
+                    match_triton_reduction=_match_triton_reduction(config),
                 )
             scale_dtype = torch.float8_e4m3fn
         else:

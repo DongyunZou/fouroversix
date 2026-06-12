@@ -22,9 +22,14 @@ from fouroversix.kernels.cute_sm100.fp4_common import (
     bfloat2_int6_mse_error,
     bfloat2_max_abs_8,
     bfloat2_nvfp4_absmax_error,
+    bfloat2_nvfp4_absmax_error_triton_dequant,
     bfloat2_nvfp4_dequant_bfloat2,
     bfloat2_nvfp4_mae_error,
+    bfloat2_nvfp4_mae_error_scalar_triton_dequant,
+    bfloat2_nvfp4_mae_error_triton_dequant,
     bfloat2_nvfp4_mse_error,
+    bfloat2_nvfp4_mse_error_triton_dequant,
+    bfloat2x4_nvfp4_mse_error_triton_dequant,
     bfloat2_to_float2_scaled,
     bfloat2x4_to_e2m0x8_values,
     bfloat2x4_to_e2m1x8_packed,
@@ -54,6 +59,7 @@ from fouroversix.kernels.cute_sm100.fp4_common import (
     ld_global_u16,
     ld_global_v4_u32,
     nvfp4_compute_dequant_scale,
+    nvfp4_compute_dequant_scale_from_amax,
     nvfp4_compute_output_scale,
     nvfp4_compute_quant_scale_exact,
     stochastic_round_e2m1_value,
@@ -1974,6 +1980,301 @@ def _nvfp4_block_error_bfloat(
 
 
 @cute.jit
+def _nvfp4_block_error_bfloat_triton_dequant(
+    h0: cutlass.Uint32,
+    h1: cutlass.Uint32,
+    h2: cutlass.Uint32,
+    h3: cutlass.Uint32,
+    h4: cutlass.Uint32,
+    h5: cutlass.Uint32,
+    h6: cutlass.Uint32,
+    h7: cutlass.Uint32,
+    output_scale: Float32,
+    scale_fp8_u32: Uint32,
+    amax: Float32,
+    scale_denominator: Float32,
+    scale_rule_id: cutlass.Constexpr[int],
+    match_triton_reduction: cutlass.Constexpr[bool] = False,
+    scale_block_size: cutlass.Constexpr[int] = NVFP4_SCALE_BLOCK_SIZE,
+) -> Float32:
+    if cutlass.const_expr(scale_rule_id == SCALE_RULE_ABS_MAX):
+        err01 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h0, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err23 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h1, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err45 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h2, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err67 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h3, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err = cutlass.max(err01, err23)
+        err = cutlass.max(err, err45)
+        err = cutlass.max(err, err67)
+        if cutlass.const_expr(scale_block_size == 8):
+            return err
+        err89 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h4, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err1011 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h5, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err1213 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h6, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err1415 = bfloat2_nvfp4_absmax_error_triton_dequant(
+            h7, output_scale, scale_fp8_u32, amax, scale_denominator
+        )
+        err = cutlass.max(err, err89)
+        err = cutlass.max(err, err1011)
+        err = cutlass.max(err, err1213)
+        return cutlass.max(err, err1415)
+    elif cutlass.const_expr(scale_rule_id == SCALE_RULE_MAE):
+        if cutlass.const_expr(not match_triton_reduction):
+            if cutlass.const_expr(scale_block_size == 8):
+                err01 = bfloat2_nvfp4_mae_error_triton_dequant(
+                    h0, output_scale, scale_fp8_u32, amax, scale_denominator
+                )
+                err23 = bfloat2_nvfp4_mae_error_triton_dequant(
+                    h1, output_scale, scale_fp8_u32, amax, scale_denominator
+                )
+                err45 = bfloat2_nvfp4_mae_error_triton_dequant(
+                    h2, output_scale, scale_fp8_u32, amax, scale_denominator
+                )
+                err67 = bfloat2_nvfp4_mae_error_triton_dequant(
+                    h3, output_scale, scale_fp8_u32, amax, scale_denominator
+                )
+                return err01 + ((err23 + err45) + err67)
+
+            err01 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h0, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err23 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h1, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err45 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h2, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err67 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h3, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            sum0 = (err01 + err23) + (err45 + err67)
+            if cutlass.const_expr(scale_block_size == 8):
+                return sum0
+            err89 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h4, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err1011 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h5, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err1213 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h6, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err1415 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h7, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            sum1 = (err89 + err1011) + (err1213 + err1415)
+            return sum0 + sum1
+
+        if cutlass.const_expr(scale_block_size == 8):
+            err01 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h0, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err23 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h1, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err45 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h2, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err67 = bfloat2_nvfp4_mae_error_triton_dequant(
+                h3, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            return (err01 + err45) + (err23 + err67)
+
+        err0 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h0, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err1 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h0, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        err2 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h1, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err3 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h1, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        err4 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h2, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err5 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h2, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        err6 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h3, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err7 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h3, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        err8 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h4, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err9 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h4, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        err10 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h5, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err11 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h5, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        err12 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h6, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err13 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h6, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        err14 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h7, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(0)
+        )
+        err15 = bfloat2_nvfp4_mae_error_scalar_triton_dequant(
+            h7, output_scale, scale_fp8_u32, amax, scale_denominator, Uint32(16)
+        )
+        sum0 = ((((((err0 + err1) + err2) + err3) + err4) + err5) + err6) + err7
+        sum1 = (
+            ((((((err8 + err9) + err10) + err11) + err12) + err13) + err14)
+            + err15
+        )
+        return sum0 + sum1
+    else:
+        if cutlass.const_expr(not match_triton_reduction):
+            err01 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h0, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err23 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h1, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err45 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h2, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err67 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h3, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            sum0 = (err01 + err23) + (err45 + err67)
+            if cutlass.const_expr(scale_block_size == 8):
+                return sum0
+            err89 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h4, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err1011 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h5, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err1213 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h6, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err1415 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h7, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            sum1 = (err89 + err1011) + (err1213 + err1415)
+            return sum0 + sum1
+
+        if cutlass.const_expr(scale_block_size == 8):
+            err01 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h0, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err23 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h1, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err45 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h2, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            err67 = bfloat2_nvfp4_mse_error_triton_dequant(
+                h3, output_scale, scale_fp8_u32, amax, scale_denominator
+            )
+            return (err01 + err45) + (err23 + err67)
+
+        sum0 = bfloat2x4_nvfp4_mse_error_triton_dequant(
+            h0,
+            h1,
+            h2,
+            h3,
+            output_scale,
+            scale_fp8_u32,
+            amax,
+            scale_denominator,
+        )
+        if cutlass.const_expr(scale_block_size == 8):
+            return sum0
+        sum1 = bfloat2x4_nvfp4_mse_error_triton_dequant(
+            h4,
+            h5,
+            h6,
+            h7,
+            output_scale,
+            scale_fp8_u32,
+            amax,
+            scale_denominator,
+        )
+        return sum0 + sum1
+
+
+@cute.jit
+def _nvfp4_2d_row_errors_bfloat_triton_dequant_bs8(
+    x: cute.Tensor,
+    row_idx: Int32,
+    elem_base: Int32,
+    selection_scale_6: Float32,
+    scale_fp8_u32_6: Uint32,
+    selection_scale_4: Float32,
+    scale_fp8_u32_4: Uint32,
+    amax: Float32,
+    scale_rule_id: cutlass.Constexpr[int],
+) -> tuple[Float32, Float32]:
+    ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
+    h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
+    h4 = Uint32(0)
+    h5 = Uint32(0)
+    h6 = Uint32(0)
+    h7 = Uint32(0)
+    row_error_6 = _nvfp4_block_error_bfloat_triton_dequant(
+        h0,
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6,
+        h7,
+        selection_scale_6,
+        scale_fp8_u32_6,
+        amax,
+        Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
+        scale_rule_id,
+        True,
+        8,
+    )
+    row_error_4 = _nvfp4_block_error_bfloat_triton_dequant(
+        h0,
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6,
+        h7,
+        selection_scale_4,
+        scale_fp8_u32_4,
+        amax,
+        Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
+        scale_rule_id,
+        True,
+        8,
+    )
+    return row_error_6, row_error_4
+
+
+@cute.jit
 def _abs_f32(x: Float32) -> Float32:
     out = x
     if out < Float32(0.0):
@@ -2441,10 +2742,12 @@ def _process_nvfp4_adaptive_block_bfloat(
     row_tensor: cute.Tensor,
     elem_base: Int32,
     global_scale: Float32,
+    amax: Float32,
     scale_rule_id: cutlass.Constexpr[int],
     stochastic_rounding: cutlass.Constexpr[bool],
     seed_base: Uint32,
     scale_block_size: cutlass.Constexpr[int] = NVFP4_SCALE_BLOCK_SIZE,
+    match_triton_reduction: cutlass.Constexpr[bool] = False,
 ) -> tuple[Uint8, cutlass.Uint64]:
     ptr0 = get_ptr_as_int64(row_tensor, elem_base)
 
@@ -2468,7 +2771,10 @@ def _process_nvfp4_adaptive_block_bfloat(
         scale_fp8_u32_6,
         global_scale,
     )
-    dequant_scale_6 = nvfp4_compute_dequant_scale(scale_fp8_u32_6, global_scale)
+    dequant_scale_6 = nvfp4_compute_dequant_scale_from_amax(
+        scale_fp8_u32_6,
+        amax / Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
+    )
     if cutlass.const_expr(stochastic_rounding):
         packed64_6 = bfloat2x8_to_e2m1x16_packed_stochastic(
             h0,
@@ -2500,7 +2806,7 @@ def _process_nvfp4_adaptive_block_bfloat(
         packed64_6 = cutlass.Uint64(
             bfloat2x4_to_e2m1x8_packed(h0, h1, h2, h3, output_scale_6),
         )
-        error_6 = _nvfp4_block_error_bfloat(
+        error_6 = _nvfp4_block_error_bfloat_triton_dequant(
             h0,
             h1,
             h2,
@@ -2510,8 +2816,12 @@ def _process_nvfp4_adaptive_block_bfloat(
             h6,
             h7,
             selection_scale_6,
-            dequant_scale_6,
+            scale_fp8_u32_6,
+            amax,
+            Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
             scale_rule_id,
+            match_triton_reduction,
+            scale_block_size,
         )
     else:
         packed64_6 = bfloat2x8_to_e2m1x16_packed(
@@ -2525,7 +2835,7 @@ def _process_nvfp4_adaptive_block_bfloat(
             h7,
             output_scale_6,
         )
-        error_6 = _nvfp4_block_error_bfloat(
+        error_6 = _nvfp4_block_error_bfloat_triton_dequant(
             h0,
             h1,
             h2,
@@ -2535,11 +2845,15 @@ def _process_nvfp4_adaptive_block_bfloat(
             h6,
             h7,
             selection_scale_6,
-            dequant_scale_6,
+            scale_fp8_u32_6,
+            amax,
+            Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
             scale_rule_id,
+            match_triton_reduction,
+            scale_block_size,
         )
 
-    scale_float_4 = global_scale * (block_max / Float32(4.0))
+    scale_float_4 = global_scale * (block_max / Float32(6.0)) * Float32(1.5)
     scale_fp8_u32_4 = cvt_f32_to_e4m3(scale_float_4)
     scale_fp8_4 = Uint8(scale_fp8_u32_4 & cutlass.Uint32(0xFF))
     output_scale_4 = nvfp4_compute_output_scale(scale_fp8_u32_4, global_scale)
@@ -2547,7 +2861,10 @@ def _process_nvfp4_adaptive_block_bfloat(
         scale_fp8_u32_4,
         global_scale,
     )
-    dequant_scale_4 = nvfp4_compute_dequant_scale(scale_fp8_u32_4, global_scale)
+    dequant_scale_4 = nvfp4_compute_dequant_scale_from_amax(
+        scale_fp8_u32_4,
+        amax / Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
+    )
     if cutlass.const_expr(stochastic_rounding):
         packed64_4 = bfloat2x8_to_e2m1x16_packed_stochastic(
             h0,
@@ -2579,7 +2896,7 @@ def _process_nvfp4_adaptive_block_bfloat(
         packed64_4 = cutlass.Uint64(
             bfloat2x4_to_e2m1x8_packed(h0, h1, h2, h3, output_scale_4),
         )
-        error_4 = _nvfp4_block_error_bfloat(
+        error_4 = _nvfp4_block_error_bfloat_triton_dequant(
             h0,
             h1,
             h2,
@@ -2589,8 +2906,12 @@ def _process_nvfp4_adaptive_block_bfloat(
             h6,
             h7,
             selection_scale_4,
-            dequant_scale_4,
+            scale_fp8_u32_4,
+            amax,
+            Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
             scale_rule_id,
+            match_triton_reduction,
+            scale_block_size,
         )
     else:
         packed64_4 = bfloat2x8_to_e2m1x16_packed(
@@ -2604,7 +2925,7 @@ def _process_nvfp4_adaptive_block_bfloat(
             h7,
             output_scale_4,
         )
-        error_4 = _nvfp4_block_error_bfloat(
+        error_4 = _nvfp4_block_error_bfloat_triton_dequant(
             h0,
             h1,
             h2,
@@ -2614,8 +2935,12 @@ def _process_nvfp4_adaptive_block_bfloat(
             h6,
             h7,
             selection_scale_4,
-            dequant_scale_4,
+            scale_fp8_u32_4,
+            amax,
+            Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
             scale_rule_id,
+            match_triton_reduction,
+            scale_block_size,
         )
 
     scale_fp8 = scale_fp8_6
@@ -2633,7 +2958,9 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
     col_idx: Int32,
     elem_base: Int32,
     global_scale: Float32,
+    amax: Float32,
     scale_rule_id: cutlass.Constexpr[int],
+    match_triton_reduction: cutlass.Constexpr[bool] = False,
 ) -> tuple[Uint8, cutlass.Uint64]:
     h0 = _ld_transposed_bfloat2(x, elem_base, elem_base + Int32(1), col_idx)
     h1 = _ld_transposed_bfloat2(x, elem_base + Int32(2), elem_base + Int32(3), col_idx)
@@ -2670,7 +2997,6 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
         scale_fp8_u32_6,
         global_scale,
     )
-    dequant_scale_6 = nvfp4_compute_dequant_scale(scale_fp8_u32_6, global_scale)
     packed64_6 = bfloat2x8_to_e2m1x16_packed(
         h0,
         h1,
@@ -2682,7 +3008,7 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
         h7,
         output_scale_6,
     )
-    error_6 = _nvfp4_block_error_bfloat(
+    error_6 = _nvfp4_block_error_bfloat_triton_dequant(
         h0,
         h1,
         h2,
@@ -2692,11 +3018,14 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
         h6,
         h7,
         selection_scale_6,
-        dequant_scale_6,
+        scale_fp8_u32_6,
+        amax,
+        Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
         scale_rule_id,
+        match_triton_reduction,
     )
 
-    scale_float_4 = global_scale * (block_max / Float32(4.0))
+    scale_float_4 = global_scale * (block_max / Float32(6.0)) * Float32(1.5)
     scale_fp8_u32_4 = cvt_f32_to_e4m3(scale_float_4)
     scale_fp8_4 = Uint8(scale_fp8_u32_4 & cutlass.Uint32(0xFF))
     output_scale_4 = nvfp4_compute_output_scale(scale_fp8_u32_4, global_scale)
@@ -2704,7 +3033,6 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
         scale_fp8_u32_4,
         global_scale,
     )
-    dequant_scale_4 = nvfp4_compute_dequant_scale(scale_fp8_u32_4, global_scale)
     packed64_4 = bfloat2x8_to_e2m1x16_packed(
         h0,
         h1,
@@ -2716,7 +3044,7 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
         h7,
         output_scale_4,
     )
-    error_4 = _nvfp4_block_error_bfloat(
+    error_4 = _nvfp4_block_error_bfloat_triton_dequant(
         h0,
         h1,
         h2,
@@ -2726,8 +3054,11 @@ def _process_nvfp4_adaptive_block_bfloat_transposed(
         h6,
         h7,
         selection_scale_4,
-        dequant_scale_4,
+        scale_fp8_u32_4,
+        amax,
+        Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
         scale_rule_id,
+        match_triton_reduction,
     )
 
     scale_fp8 = scale_fp8_6
@@ -4120,11 +4451,13 @@ class Sm100NVFP4AdaptiveQuantize:
         scale_rule_id: int,
         stochastic_rounding: bool = False,
         scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+        match_triton_reduction: bool = False,
     ):
         self.k = k
         self.scale_rule_id = scale_rule_id
         self.stochastic_rounding = stochastic_rounding
         self.scale_block_size = scale_block_size
+        self.match_triton_reduction = match_triton_reduction
         self.scale_blocks_per_row = k // scale_block_size
 
     @cute.jit
@@ -4165,6 +4498,7 @@ class Sm100NVFP4AdaptiveQuantize:
             amax_tensor,
             E2M1_MAX * E4M3_FOUROVERSIX_MAX,
         )
+        amax_for_error = Float32(amax_tensor[Int32(0)])
 
         while sf_idx < total_scale_blocks:
             row_idx = sf_idx // self.scale_blocks_per_row
@@ -4175,10 +4509,12 @@ class Sm100NVFP4AdaptiveQuantize:
                 x[row_idx, None],
                 elem_base,
                 global_scale,
+                amax_for_error,
                 self.scale_rule_id,
                 self.stochastic_rounding,
                 Uint32(row_idx * self.k + elem_base),
                 self.scale_block_size,
+                self.match_triton_reduction,
             )
 
             scales[sf_idx] = scale_fp8
@@ -4197,9 +4533,11 @@ class Sm100NVFP4AdaptiveTransposeQuantize:
         self,
         k: int,
         scale_rule_id: int,
+        match_triton_reduction: bool = False,
     ):
         self.k = k
         self.scale_rule_id = scale_rule_id
+        self.match_triton_reduction = match_triton_reduction
         self.scale_blocks_per_row = k // NVFP4_SCALE_BLOCK_SIZE
 
     @cute.jit
@@ -4241,6 +4579,7 @@ class Sm100NVFP4AdaptiveTransposeQuantize:
             amax_tensor,
             E2M1_MAX * E4M3_FOUROVERSIX_MAX,
         )
+        amax_for_error = Float32(amax_tensor[Int32(0)])
 
         while work_idx < total_scale_blocks:
             row_idx = work_idx % output_rows
@@ -4253,7 +4592,9 @@ class Sm100NVFP4AdaptiveTransposeQuantize:
                 row_idx,
                 elem_base,
                 global_scale,
+                amax_for_error,
                 self.scale_rule_id,
+                self.match_triton_reduction,
             )
 
             scales[sf_idx] = scale_fp8
@@ -4484,10 +4825,18 @@ class Sm100NVFP4BS8StaticQuantize2D:
 
 
 class Sm100NVFP4AdaptiveQuantize2D:
-    def __init__(self, k: int, scale_rule_id: int):
+    def __init__(
+        self,
+        k: int,
+        scale_rule_id: int,
+        scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+        match_triton_reduction: bool = False,
+    ):
         self.k = k
         self.scale_rule_id = scale_rule_id
-        self.scale_blocks_per_row = k // NVFP4_SCALE_BLOCK_SIZE
+        self.scale_block_size = scale_block_size
+        self.match_triton_reduction = match_triton_reduction
+        self.scale_blocks_per_row = k // scale_block_size
 
     @cute.jit
     def __call__(
@@ -4527,20 +4876,26 @@ class Sm100NVFP4AdaptiveQuantize2D:
             amax_tensor,
             E2M1_MAX * E4M3_FOUROVERSIX_MAX,
         )
+        amax_for_error = Float32(amax_tensor[Int32(0)])
 
         while tile_idx < total_scale_tiles:
             row_group = tile_idx // self.scale_blocks_per_row
             col_idx = tile_idx % self.scale_blocks_per_row
-            elem_base = col_idx * NVFP4_SCALE_BLOCK_SIZE
+            elem_base = col_idx * self.scale_block_size
 
             block_max_h2 = cutlass.Uint32(0)
             row_offset = Int32(0)
-            while row_offset < Int32(NVFP4_SCALE_BLOCK_SIZE):
-                row_idx = row_group * NVFP4_SCALE_BLOCK_SIZE + row_offset
+            while row_offset < Int32(self.scale_block_size):
+                row_idx = row_group * self.scale_block_size + row_offset
                 ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
-                ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
                 h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
-                h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
+                h4 = Uint32(0)
+                h5 = Uint32(0)
+                h6 = Uint32(0)
+                h7 = Uint32(0)
+                if cutlass.const_expr(self.scale_block_size != 8):
+                    ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
+                    h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
                 row_max = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
                 block_max_h2 = bfloat2_hmax2(block_max_h2, row_max)
                 row_offset = row_offset + Int32(1)
@@ -4558,12 +4913,7 @@ class Sm100NVFP4AdaptiveQuantize2D:
                 scale_fp8_u32_6,
                 global_scale,
             )
-            dequant_scale_6 = nvfp4_compute_dequant_scale(
-                scale_fp8_u32_6,
-                global_scale,
-            )
-
-            scale_float_4 = global_scale * (block_max / Float32(4.0))
+            scale_float_4 = global_scale * (block_max / Float32(6.0)) * Float32(1.5)
             scale_fp8_u32_4 = cvt_f32_to_e4m3(scale_float_4)
             scale_fp8_4 = Uint8(scale_fp8_u32_4 & cutlass.Uint32(0xFF))
             output_scale_4 = nvfp4_compute_output_scale(
@@ -4574,53 +4924,186 @@ class Sm100NVFP4AdaptiveQuantize2D:
                 scale_fp8_u32_4,
                 global_scale,
             )
-            dequant_scale_4 = nvfp4_compute_dequant_scale(
-                scale_fp8_u32_4,
-                global_scale,
-            )
-
             error_6 = Float32(0.0)
             error_4 = Float32(0.0)
-            row_offset = Int32(0)
-            while row_offset < Int32(NVFP4_SCALE_BLOCK_SIZE):
-                row_idx = row_group * NVFP4_SCALE_BLOCK_SIZE + row_offset
-                ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
-                ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
-                h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
-                h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
-                row_error_6 = _nvfp4_block_error_bfloat(
-                    h0,
-                    h1,
-                    h2,
-                    h3,
-                    h4,
-                    h5,
-                    h6,
-                    h7,
-                    selection_scale_6,
-                    dequant_scale_6,
-                    self.scale_rule_id,
+            if cutlass.const_expr(
+                self.scale_block_size == 8
+                and self.match_triton_reduction
+                and self.scale_rule_id != SCALE_RULE_ABS_MAX
+            ):
+                row_base = row_group * self.scale_block_size
+                row_error_6_0, row_error_4_0 = (
+                    _nvfp4_2d_row_errors_bfloat_triton_dequant_bs8(
+                        x,
+                        row_base,
+                        elem_base,
+                        selection_scale_6,
+                        scale_fp8_u32_6,
+                        selection_scale_4,
+                        scale_fp8_u32_4,
+                        amax_for_error,
+                        self.scale_rule_id,
+                    )
                 )
-                row_error_4 = _nvfp4_block_error_bfloat(
-                    h0,
-                    h1,
-                    h2,
-                    h3,
-                    h4,
-                    h5,
-                    h6,
-                    h7,
-                    selection_scale_4,
-                    dequant_scale_4,
-                    self.scale_rule_id,
+                row_error_6_1, row_error_4_1 = (
+                    _nvfp4_2d_row_errors_bfloat_triton_dequant_bs8(
+                        x,
+                        row_base + Int32(1),
+                        elem_base,
+                        selection_scale_6,
+                        scale_fp8_u32_6,
+                        selection_scale_4,
+                        scale_fp8_u32_4,
+                        amax_for_error,
+                        self.scale_rule_id,
+                    )
                 )
-                if cutlass.const_expr(self.scale_rule_id == SCALE_RULE_ABS_MAX):
-                    error_6 = cutlass.max(error_6, row_error_6)
-                    error_4 = cutlass.max(error_4, row_error_4)
-                else:
-                    error_6 = error_6 + row_error_6
-                    error_4 = error_4 + row_error_4
-                row_offset = row_offset + Int32(1)
+                row_error_6_2, row_error_4_2 = (
+                    _nvfp4_2d_row_errors_bfloat_triton_dequant_bs8(
+                        x,
+                        row_base + Int32(2),
+                        elem_base,
+                        selection_scale_6,
+                        scale_fp8_u32_6,
+                        selection_scale_4,
+                        scale_fp8_u32_4,
+                        amax_for_error,
+                        self.scale_rule_id,
+                    )
+                )
+                row_error_6_3, row_error_4_3 = (
+                    _nvfp4_2d_row_errors_bfloat_triton_dequant_bs8(
+                        x,
+                        row_base + Int32(3),
+                        elem_base,
+                        selection_scale_6,
+                        scale_fp8_u32_6,
+                        selection_scale_4,
+                        scale_fp8_u32_4,
+                        amax_for_error,
+                        self.scale_rule_id,
+                    )
+                )
+                row_error_6_4, row_error_4_4 = (
+                    _nvfp4_2d_row_errors_bfloat_triton_dequant_bs8(
+                        x,
+                        row_base + Int32(4),
+                        elem_base,
+                        selection_scale_6,
+                        scale_fp8_u32_6,
+                        selection_scale_4,
+                        scale_fp8_u32_4,
+                        amax_for_error,
+                        self.scale_rule_id,
+                    )
+                )
+                row_error_6_5, row_error_4_5 = (
+                    _nvfp4_2d_row_errors_bfloat_triton_dequant_bs8(
+                        x,
+                        row_base + Int32(5),
+                        elem_base,
+                        selection_scale_6,
+                        scale_fp8_u32_6,
+                        selection_scale_4,
+                        scale_fp8_u32_4,
+                        amax_for_error,
+                        self.scale_rule_id,
+                    )
+                )
+                row_error_6_6, row_error_4_6 = (
+                    _nvfp4_2d_row_errors_bfloat_triton_dequant_bs8(
+                        x,
+                        row_base + Int32(6),
+                        elem_base,
+                        selection_scale_6,
+                        scale_fp8_u32_6,
+                        selection_scale_4,
+                        scale_fp8_u32_4,
+                        amax_for_error,
+                        self.scale_rule_id,
+                    )
+                )
+                row_error_6_7, row_error_4_7 = (
+                    _nvfp4_2d_row_errors_bfloat_triton_dequant_bs8(
+                        x,
+                        row_base + Int32(7),
+                        elem_base,
+                        selection_scale_6,
+                        scale_fp8_u32_6,
+                        selection_scale_4,
+                        scale_fp8_u32_4,
+                        amax_for_error,
+                        self.scale_rule_id,
+                    )
+                )
+                error_6 = (
+                    (row_error_6_0 + row_error_6_4)
+                    + (row_error_6_2 + row_error_6_6)
+                ) + (
+                    (row_error_6_1 + row_error_6_5)
+                    + (row_error_6_3 + row_error_6_7)
+                )
+                error_4 = (
+                    (row_error_4_0 + row_error_4_4)
+                    + (row_error_4_2 + row_error_4_6)
+                ) + (
+                    (row_error_4_1 + row_error_4_5)
+                    + (row_error_4_3 + row_error_4_7)
+                )
+            else:
+                row_offset = Int32(0)
+                while row_offset < Int32(self.scale_block_size):
+                    row_idx = row_group * self.scale_block_size + row_offset
+                    ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
+                    h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
+                    h4 = Uint32(0)
+                    h5 = Uint32(0)
+                    h6 = Uint32(0)
+                    h7 = Uint32(0)
+                    if cutlass.const_expr(self.scale_block_size != 8):
+                        ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
+                        h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
+                    row_error_6 = _nvfp4_block_error_bfloat_triton_dequant(
+                        h0,
+                        h1,
+                        h2,
+                        h3,
+                        h4,
+                        h5,
+                        h6,
+                        h7,
+                        selection_scale_6,
+                        scale_fp8_u32_6,
+                        amax_for_error,
+                        Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
+                        self.scale_rule_id,
+                        self.match_triton_reduction,
+                        self.scale_block_size,
+                    )
+                    row_error_4 = _nvfp4_block_error_bfloat_triton_dequant(
+                        h0,
+                        h1,
+                        h2,
+                        h3,
+                        h4,
+                        h5,
+                        h6,
+                        h7,
+                        selection_scale_4,
+                        scale_fp8_u32_4,
+                        amax_for_error,
+                        Float32(E2M1_MAX * E4M3_FOUROVERSIX_MAX),
+                        self.scale_rule_id,
+                        self.match_triton_reduction,
+                        self.scale_block_size,
+                    )
+                    if cutlass.const_expr(self.scale_rule_id == SCALE_RULE_ABS_MAX):
+                        error_6 = cutlass.max(error_6, row_error_6)
+                        error_4 = cutlass.max(error_4, row_error_4)
+                    else:
+                        error_6 = error_6 + row_error_6
+                        error_4 = error_4 + row_error_4
+                    row_offset = row_offset + Int32(1)
 
             scale_fp8 = scale_fp8_6
             output_scale = output_scale_6
@@ -4629,29 +5112,41 @@ class Sm100NVFP4AdaptiveQuantize2D:
                 output_scale = output_scale_4
 
             row_offset = Int32(0)
-            while row_offset < Int32(NVFP4_SCALE_BLOCK_SIZE):
-                row_idx = row_group * NVFP4_SCALE_BLOCK_SIZE + row_offset
+            while row_offset < Int32(self.scale_block_size):
+                row_idx = row_group * self.scale_block_size + row_offset
                 ptr0 = get_ptr_as_int64(x[row_idx, None], elem_base)
-                ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
                 h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
-                h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
-                packed64 = bfloat2x8_to_e2m1x16_packed(
-                    h0,
-                    h1,
-                    h2,
-                    h3,
-                    h4,
-                    h5,
-                    h6,
-                    h7,
-                    output_scale,
-                )
 
                 sf_idx = row_idx * self.scale_blocks_per_row + col_idx
                 scales[sf_idx] = scale_fp8
-                output_offset = col_idx * (NVFP4_SCALE_BLOCK_SIZE // 2)
-                output_ptr = get_ptr_as_int64(values[row_idx, None], output_offset)
-                st_global_u64(output_ptr, packed64)
+                if cutlass.const_expr(self.scale_block_size == 8):
+                    packed32 = bfloat2x4_to_e2m1x8_packed(
+                        h0,
+                        h1,
+                        h2,
+                        h3,
+                        output_scale,
+                    )
+                    output_offset = col_idx * Int32(4)
+                    output_ptr = get_ptr_as_int64(values[row_idx, None], output_offset)
+                    st_global_u32(output_ptr, packed32)
+                else:
+                    ptr1 = get_ptr_as_int64(x[row_idx, None], elem_base + Int32(8))
+                    h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
+                    packed64 = bfloat2x8_to_e2m1x16_packed(
+                        h0,
+                        h1,
+                        h2,
+                        h3,
+                        h4,
+                        h5,
+                        h6,
+                        h7,
+                        output_scale,
+                    )
+                    output_offset = col_idx * Int32(NVFP4_SCALE_BLOCK_SIZE // 2)
+                    output_ptr = get_ptr_as_int64(values[row_idx, None], output_offset)
+                    st_global_u64(output_ptr, packed64)
                 row_offset = row_offset + Int32(1)
 
             tile_idx = tile_idx + stride
@@ -11167,6 +11662,7 @@ def _compile_adaptive_quantize(
     scale_rule_id: int,
     stochastic_rounding: bool = False,
     scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+    match_triton_reduction: bool = False,
 ):
     sym_m = cute.sym_int()
     sym_scale_blocks = cute.sym_int()
@@ -11200,6 +11696,7 @@ def _compile_adaptive_quantize(
         scale_rule_id,
         stochastic_rounding,
         scale_block_size,
+        match_triton_reduction,
     )
     compiled = cute.compile(
         kernel,
@@ -11219,6 +11716,7 @@ def _compile_adaptive_transpose_quantize(
     k: int,
     n: int,
     scale_rule_id: int,
+    match_triton_reduction: bool = False,
 ):
     sym_scale_blocks = cute.sym_int()
 
@@ -11246,7 +11744,11 @@ def _compile_adaptive_transpose_quantize(
     )
     stream_fake = cute.runtime.make_fake_stream()
 
-    kernel = Sm100NVFP4AdaptiveTransposeQuantize(k, scale_rule_id)
+    kernel = Sm100NVFP4AdaptiveTransposeQuantize(
+        k,
+        scale_rule_id,
+        match_triton_reduction,
+    )
     compiled = cute.compile(
         kernel,
         x_fake,
@@ -11261,7 +11763,12 @@ def _compile_adaptive_transpose_quantize(
 
 
 @functools.cache
-def _compile_adaptive_quantize_2d(k: int, scale_rule_id: int):
+def _compile_adaptive_quantize_2d(
+    k: int,
+    scale_rule_id: int,
+    scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
+    match_triton_reduction: bool = False,
+):
     sym_m = cute.sym_int()
     sym_scale_blocks = cute.sym_int()
 
@@ -11289,7 +11796,12 @@ def _compile_adaptive_quantize_2d(k: int, scale_rule_id: int):
     )
     stream_fake = cute.runtime.make_fake_stream()
 
-    kernel = Sm100NVFP4AdaptiveQuantize2D(k, scale_rule_id)
+    kernel = Sm100NVFP4AdaptiveQuantize2D(
+        k,
+        scale_rule_id,
+        scale_block_size,
+        match_triton_reduction,
+    )
     compiled = cute.compile(
         kernel,
         x_fake,
@@ -15102,6 +15614,7 @@ def quantize_nvfp4_adaptive(
     stochastic_rounding: bool = False,
     scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
     x_amax: torch.Tensor | None = None,
+    match_triton_reduction: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if scale_rule_id not in {SCALE_RULE_ABS_MAX, SCALE_RULE_MAE, SCALE_RULE_MSE}:
         msg = f"unsupported adaptive four-over-six scale rule id {scale_rule_id}"
@@ -15135,6 +15648,7 @@ def quantize_nvfp4_adaptive(
         scale_rule_id,
         stochastic_rounding,
         scale_block_size,
+        match_triton_reduction,
     )
     kernel(
         x,
@@ -15153,6 +15667,7 @@ def quantize_nvfp4_adaptive_transpose(
     *,
     scale_rule_id: int,
     x_amax: torch.Tensor | None = None,
+    match_triton_reduction: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if scale_rule_id not in {SCALE_RULE_ABS_MAX, SCALE_RULE_MAE, SCALE_RULE_MSE}:
         msg = f"unsupported adaptive four-over-six scale rule id {scale_rule_id}"
@@ -15178,7 +15693,12 @@ def quantize_nvfp4_adaptive_transpose(
         threads_per_block=THREADS_PER_BLOCK,
     )
 
-    kernel = _compile_adaptive_transpose_quantize(m, k, scale_rule_id)
+    kernel = _compile_adaptive_transpose_quantize(
+        m,
+        k,
+        scale_rule_id,
+        match_triton_reduction,
+    )
     kernel(
         x,
         values,
@@ -15195,32 +15715,43 @@ def quantize_nvfp4_adaptive_2d(
     x: torch.Tensor,
     *,
     scale_rule_id: int,
+    scale_block_size: int = NVFP4_SCALE_BLOCK_SIZE,
     x_amax: torch.Tensor | None = None,
+    match_triton_reduction: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if scale_rule_id not in {SCALE_RULE_ABS_MAX, SCALE_RULE_MAE, SCALE_RULE_MSE}:
         msg = f"unsupported adaptive four-over-six scale rule id {scale_rule_id}"
         raise ValueError(msg)
+    if scale_block_size not in {8, NVFP4_SCALE_BLOCK_SIZE}:
+        msg = f"scale block size must be 8 or {NVFP4_SCALE_BLOCK_SIZE}, got {scale_block_size}"
+        raise ValueError(msg)
 
     m, k = _validate_quantize_input(x, 6)
-    if m % NVFP4_SCALE_BLOCK_SIZE != 0:
-        msg = f"rows must be divisible by {NVFP4_SCALE_BLOCK_SIZE}, got {m}"
+    if m % scale_block_size != 0:
+        msg = f"rows must be divisible by {scale_block_size}, got {m}"
+        raise ValueError(msg)
+    if k % scale_block_size != 0:
+        msg = f"columns must be divisible by {scale_block_size}, got {k}"
         raise ValueError(msg)
     x = x.contiguous()
 
     values = torch.empty((m, k // 2), dtype=torch.uint8, device=x.device)
     scale_factors = torch.empty(
-        (m, k // NVFP4_SCALE_BLOCK_SIZE),
+        (m, k // scale_block_size),
         dtype=torch.uint8,
         device=x.device,
     )
     amax = _resolve_amax(x, x_amax)
 
-    total_scale_tiles = (m // NVFP4_SCALE_BLOCK_SIZE) * (
-        k // NVFP4_SCALE_BLOCK_SIZE
-    )
+    total_scale_tiles = (m // scale_block_size) * (k // scale_block_size)
     num_blocks = _launch_grid(total_scale_tiles, x.device)
 
-    kernel = _compile_adaptive_quantize_2d(k, scale_rule_id)
+    kernel = _compile_adaptive_quantize_2d(
+        k,
+        scale_rule_id,
+        scale_block_size,
+        match_triton_reduction,
+    )
     kernel(
         x,
         values,

@@ -1,0 +1,1770 @@
+{
+  "device": "NVIDIA B200",
+  "capability": [
+    10,
+    0
+  ],
+  "results": [
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "abs_max",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "abs_max",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "abs_max",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "abs_max",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "abs_max",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "abs_max",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "mae",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "mae",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "mae",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "mae",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "mae",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "mae",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "mse",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "mse",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "mse",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "mse",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "mse",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "mse",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "static_4",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "static_4",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "static_4",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "static_4",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "static_4",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "static_4",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "static_6",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "static_6",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "static_6",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "static_6",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "static_6",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4",
+        "scale_rule": "static_6",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "abs_max",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "abs_max",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "skipped",
+      "reason": "rht_preprocess_is_outside_four_over_six_quant_dequant"
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "abs_max",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "abs_max",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "skipped",
+      "reason": "rht_preprocess_is_outside_four_over_six_quant_dequant"
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "abs_max",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "abs_max",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "skipped",
+      "reason": "rht_preprocess_is_outside_four_over_six_quant_dequant"
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "mae",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "mae",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "skipped",
+      "reason": "rht_preprocess_is_outside_four_over_six_quant_dequant"
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "mae",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "mae",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "skipped",
+      "reason": "rht_preprocess_is_outside_four_over_six_quant_dequant"
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "mae",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "mae",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "skipped",
+      "reason": "rht_preprocess_is_outside_four_over_six_quant_dequant"
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "mse",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "mse",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "skipped",
+      "reason": "rht_preprocess_is_outside_four_over_six_quant_dequant"
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "mse",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "mse",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "skipped",
+      "reason": "rht_preprocess_is_outside_four_over_six_quant_dequant"
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "mse",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "mse",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "pytorch",
+      "status": "skipped",
+      "reason": "rht_preprocess_is_outside_four_over_six_quant_dequant"
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "static_4",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "static_4",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "static_4",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "static_4",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "static_4",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "static_4",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "static_6",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "static_6",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "static_6",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "static_6",
+        "round_style": "nearest",
+        "block_scale_2d": false,
+        "transpose": true,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "static_6",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": false,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    },
+    {
+      "case": {
+        "dtype": "nvfp4_bs8",
+        "scale_rule": "static_6",
+        "round_style": "nearest",
+        "block_scale_2d": true,
+        "transpose": false,
+        "rht": true,
+        "pseudo_quantize": false,
+        "shape": [
+          128,
+          256
+        ],
+        "input_kind": "randn",
+        "seed": 0
+      },
+      "comparison_backend": "triton",
+      "status": "compared",
+      "bitwise_equal": true,
+      "amax_equal": true,
+      "amax_dtype_equal": true,
+      "values_equal": true,
+      "values_dtype_equal": true,
+      "scales_equal": true,
+      "scales_dtype_equal": true,
+      "values_equal_ratio": 1.0,
+      "scales_equal_ratio": 1.0,
+      "values_first_mismatch": null,
+      "scales_first_mismatch": null,
+      "amax_first_mismatch": null
+    }
+  ]
+}
